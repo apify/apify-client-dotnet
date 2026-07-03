@@ -1,0 +1,33 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>Apify.Client</RootNamespace>
+    <AssemblyName>Apify.Client</AssemblyName>
+
+    <!-- NuGet package metadata (see the publish workflow). -->
+    <PackageId>Apify.Client</PackageId>
+    <Version>0.1.0</Version>
+    <Authors>Apify</Authors>
+    <Company>Apify</Company>
+    <Product>Apify API client for .NET</Product>
+    <Description>Official, experimental (AI-generated and AI-maintained) Apify API client for .NET: run Actors, manage storages (datasets, key-value stores, request queues), schedules, webhooks and more.</Description>
+    <PackageTags>apify;api;client;actor;scraping;crawler;automation</PackageTags>
+    <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
+    <PackageProjectUrl>https://github.com/apify/apify-client-dotnet</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/apify/apify-client-dotnet</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="../../README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- The test project exercises internal helpers (signatures, query params) directly. -->
+    <InternalsVisibleTo Include="Apify.Client.Tests" />
+  </ItemGroup>
+
+</Project>

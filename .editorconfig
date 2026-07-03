@@ -1,0 +1,24 @@
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+indent_style = space
+
+[*.{cs,csx}]
+indent_size = 4
+# Use file-scoped namespaces throughout.
+csharp_style_namespace_declarations = file_scoped:warning
+
+# CA1711: the model type `RequestQueue` deliberately mirrors the Apify API resource name (and the
+# JS/PHP/Java/Go/Rust sibling clients). Renaming it away from the reserved "Queue" suffix would break
+# cross-client naming consistency, which the client requirements mandate. Justified suppression.
+dotnet_diagnostic.CA1711.severity = none
+
+[*.{csproj,props,targets}]
+indent_size = 2
+
+[*.{yml,yaml,json,md}]
+indent_size = 2
