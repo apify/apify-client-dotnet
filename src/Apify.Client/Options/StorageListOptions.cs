@@ -21,7 +21,7 @@ public sealed class StorageListOptions
     /// <summary>If <c>true</c>, include unnamed storages in the result.</summary>
     public bool? Unnamed { get; init; }
 
-    /// <summary>Filter by ownership (e.g. <c>OWNED</c> / <c>ACCESSIBLE</c>).</summary>
+    /// <summary>Filter by ownership: <c>ownedByMe</c> or <c>sharedWithMe</c>.</summary>
     public string? Ownership { get; init; }
 
     internal void AppendTo(QueryParams q)

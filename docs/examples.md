@@ -42,7 +42,7 @@ Console.WriteLine("Dataset items: " + items.Count);
 var store = await client.KeyValueStores().GetOrCreateAsync("example-kvs");
 await client.KeyValueStore(store.Id!).SetRecordJsonAsync("OUTPUT", new { answer = 42 });
 var record = await client.KeyValueStore(store.Id!).GetRecordAsync("OUTPUT");
-// GetRecordAsync returns the raw bytes; decode JSON/text records with UTF-8.
+// GetRecordAsync returns a record whose .Value is the raw bytes; decode JSON/text with UTF-8.
 var recordText = record is null ? string.Empty : Encoding.UTF8.GetString(record.Value);
 Console.WriteLine("KVS record: " + recordText);
 

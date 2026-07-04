@@ -23,7 +23,10 @@ dotnet add package Apify.Client
 
 ## Quick start
 
+`ImplicitUsings` is disabled in this repository, so every `using` (even `System`) is listed explicitly.
+
 ```csharp
+using System;
 using Apify.Client;
 
 var client = new ApifyClient("my-api-token");

@@ -20,6 +20,7 @@ Access the account-wide build collection with `client.Builds()`, an Actor's buil
 - `Log()` → `LogClient`.
 
 ```csharp
+using System;
 using Apify.Client;
 using Apify.Client.Options;
 

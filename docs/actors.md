@@ -12,6 +12,7 @@ Access the Actor collection with `client.Actors()` and a specific Actor with `cl
 - `CreateAsync(object actor)` — create an Actor from any JSON-serializable definition. Returns `Actor`.
 
 ```csharp
+using System;
 using Apify.Client;
 using Apify.Client.Options;
 
@@ -44,6 +45,7 @@ foreach (var actor in page.Items)
 `MaxTotalChargeUsd`, `ContentType`, `RestartOnError`, `ForcePermissionLevel`, `Webhooks`.
 
 ```csharp
+using System;
 using Apify.Client;
 using Apify.Client.Options;
 

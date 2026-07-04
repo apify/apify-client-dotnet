@@ -15,11 +15,11 @@ from a run (`client.Run(id).Dataset()`, `.KeyValueStore()`, `.RequestQueue()`).
 `client.Datasets()` / `client.Dataset(id)`.
 
 - `GetAsync()`, `UpdateAsync(newFields)`, `DeleteAsync()`.
-- `ListItemsAsync(DatasetListItemsOptions?)` → `PaginationList<JsonNode?>` (one page; pagination via
+- `ListItemsAsync(DatasetListItemsOptions? = null)` → `PaginationList<JsonNode?>` (one page; pagination via
   response headers).
-- `IterateItemsAsync(DatasetListItemsOptions?)` → `IAsyncEnumerable<JsonNode?>` — lazily iterate every
+- `IterateItemsAsync(DatasetListItemsOptions? = null)` → `IAsyncEnumerable<JsonNode?>` — lazily iterate every
   item across pages, fetching each page on demand.
-- `DownloadItemsAsync(DownloadItemsFormat, DatasetDownloadOptions?)` → serialized items as `byte[]`
+- `DownloadItemsAsync(DownloadItemsFormat, DatasetDownloadOptions? = null)` → serialized items as `byte[]`
   (raw bytes, so binary formats like `Xlsx` are not corrupted; decode text formats yourself).
 - `PushItemsAsync(object items)` — push one object or an array of objects.
 - `GetStatisticsAsync()` → `JsonObject?`.
@@ -47,7 +47,7 @@ Console.WriteLine(Encoding.UTF8.GetString(csvBytes)); // CSV is text; decode the
 - `GetAsync()`, `UpdateAsync(newFields)`, `DeleteAsync()`.
 - `ListKeysAsync(ListKeysOptions?)` → `KeyValueStoreKeysPage`.
 - `RecordExistsAsync(key)` → `bool`.
-- `GetRecordAsync(key, GetRecordOptions?)` → `KeyValueStoreRecord?`. `KeyValueStoreRecord.Value` is a
+- `GetRecordAsync(key, GetRecordOptions? = null)` → `KeyValueStoreRecord?`. `KeyValueStoreRecord.Value` is a
   `byte[]` of the record's raw bytes (so binary records survive intact); decode it according to
   `KeyValueStoreRecord.ContentType` — e.g. `Encoding.UTF8.GetString(record.Value)` for text, or
   `JsonSerializer.Deserialize<T>(record.Value)` for JSON.

@@ -1,4 +1,5 @@
 using System;
+using System.Globalization;
 using System.Threading.Tasks;
 using System.Text.Json.Nodes;
 using Apify.Client.Options;
@@ -206,5 +207,82 @@ public sealed class RequestShapeTests
         Assert.Equal("PUT", request.Method);
         Assert.Contains("/users/me/limits", request.Uri, StringComparison.Ordinal);
         Assert.Equal(100, JsonNode.Parse(request.Body)!["maxMonthlyUsageUsd"]!.GetValue<int>());
+    }
+
+    [Fact]
+    public async Task DatasetListItemsJoinsMultiValueParamsAsCsv()
+    {
+        // fields/omit/unwind are list parameters: each is joined with a comma (URL-encoded as %2C).
+        var transport = new MockTransport().QueueResponse(200, "[]");
+        await Client(transport).Dataset("ds1").ListItemsAsync(new DatasetListItemsOptions
+        {
+            Fields = new[] { "name", "url" },
+            Omit = new[] { "secret" },
+            Unwind = new[] { "results" },
+        });
+
+        var uri = transport.LastRequest.Uri;
+        Assert.Contains("fields=name%2Curl", uri, StringComparison.Ordinal);
+        Assert.Contains("omit=secret", uri, StringComparison.Ordinal);
+        Assert.Contains("unwind=results", uri, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task RunListJoinsStatusAsCsv()
+    {
+        var transport = new MockTransport().QueueResponse(200, "{\"data\":{\"items\":[],\"total\":0}}");
+        await Client(transport).Runs().ListAsync(null, new RunListOptions { Status = new[] { "SUCCEEDED", "RUNNING" } });
+
+        Assert.Contains("status=SUCCEEDED%2CRUNNING", transport.LastRequest.Uri, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task ListRequestsJoinsFilterAsCsv()
+    {
+        var transport = new MockTransport().QueueResponse(200, "{\"data\":{\"items\":[]}}");
+        await Client(transport).RequestQueue("q1").ListRequestsAsync(new ListRequestsOptions
+        {
+            Filter = new[] { ListRequestsOptions.FilterLocked, ListRequestsOptions.FilterPending },
+        });
+
+        Assert.Contains("filter=locked%2Cpending", transport.LastRequest.Uri, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task MaxTotalChargeUsdIsFormattedWithInvariantCulture()
+    {
+        // Under a culture that uses a comma decimal separator, the double must still be sent with a '.'.
+        var original = CultureInfo.CurrentCulture;
+        CultureInfo.CurrentCulture = new CultureInfo("de-DE");
+        try
+        {
+            var transport = new MockTransport().QueueResponse(200, "{\"data\":{\"id\":\"r\"}}");
+            await Client(transport).Actor("act").StartAsync(null, new ActorStartOptions { MaxTotalChargeUsd = 12.5 });
+
+            var uri = transport.LastRequest.Uri;
+            Assert.Contains("maxTotalChargeUsd=12.5", uri, StringComparison.Ordinal);
+            Assert.DoesNotContain("12%2C5", uri, StringComparison.Ordinal); // would appear if the comma culture leaked in
+        }
+        finally
+        {
+            CultureInfo.CurrentCulture = original;
+        }
+    }
+
+    [Fact]
+    public async Task SetRecordSendsRawBytesWithVerbatimContentType()
+    {
+        // A binary write must send the bytes verbatim (incl. 0xFF) as ByteArrayContent and set the
+        // content type exactly as given, without appending "; charset=...".
+        var bytes = new byte[] { 0x00, 0xFF, 0x10, 0x7F };
+        var transport = new MockTransport().QueueResponse(200, string.Empty);
+        await Client(transport).KeyValueStore("s1").SetRecordAsync("OUTPUT", bytes, "application/octet-stream");
+
+        var request = transport.LastRequest;
+        Assert.Equal("PUT", request.Method);
+        Assert.Contains("/key-value-stores/s1/records/OUTPUT", request.Uri, StringComparison.Ordinal);
+        Assert.Equal("application/octet-stream", request.Header("Content-Type"));
+        Assert.DoesNotContain("charset", request.Header("Content-Type"), StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(bytes, request.BodyBytes);
     }
 }

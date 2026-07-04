@@ -241,6 +241,29 @@ public sealed class BatchAddRequestsTests
     }
 
     [Fact]
+    public async Task BoundedParallelismCapsConcurrencyBelowChunkCount()
+    {
+        var transport = new MockTransport { EchoBatchProcessed = true, ArtificialDelayMillis = 40 };
+        var requests = new List<RequestQueueRequest>();
+        for (var i = 0; i < 100; i++) // 100 requests -> 4 chunks of 25
+        {
+            requests.Add(new RequestQueueRequest("https://x/" + i, "k" + i));
+        }
+
+        // Fewer permits than chunks, so the SemaphoreSlim bound must actually constrain concurrency.
+        const int maxParallel = 2;
+        var options = new BatchAddRequestsOptions(maxParallel: maxParallel, minDelayBetweenUnprocessedRequestsRetriesMillis: 0);
+        var result = await Client(transport).RequestQueue("q1").BatchAddRequestsAsync(requests, false, options);
+
+        Assert.Equal(100, result.ProcessedRequests.Count);
+        Assert.Equal(4, transport.CallCount);
+        Assert.True(transport.MaxObservedConcurrency > 1, "expected concurrent dispatch");
+        Assert.True(
+            transport.MaxObservedConcurrency <= maxParallel,
+            $"observed concurrency {transport.MaxObservedConcurrency} exceeded the bound {maxParallel}");
+    }
+
+    [Fact]
     public async Task OversizedSingleRequestThrows()
     {
         var huge = new string('x', 10 * 1024 * 1024); // > 9 MiB on its own

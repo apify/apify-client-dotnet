@@ -36,7 +36,11 @@ dotnet add package Apify.Client
 
 ## Quick start
 
+All snippets in this documentation assume `ImplicitUsings` is disabled (the repository's convention),
+so every `using` — even `System` — is listed explicitly and appears before any top-level statement.
+
 ```csharp
+using System;
 using Apify.Client;
 
 var client = new ApifyClient("my-api-token");
@@ -56,6 +60,33 @@ e.g. `new ApifyClient(Environment.GetEnvironmentVariable("APIFY_TOKEN"))`.
 
 Get your API token from the
 [Apify Console → Settings → API & Integrations](https://console.apify.com/settings/integrations).
+
+## Namespaces
+
+The public API is spread across a small set of namespaces. Because `ImplicitUsings` is disabled, add
+the `using` directives for whichever ones a file references:
+
+| Namespace | What lives here |
+|---|---|
+| `Apify.Client` | The entry point (`ApifyClient`), `ApifyClientOptions`, and `ApifyClientVersion`. |
+| `Apify.Client.Resources` | Every resource client the entry point returns — `ActorClient`, `RunClient`, `BuildClient`, `DatasetClient`, `KeyValueStoreClient`, `RequestQueueClient`, `TaskClient`, `ScheduleClient`, `LogClient`, `UserClient`, the `…CollectionClient` types, etc. |
+| `Apify.Client.Models` | Data models returned by the clients — `Actor`, `ActorRun`, `Build`, `Dataset`, `RequestQueueRequest`, `ActorEnvVar`, `PaginationList<T>`, and so on. |
+| `Apify.Client.Options` | The option/request objects passed into methods — `ActorStartOptions`, `DatasetListItemsOptions`, `ListOptions`, `SetRecordOptions`, `StorageListOptions`, etc. |
+| `Apify.Client.Exceptions` | `ApifyApiException` and `ApifyTransportException`. |
+| `Apify.Client.Http` | The replaceable transport: `IHttpTransport` and the default `HttpClientTransport`. |
+
+Fluent chains such as `client.Actor("id").Builds()` compile with only `using Apify.Client;` because the
+intermediate types are inferred. You only need `using Apify.Client.Resources;` when you name a resource
+client type explicitly — e.g. storing one in a variable or field:
+
+```csharp
+using Apify.Client;
+using Apify.Client.Resources;
+
+var client = new ApifyClient("my-api-token");
+BuildClient build = await client.Actor("apify/hello-world").DefaultBuildAsync();
+RunClient lastRun = client.Actor("apify/hello-world").LastRun();
+```
 
 ## Configuration
 
@@ -115,6 +146,7 @@ throwing). Other API failures are thrown as `Apify.Client.Exceptions.ApifyApiExc
 the HTTP status, API error `Type`, message, attempt count, and request method/path:
 
 ```csharp
+using System;
 using Apify.Client;
 using Apify.Client.Exceptions;
 
@@ -136,6 +168,7 @@ catch (ApifyApiException e)
   built against.
 
 ```csharp
+using System;
 using Apify.Client;
 
 Console.WriteLine($"{ApifyClientVersion.ClientVersion} / {ApifyClientVersion.ApiSpecVersion}");

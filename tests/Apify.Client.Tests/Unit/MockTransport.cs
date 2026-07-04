@@ -17,11 +17,12 @@ public sealed class RecordedRequest
 {
     private readonly Dictionary<string, string> _headers;
 
-    internal RecordedRequest(string method, string uri, string body, Dictionary<string, string> headers)
+    internal RecordedRequest(string method, string uri, string body, byte[] bodyBytes, Dictionary<string, string> headers)
     {
         Method = method;
         Uri = uri;
         Body = body;
+        BodyBytes = bodyBytes;
         _headers = headers;
     }
 
@@ -30,6 +31,9 @@ public sealed class RecordedRequest
     public string Uri { get; }
 
     public string Body { get; }
+
+    /// <summary>The raw (un-decoded) request body bytes, so binary write paths can be asserted verbatim.</summary>
+    public byte[] BodyBytes { get; }
 
     public string Header(string name) => _headers.TryGetValue(name, out var value) ? value : string.Empty;
 }
@@ -90,6 +94,7 @@ public sealed class MockTransport : IHttpTransport
         }
 
         var body = string.Empty;
+        var bodyBytes = Array.Empty<byte>();
         if (request.Content is not null)
         {
             foreach (var header in request.Content.Headers)
@@ -97,12 +102,15 @@ public sealed class MockTransport : IHttpTransport
                 headers[header.Key] = string.Join(",", header.Value);
             }
 
-            body = await request.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+            // Read the raw bytes so binary bodies can be asserted verbatim; keep a UTF-8 decode for the
+            // string-body assertions (equivalent to ReadAsStringAsync for text content).
+            bodyBytes = await request.Content.ReadAsByteArrayAsync(cancellationToken).ConfigureAwait(false);
+            body = System.Text.Encoding.UTF8.GetString(bodyBytes);
         }
 
         lock (_lock)
         {
-            Received.Add(new RecordedRequest(request.Method.Method, request.RequestUri?.ToString() ?? string.Empty, body, headers));
+            Received.Add(new RecordedRequest(request.Method.Method, request.RequestUri?.ToString() ?? string.Empty, body, bodyBytes, headers));
             Timeouts.Add(timeout.TotalSeconds);
             _inFlight++;
             MaxObservedConcurrency = Math.Max(MaxObservedConcurrency, _inFlight);

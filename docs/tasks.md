@@ -22,6 +22,7 @@ a specific task with `client.Task(id)`.
 The model is named `ActorTask` (not `Task`) to avoid colliding with `System.Threading.Tasks.Task`.
 
 ```csharp
+using System;
 using Apify.Client;
 
 var client = new ApifyClient("my-api-token");
