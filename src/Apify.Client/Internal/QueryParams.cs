@@ -80,6 +80,18 @@ internal sealed class QueryParams
         return this;
     }
 
+    /// <summary>
+    /// Sets an integer parameter, replacing any existing occurrences of <paramref name="key"/>. Used by
+    /// auto-paging iteration to overwrite the per-page <c>offset</c>/<c>limit</c> without emitting the
+    /// parameter twice.
+    /// </summary>
+    public QueryParams Set(string key, long value)
+    {
+        _pairs.RemoveAll(pair => string.Equals(pair.Key, key, StringComparison.Ordinal));
+        _pairs.Add(new KeyValuePair<string, string>(key, value.ToString(CultureInfo.InvariantCulture)));
+        return this;
+    }
+
     /// <summary>Whether no parameters have been added.</summary>
     public bool IsEmpty => _pairs.Count == 0;
 

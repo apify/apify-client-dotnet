@@ -52,11 +52,10 @@ var usage = await client.Me().MonthlyUsageAsync();
 
 ```csharp
 using System;
-using System.IO;
 using Apify.Client;
+using Apify.Client.Options;
 
 var client = new ApifyClient("my-api-token");
-using var stream = await client.Run("some-run-id").GetStreamedLogAsync();
-using var reader = new StreamReader(stream);
-Console.WriteLine(await reader.ReadToEndAsync());
+var log = await client.Log("some-run-id").GetAsync(new LogOptions { Raw = true });
+Console.WriteLine(log);
 ```

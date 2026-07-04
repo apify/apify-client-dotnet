@@ -5,7 +5,8 @@ Schedules automatically start Actor or task runs at specified times. Access the 
 
 ## Collection
 
-- `ListAsync(ListOptions?)` → `PaginationList<Schedule>`.
+- `ListAsync(ListOptions?)` → `PaginationList<Schedule>`; `IterateAsync(ListOptions?)` →
+  `IAsyncEnumerable<Schedule>` (lazy, all pages).
 - `CreateAsync(object schedule)` → `Schedule`.
 
 ## Single schedule — `client.Schedule(id)`

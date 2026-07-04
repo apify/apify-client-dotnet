@@ -6,6 +6,7 @@ Access the account-wide build collection with `client.Builds()`, an Actor's buil
 ## Collection
 
 - `ListAsync(ListOptions? options = null)` → `PaginationList<Build>` (`Offset`, `Limit`, `Desc`).
+- `IterateAsync(ListOptions? options = null)` → `IAsyncEnumerable<Build>` (lazy, all pages).
 
 ## Single build — `client.Build(buildId)`
 

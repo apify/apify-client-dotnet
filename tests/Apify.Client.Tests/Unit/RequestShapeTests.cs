@@ -22,6 +22,82 @@ public sealed class RequestShapeTests
     });
 
     [Fact]
+    public async Task LastRunDatasetForwardsStatusAndOrigin()
+    {
+        var transport = new MockTransport().QueueResponse(200, "[]");
+        await Client(transport).Actor("me/act")
+            .LastRun(new LastRunOptions { Status = "SUCCEEDED", Origin = "API" })
+            .Dataset()
+            .ListItemsAsync(new DatasetListItemsOptions());
+
+        var uri = transport.LastRequest.Uri;
+        Assert.Contains("/actors/me~act/runs/last/dataset/items", uri, StringComparison.Ordinal);
+        Assert.Contains("status=SUCCEEDED", uri, StringComparison.Ordinal);
+        Assert.Contains("origin=API", uri, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task LastRunKeyValueStoreForwardsStatusAndOrigin()
+    {
+        var transport = new MockTransport().QueueResponse(200, "value");
+        await Client(transport).Actor("me/act")
+            .LastRun(new LastRunOptions { Status = "SUCCEEDED", Origin = "API" })
+            .KeyValueStore()
+            .GetRecordAsync("OUTPUT");
+
+        var uri = transport.LastRequest.Uri;
+        Assert.Contains("/actors/me~act/runs/last/key-value-store/records/OUTPUT", uri, StringComparison.Ordinal);
+        Assert.Contains("status=SUCCEEDED", uri, StringComparison.Ordinal);
+        Assert.Contains("origin=API", uri, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task LastRunRequestQueueForwardsStatusAndOrigin()
+    {
+        var transport = new MockTransport().QueueResponse(200, "{\"data\":{\"items\":[]}}");
+        await Client(transport).Actor("me/act")
+            .LastRun(new LastRunOptions { Status = "SUCCEEDED", Origin = "API" })
+            .RequestQueue()
+            .ListHeadAsync();
+
+        var uri = transport.LastRequest.Uri;
+        Assert.Contains("/actors/me~act/runs/last/request-queue/head", uri, StringComparison.Ordinal);
+        Assert.Contains("status=SUCCEEDED", uri, StringComparison.Ordinal);
+        Assert.Contains("origin=API", uri, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task LastRunLogForwardsStatusAndOrigin()
+    {
+        var transport = new MockTransport().QueueResponse(200, "log output");
+        await Client(transport).Actor("me/act")
+            .LastRun(new LastRunOptions { Status = "SUCCEEDED", Origin = "API" })
+            .Log()
+            .GetAsync();
+
+        var uri = transport.LastRequest.Uri;
+        Assert.Contains("/actors/me~act/runs/last/log", uri, StringComparison.Ordinal);
+        Assert.Contains("status=SUCCEEDED", uri, StringComparison.Ordinal);
+        Assert.Contains("origin=API", uri, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task LastRunDatasetPushItemsForwardsStatusAndOrigin()
+    {
+        var transport = new MockTransport().QueueResponse(200, string.Empty);
+        await Client(transport).Actor("me/act")
+            .LastRun(new LastRunOptions { Status = "SUCCEEDED", Origin = "API" })
+            .Dataset()
+            .PushItemsAsync(new { hello = "world" });
+
+        var request = transport.LastRequest;
+        Assert.Equal("POST", request.Method);
+        Assert.Contains("/actors/me~act/runs/last/dataset/items", request.Uri, StringComparison.Ordinal);
+        Assert.Contains("status=SUCCEEDED", request.Uri, StringComparison.Ordinal);
+        Assert.Contains("origin=API", request.Uri, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task RunChargeSendsBodyAndIdempotencyKey()
     {
         var transport = new MockTransport().QueueResponse(200, string.Empty);

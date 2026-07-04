@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Net.Http;
 using System.Threading;
@@ -62,9 +63,18 @@ internal sealed class ResourceContext
     /// <summary>The per-context request timeout, or <c>null</c> to use the client-wide default.</summary>
     public TimeSpan? RequestTimeout => _requestTimeout;
 
-    /// <summary>Creates a context for a collection endpoint: <c>{base}/{resourcePath}</c>.</summary>
-    public static ResourceContext Collection(HttpClientCore http, string baseUrl, string resourcePath)
-        => new(http, baseUrl + "/" + resourcePath, baseUrl);
+    /// <summary>
+    /// Creates a context for a collection endpoint: <c>{base}/{resourcePath}</c>. Any
+    /// <paramref name="inheritedParams"/> are copied into <see cref="BaseParams"/> so they are applied to
+    /// every call on the nested resource (used to forward the last-run <c>status</c>/<c>origin</c> filters
+    /// to a run's nested storage and log clients, matching the reference client).
+    /// </summary>
+    public static ResourceContext Collection(HttpClientCore http, string baseUrl, string resourcePath, QueryParams? inheritedParams = null)
+    {
+        var ctx = new ResourceContext(http, baseUrl + "/" + resourcePath, baseUrl);
+        ctx.BaseParams.Extend(inheritedParams);
+        return ctx;
+    }
 
     /// <summary>Creates a context for a single resource: <c>{base}/{resourcePath}/{safeId}</c>.</summary>
     public static ResourceContext Single(HttpClientCore http, string baseUrl, string resourcePath, string id)
@@ -155,6 +165,45 @@ internal sealed class ResourceContext
     {
         var data = await GetResourceRequiredAsync(subPath, p, ct).ConfigureAwait(false);
         return PaginationList<T>.FromData(data, hydrate);
+    }
+
+    /// <summary>
+    /// Lazily iterates every item of an offset/limit-paginated listing, fetching pages on demand. Mirrors
+    /// the reference client's auto-paging list iterators: it starts at <paramref name="startOffset"/> and,
+    /// if <paramref name="limit"/> is set, yields at most that many items in total. <paramref name="baseQuery"/>
+    /// carries the caller's filters; its <c>offset</c>/<c>limit</c> are overwritten per page.
+    /// </summary>
+    public async IAsyncEnumerable<T> IterateListAsync<T>(
+        string subPath,
+        QueryParams baseQuery,
+        int startOffset,
+        int? limit,
+        Func<JsonObject, T> hydrate,
+        [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken ct)
+    {
+        var offset = Math.Max(startOffset, 0);
+        var yielded = 0;
+        while (true)
+        {
+            var q = baseQuery.Copy().Set("offset", offset);
+            if (limit is not null)
+            {
+                q.Set("limit", Math.Max(limit.Value - yielded, 0));
+            }
+
+            var page = await ListResourceAsync(subPath, q, hydrate, ct).ConfigureAwait(false);
+            foreach (var item in page.Items)
+            {
+                yield return item;
+                yielded++;
+            }
+
+            offset += (int)page.Count;
+            if (page.Count == 0 || offset >= page.Total || (limit is not null && yielded >= limit.Value))
+            {
+                yield break;
+            }
+        }
     }
 
     /// <summary>POST to create a resource with a JSON-serializable body, returning the decoded <c>data</c>.</summary>

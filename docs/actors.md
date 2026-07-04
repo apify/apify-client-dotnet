@@ -5,8 +5,10 @@ Access the Actor collection with `client.Actors()` and a specific Actor with `cl
 
 ## Collection — `client.Actors()`
 
-- `ListAsync(ActorListOptions? options = null)` — list the account's Actors. Returns
+- `ListAsync(ActorListOptions? options = null)` — list the account's Actors (one page). Returns
   `PaginationList<Actor>`. Options: `Offset`, `Limit`, `Desc`, `My`, `SortBy`.
+- `IterateAsync(ActorListOptions? options = null)` → `IAsyncEnumerable<Actor>` — lazily iterate every
+  Actor across pages, fetching each page on demand.
 - `CreateAsync(object actor)` — create an Actor from any JSON-serializable definition. Returns `Actor`.
 
 ```csharp
@@ -27,8 +29,9 @@ foreach (var actor in page.Items)
 - `UpdateAsync(object newFields)` → `Actor`.
 - `DeleteAsync()`.
 - `StartAsync(object? input = null, ActorStartOptions? options = null)` → `ActorRun` (returns immediately).
-- `CallAsync(object? input = null, ActorStartOptions? options = null, int? waitSecs = null)` → `ActorRun`
-  (starts then waits; `waitSecs` bounds the wait, `null` waits indefinitely).
+- `CallAsync(object? input = null, ActorStartOptions? options = null, int? waitSecs = null, Action<string>? log = null)`
+  → `ActorRun` (starts then waits; `waitSecs` bounds the wait, `null` waits indefinitely; `log`, if set,
+  redirects the run's live log to that sink for the duration of the wait).
 - `ValidateInputAsync(object? input = null, ValidateInputOptions? options = null)` → `bool`.
 - `BuildAsync(string versionNumber, ActorBuildOptions? options = null)` → `Build`.
 - `DefaultBuildAsync(int? waitForFinish = null)` → `BuildClient`.

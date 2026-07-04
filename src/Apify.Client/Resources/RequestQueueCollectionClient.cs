@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using Apify.Client.Internal;
@@ -36,4 +37,17 @@ public sealed class RequestQueueCollectionClient
     {
         return new RequestQueue(await _ctx.GetOrCreateNamedAsync(name, null, cancellationToken).ConfigureAwait(false));
     }
+
+    /// <summary>Lazily iterates over all request queues across pages, fetching each page on demand.</summary>
+    /// <param name="options">Optional listing filters; <c>Offset</c>/<c>Limit</c> bound where iteration
+    /// starts and the total number of items yielded.</param>
+    /// <param name="cancellationToken">A token to cancel the iteration.</param>
+    public IAsyncEnumerable<RequestQueue> IterateAsync(StorageListOptions? options = null, CancellationToken cancellationToken = default)
+    {
+        options ??= new StorageListOptions();
+        var q = new QueryParams();
+        options.AppendTo(q);
+        return _ctx.IterateListAsync("", q, options.Offset ?? 0, options.Limit, static d => new RequestQueue(d), cancellationToken);
+    }
+
 }

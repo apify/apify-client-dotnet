@@ -5,8 +5,10 @@ name: Publish .NET client
 # of truth in src/Apify.Client/Apify.Client.csproj (<Version>). This workflow packs the library,
 # pushes it to NuGet.org, tags the release, and creates the GitHub release.
 #
-# The NuGet API key is read from a repository secret (nothing is stored in the repo). If the account
-# has NuGet Trusted Publishing (OIDC) configured, the id-token permission below allows switching to it.
+# Publishing uses NuGet.org Trusted Publishing (OIDC): the NuGet/login action exchanges a short-lived
+# GitHub OIDC token for a temporary NuGet API key just before the push, so no long-lived API key is
+# stored in the repo. The only repository secret needed is NUGET_USER (the nuget.org account/profile
+# name that owns the trusted-publishing policy).
 on:
   workflow_dispatch:
     inputs:
@@ -22,7 +24,7 @@ concurrency:
 
 permissions:
   contents: write # create the tagged GitHub release
-  id-token: write # allow NuGet Trusted Publishing (OIDC) if configured
+  id-token: write # NuGet Trusted Publishing exchanges this OIDC token for a temporary API key
 
 jobs:
   publish:
@@ -82,10 +84,19 @@ jobs:
       - name: Pack
         run: dotnet pack src/Apify.Client/Apify.Client.csproj --configuration Release --no-build --output ./artifacts
 
+      # Exchange the GitHub OIDC token for a short-lived NuGet API key (Trusted Publishing). Runs
+      # immediately before the push because the temporary key is valid for only ~1 hour.
+      - name: NuGet login (Trusted Publishing OIDC)
+        if: ${{ github.event.inputs.dry_run != 'true' }}
+        id: nuget_login
+        uses: NuGet/login@v1
+        with:
+          user: ${{ secrets.NUGET_USER }}
+
       - name: Push to NuGet
         if: ${{ github.event.inputs.dry_run != 'true' }}
         env:
-          NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
+          NUGET_API_KEY: ${{ steps.nuget_login.outputs.NUGET_API_KEY }}
         run: |
           dotnet nuget push "./artifacts/*.nupkg" \
             --api-key "${NUGET_API_KEY}" \

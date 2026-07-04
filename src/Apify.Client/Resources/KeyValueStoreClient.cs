@@ -24,8 +24,8 @@ public sealed class KeyValueStoreClient
     internal static KeyValueStoreClient ForId(HttpClientCore http, string baseUrl, string id)
         => new(http, ResourceContext.Single(http, baseUrl, "key-value-stores", id));
 
-    internal static KeyValueStoreClient Nested(HttpClientCore http, string baseUrl, string subPath)
-        => new(http, ResourceContext.Collection(http, baseUrl, subPath));
+    internal static KeyValueStoreClient Nested(HttpClientCore http, string baseUrl, string subPath, QueryParams? inheritedParams = null)
+        => new(http, ResourceContext.Collection(http, baseUrl, subPath, inheritedParams));
 
     internal KeyValueStoreClient WithPublicBase(string publicBaseUrl)
     {

@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using Apify.Client.Internal;
@@ -33,4 +34,22 @@ public sealed class RunCollectionClient
         (filter ?? new RunListOptions()).AppendTo(q);
         return _ctx.ListResourceAsync("", q, static d => new ActorRun(d), cancellationToken);
     }
+
+    /// <summary>Lazily iterates over all runs across pages, fetching each page on demand.</summary>
+    /// <param name="options">Optional pagination; <c>Offset</c>/<c>Limit</c> bound where iteration starts
+    /// and the total number of runs yielded.</param>
+    /// <param name="filter">Optional run-specific filters.</param>
+    /// <param name="cancellationToken">A token to cancel the iteration.</param>
+    public IAsyncEnumerable<ActorRun> IterateAsync(
+        ListOptions? options = null,
+        RunListOptions? filter = null,
+        CancellationToken cancellationToken = default)
+    {
+        options ??= new ListOptions();
+        var q = new QueryParams();
+        options.AppendTo(q);
+        (filter ?? new RunListOptions()).AppendTo(q);
+        return _ctx.IterateListAsync("", q, options.Offset ?? 0, options.Limit, static d => new ActorRun(d), cancellationToken);
+    }
+
 }

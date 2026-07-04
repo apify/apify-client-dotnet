@@ -18,6 +18,17 @@ public sealed class BuildIntegrationTests : IntegrationTestBase
     }
 
     [SkippableFact]
+    public async Task DefaultBuild()
+    {
+        var client = RequireClient();
+        // A public Store Actor always has a default build; resolve it and confirm the build is fetchable.
+        var buildClient = await client.Actor("apify/hello-world").DefaultBuildAsync();
+        var build = await buildClient.GetAsync();
+        Assert.NotNull(build);
+        Assert.NotNull(build!.Id);
+    }
+
+    [SkippableFact]
     public async Task BuildActorFlow()
     {
         var client = RequireClient();

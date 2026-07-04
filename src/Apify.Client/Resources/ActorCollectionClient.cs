@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using Apify.Client.Internal;
@@ -24,6 +25,20 @@ public sealed class ActorCollectionClient
         var q = new QueryParams();
         (options ?? new ActorListOptions()).AppendTo(q);
         return _ctx.ListResourceAsync("", q, static d => new Actor(d), cancellationToken);
+    }
+
+    /// <summary>
+    /// Lazily iterates over all of the account's Actors across pages, fetching each page on demand.
+    /// </summary>
+    /// <param name="options">Optional listing filters; <c>Offset</c>/<c>Limit</c> bound where iteration
+    /// starts and the total number of Actors yielded.</param>
+    /// <param name="cancellationToken">A token to cancel the iteration.</param>
+    public IAsyncEnumerable<Actor> IterateAsync(ActorListOptions? options = null, CancellationToken cancellationToken = default)
+    {
+        options ??= new ActorListOptions();
+        var q = new QueryParams();
+        options.AppendTo(q);
+        return _ctx.IterateListAsync("", q, options.Offset ?? 0, options.Limit, static d => new Actor(d), cancellationToken);
     }
 
     /// <summary>Creates a new Actor.</summary>

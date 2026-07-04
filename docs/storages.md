@@ -1,7 +1,8 @@
 # Storages
 
 The three storage types — datasets, key-value stores and request queues — share the same collection
-shape: `ListAsync(StorageListOptions?)` and `GetOrCreateAsync(name?)`. Storages can also be reached
+shape: `ListAsync(StorageListOptions?)` (one page), `IterateAsync(StorageListOptions?)` →
+`IAsyncEnumerable<T>` (lazy, all pages), and `GetOrCreateAsync(name?)`. Storages can also be reached
 from a run (`client.Run(id).Dataset()`, `.KeyValueStore()`, `.RequestQueue()`).
 
 > Snippets below run inside an `async` context. `ImplicitUsings` is disabled in this repository, so all
@@ -14,7 +15,10 @@ from a run (`client.Run(id).Dataset()`, `.KeyValueStore()`, `.RequestQueue()`).
 `client.Datasets()` / `client.Dataset(id)`.
 
 - `GetAsync()`, `UpdateAsync(newFields)`, `DeleteAsync()`.
-- `ListItemsAsync(DatasetListItemsOptions?)` → `PaginationList<JsonNode?>` (pagination via response headers).
+- `ListItemsAsync(DatasetListItemsOptions?)` → `PaginationList<JsonNode?>` (one page; pagination via
+  response headers).
+- `IterateItemsAsync(DatasetListItemsOptions?)` → `IAsyncEnumerable<JsonNode?>` — lazily iterate every
+  item across pages, fetching each page on demand.
 - `DownloadItemsAsync(DownloadItemsFormat, DatasetDownloadOptions?)` → serialized items as `byte[]`
   (raw bytes, so binary formats like `Xlsx` are not corrupted; decode text formats yourself).
 - `PushItemsAsync(object items)` — push one object or an array of objects.

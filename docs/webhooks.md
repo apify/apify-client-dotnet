@@ -6,7 +6,8 @@ Webhooks notify an external service when specific events occur. Access the accou
 
 ## Webhook collection — `client.Webhooks()`
 
-- `ListAsync(ListOptions?)` → `PaginationList<Webhook>`.
+- `ListAsync(ListOptions?)` → `PaginationList<Webhook>`; `IterateAsync(ListOptions?)` →
+  `IAsyncEnumerable<Webhook>` (lazy, all pages). Webhook dispatches expose the same pair.
 - `CreateAsync(object webhook)` → `Webhook`.
 
 Webhooks nested under an Actor or task (`client.Actor(id).Webhooks()`, `client.Task(id).Webhooks()`)

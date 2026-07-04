@@ -25,8 +25,8 @@ public sealed class LogClient
     internal static LogClient ForId(HttpClientCore http, string baseUrl, string id)
         => new(http, ResourceContext.Single(http, baseUrl, "logs", id));
 
-    internal static LogClient Nested(HttpClientCore http, string baseUrl)
-        => new(http, ResourceContext.Collection(http, baseUrl, "log"));
+    internal static LogClient Nested(HttpClientCore http, string baseUrl, QueryParams? inheritedParams = null)
+        => new(http, ResourceContext.Collection(http, baseUrl, "log", inheritedParams));
 
     /// <summary>Fetches the log as text, or <c>null</c> if the log does not exist.</summary>
     /// <param name="options">Optional log-content options.</param>

@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using Apify.Client.Internal;
@@ -30,4 +31,17 @@ public abstract class AbstractWebhookCollectionClient
         (options ?? new ListOptions()).AppendTo(q);
         return Ctx.ListResourceAsync("", q, static d => new Webhook(d), cancellationToken);
     }
+
+    /// <summary>Lazily iterates over all webhooks across pages, fetching each page on demand.</summary>
+    /// <param name="options">Optional listing filters; <c>Offset</c>/<c>Limit</c> bound where iteration
+    /// starts and the total number of items yielded.</param>
+    /// <param name="cancellationToken">A token to cancel the iteration.</param>
+    public IAsyncEnumerable<Webhook> IterateAsync(ListOptions? options = null, CancellationToken cancellationToken = default)
+    {
+        options ??= new ListOptions();
+        var q = new QueryParams();
+        options.AppendTo(q);
+        return Ctx.IterateListAsync("", q, options.Offset ?? 0, options.Limit, static d => new Webhook(d), cancellationToken);
+    }
+
 }

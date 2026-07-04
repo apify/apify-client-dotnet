@@ -1,6 +1,8 @@
+using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Net.Http;
+using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Text.Json.Nodes;
@@ -25,8 +27,8 @@ public sealed class DatasetClient
     internal static DatasetClient ForId(HttpClientCore http, string baseUrl, string id)
         => new(http, ResourceContext.Single(http, baseUrl, "datasets", id));
 
-    internal static DatasetClient Nested(HttpClientCore http, string baseUrl, string subPath)
-        => new(http, ResourceContext.Collection(http, baseUrl, subPath));
+    internal static DatasetClient Nested(HttpClientCore http, string baseUrl, string subPath, QueryParams? inheritedParams = null)
+        => new(http, ResourceContext.Collection(http, baseUrl, subPath, inheritedParams));
 
     internal DatasetClient WithPublicBase(string publicBaseUrl)
     {
@@ -64,12 +66,62 @@ public sealed class DatasetClient
     /// </remarks>
     /// <param name="options">Optional item filtering/projection and pagination.</param>
     /// <param name="cancellationToken">A token to cancel the request.</param>
-    public async Task<PaginationList<JsonNode?>> ListItemsAsync(DatasetListItemsOptions? options = null, CancellationToken cancellationToken = default)
+    public Task<PaginationList<JsonNode?>> ListItemsAsync(DatasetListItemsOptions? options = null, CancellationToken cancellationToken = default)
     {
         options ??= new DatasetListItemsOptions();
         var q = new QueryParams();
         options.AppendTo(q);
-        var url = q.ApplyToUrl(_ctx.SubUrl("items"));
+        return FetchItemsPageAsync(q, options.Desc ?? false, cancellationToken);
+    }
+
+    /// <summary>
+    /// Lazily iterates over all items of the dataset across pages, fetching each page on demand. Mirrors
+    /// the reference client's auto-paging <c>listItems</c> iterator.
+    /// </summary>
+    /// <param name="options">Optional item filtering/projection; <c>Offset</c>/<c>Limit</c> bound where
+    /// iteration starts and the total number of items yielded.</param>
+    /// <param name="cancellationToken">A token to cancel the iteration.</param>
+    public async IAsyncEnumerable<JsonNode?> IterateItemsAsync(
+        DatasetListItemsOptions? options = null,
+        [EnumeratorCancellation] CancellationToken cancellationToken = default)
+    {
+        options ??= new DatasetListItemsOptions();
+        var desc = options.Desc ?? false;
+        var baseQuery = new QueryParams();
+        options.AppendTo(baseQuery);
+        var offset = Math.Max(options.Offset ?? 0, 0);
+        var limit = options.Limit;
+        var yielded = 0;
+        while (true)
+        {
+            var q = baseQuery.Copy().Set("offset", offset);
+            if (limit is not null)
+            {
+                q.Set("limit", Math.Max(limit.Value - yielded, 0));
+            }
+
+            var page = await FetchItemsPageAsync(q, desc, cancellationToken).ConfigureAwait(false);
+            foreach (var item in page.Items)
+            {
+                yield return item;
+                yielded++;
+            }
+
+            offset += (int)page.Count;
+            if (page.Count == 0 || offset >= page.Total || (limit is not null && yielded >= limit.Value))
+            {
+                yield break;
+            }
+        }
+    }
+
+    /// <summary>
+    /// Fetches a single page of dataset items. The endpoint returns a bare JSON array with pagination in
+    /// <c>X-Apify-Pagination-*</c> response headers.
+    /// </summary>
+    private async Task<PaginationList<JsonNode?>> FetchItemsPageAsync(QueryParams q, bool desc, CancellationToken cancellationToken)
+    {
+        var url = _ctx.MergedParams(q).ApplyToUrl(_ctx.SubUrl("items"));
         using var response = await _http.CallAsync(HttpMethod.Get, url, timeout: _ctx.RequestTimeout, cancellationToken: cancellationToken).ConfigureAwait(false);
         var body = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
 
@@ -88,7 +140,7 @@ public sealed class DatasetClient
             HeaderInt(response, "X-Apify-Pagination-Total", count),
             HeaderInt(response, "X-Apify-Pagination-Offset", 0),
             HeaderInt(response, "X-Apify-Pagination-Limit", count),
-            options.Desc ?? false);
+            desc);
     }
 
     /// <summary>
@@ -106,7 +158,7 @@ public sealed class DatasetClient
         var q = new QueryParams();
         q.AddString("format", format.ToWireValue());
         (options ?? new DatasetDownloadOptions()).AppendTo(q);
-        var url = q.ApplyToUrl(_ctx.SubUrl("items"));
+        var url = _ctx.MergedParams(q).ApplyToUrl(_ctx.SubUrl("items"));
         using var response = await _http.CallAsync(HttpMethod.Get, url, timeout: _ctx.RequestTimeout, cancellationToken: cancellationToken).ConfigureAwait(false);
         return await response.Content.ReadAsByteArrayAsync(cancellationToken).ConfigureAwait(false);
     }
@@ -116,9 +168,10 @@ public sealed class DatasetClient
     /// <param name="cancellationToken">A token to cancel the request.</param>
     public async Task PushItemsAsync(object items, CancellationToken cancellationToken = default)
     {
+        var url = _ctx.MergedParams(new QueryParams()).ApplyToUrl(_ctx.SubUrl("items"));
         using var response = await _http.CallAsync(
             HttpMethod.Post,
-            _ctx.SubUrl("items"),
+            url,
             Json.Encode(items),
             ResourceContext.ContentTypeJsonCharset,
             timeout: _ctx.RequestTimeout,

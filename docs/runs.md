@@ -6,6 +6,8 @@ Access the account-wide run collection with `client.Runs()`, an Actor's or task'
 ## Collection
 
 - `ListAsync(ListOptions? options = null, RunListOptions? filter = null)` → `PaginationList<ActorRun>`.
+- `IterateAsync(ListOptions? options = null, RunListOptions? filter = null)` → `IAsyncEnumerable<ActorRun>`
+  (lazy, all pages).
   `RunListOptions`: `Status` (list), `StartedAfter`, `StartedBefore`.
 
 ## Single run — `client.Run(runId)`
@@ -21,6 +23,9 @@ Access the account-wide run collection with `client.Runs()`, an Actor's or task'
 - `WaitForFinishAsync(int? waitSecs = null)` → `ActorRun`.
 - `Dataset()`, `KeyValueStore()`, `RequestQueue()` — the run's default storages.
 - `Log()` → `LogClient`; `GetStreamedLogAsync()` → `Stream` (live raw log).
+- `GetStreamedLog(Action<string> toLog, bool fromStart = true)` → `StreamedLog` — redirects the run's live
+  log to `toLog` one complete message at a time. Call `Start()` to begin and `StopAsync()` (or dispose) to
+  end. `fromStart: false` skips messages older than the helper's creation.
 
 ```csharp
 using Apify.Client;

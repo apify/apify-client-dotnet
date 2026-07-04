@@ -23,6 +23,7 @@ var client = new ApifyClient(Environment.GetEnvironmentVariable("APIFY_TOKEN"));
 ## Run a store Actor and read its dataset
 
 ```csharp
+// The third argument bounds the wait in seconds (120 here); pass null to wait indefinitely.
 var run = await client.Actor("apify/hello-world").CallAsync(null, null, 120);
 var items = await client.Dataset(run.DefaultDatasetId!).ListItemsAsync(new DatasetListItemsOptions());
 Console.WriteLine("Item count: " + items.Count);
@@ -122,9 +123,17 @@ await foreach (var item in client.Store().IterateAsync(new StoreListOptions { Li
 ## Run an Actor with log redirection (streaming)
 
 ```csharp
+// The `log` argument redirects the run's live log to the given sink (here stdout) while it runs; the
+// client streams the log and forwards each complete message as it arrives.
+await client.Actor("apify/hello-world").CallAsync(null, null, 120, log: Console.WriteLine);
+```
+
+You can also redirect a specific run's log yourself with `GetStreamedLog`:
+
+```csharp
 var run = await client.Actor("apify/hello-world").StartAsync();
+await using var streamedLog = client.Run(run.Id!).GetStreamedLog(Console.WriteLine);
+streamedLog.Start();
 await client.Run(run.Id!).WaitForFinishAsync(120);
-using var stream = await client.Run(run.Id!).GetStreamedLogAsync();
-using var reader = new StreamReader(stream);
-Console.WriteLine(await reader.ReadToEndAsync());
+await streamedLog.StopAsync();
 ```

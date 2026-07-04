@@ -10,8 +10,16 @@
   with the JS reference client: `Actor().CallAsync()`/`StartAsync()`, `ValidateInputAsync()`,
   `DefaultBuildAsync()`, `LastRun()`, run `AbortAsync`/`MetamorphAsync`/`RebootAsync`/`ResurrectAsync`/
   `ChargeAsync`/`WaitForFinishAsync`, dataset `ListItemsAsync`/`DownloadItemsAsync`/`PushItemsAsync`/
-  public URLs, key-value store records and public URLs, request queue batch add with retries, lazy
-  request/store iteration (`IAsyncEnumerable`), and log streaming.
+  public URLs, key-value store records and public URLs, request queue batch add with retries, and log
+  streaming.
+- Auto-paging lazy iteration (`IAsyncEnumerable`) across all collection clients (`IterateAsync`) and
+  dataset items (`IterateItemsAsync`), plus request-queue and Store iteration, matching the reference
+  client's paginated iterators.
+- Run log redirection: `RunClient.GetStreamedLog(toLog, fromStart)` returns a `StreamedLog` that forwards
+  a run's live log to a sink one message at a time, and `Actor`/`Task` `CallAsync` accept a `log` sink that
+  redirects the run's log for the duration of the wait.
+- Last-run accessors forward their `status`/`origin` filters to the run's nested dataset, key-value store,
+  request queue, and log clients.
 - Binary-safe storage payloads: `KeyValueStoreRecord.Value` and `DownloadItemsAsync` return `byte[]`
   (raw bytes), and `SetRecordAsync` accepts `byte[]`, so binary records and exports (e.g. XLSX) are
   not corrupted; `SetRecordJsonAsync` serializes to JSON bytes.
@@ -34,4 +42,4 @@
   HMAC-SHA256 storage URL signing.
 - Public `ApifyClientVersion.ClientVersion` and `ApifyClientVersion.ApiSpecVersion` constants.
 - Integration test suite, documentation with runnable examples, and CI workflows for integration
-  tests and publishing.
+  tests and publishing (NuGet.org Trusted Publishing via OIDC).

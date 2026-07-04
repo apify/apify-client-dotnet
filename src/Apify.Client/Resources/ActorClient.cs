@@ -1,3 +1,4 @@
+using System;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Text.Json.Nodes;
@@ -70,15 +71,21 @@ public sealed class ActorClient
     /// <param name="input">Any JSON-serializable value (or <c>null</c> for no input).</param>
     /// <param name="options">Optional run-start options.</param>
     /// <param name="waitSecs">Bounds the wait; <c>null</c> waits indefinitely.</param>
+    /// <param name="log">
+    /// If provided, the run's live log is redirected to this sink (one complete message per call) for the
+    /// duration of the wait, matching the reference client's <c>log</c> call option. <c>null</c> disables
+    /// redirection.
+    /// </param>
     /// <param name="cancellationToken">A token to cancel the request.</param>
     public async Task<ActorRun> CallAsync(
         object? input = null,
         ActorStartOptions? options = null,
         int? waitSecs = null,
+        Action<string>? log = null,
         CancellationToken cancellationToken = default)
     {
         var run = await StartAsync(input, options, cancellationToken).ConfigureAwait(false);
-        return await _root.Run(run.Id ?? string.Empty).WaitForFinishAsync(waitSecs, cancellationToken).ConfigureAwait(false);
+        return await _root.Run(run.Id ?? string.Empty).WaitForFinishWithLogAsync(waitSecs, log, cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>Validates <paramref name="input"/> against the Actor's input schema and returns whether it is valid.</summary>

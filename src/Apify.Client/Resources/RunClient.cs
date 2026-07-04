@@ -6,6 +6,7 @@ using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Text.Json.Nodes;
+using Apify.Client;
 using Apify.Client.Internal;
 using Apify.Client.Models;
 using Apify.Client.Options;
@@ -196,23 +197,63 @@ public sealed class RunClient
         return new ActorRun(data);
     }
 
+    /// <summary>
+    /// Waits for the run to finish, optionally redirecting its live log to <paramref name="log"/> for the
+    /// duration of the wait. Shared by <c>Actor.Call</c>/<c>Task.Call</c>'s log option.
+    /// </summary>
+    internal async Task<ActorRun> WaitForFinishWithLogAsync(int? waitSecs, Action<string>? log, CancellationToken cancellationToken)
+    {
+        if (log is null)
+        {
+            return await WaitForFinishAsync(waitSecs, cancellationToken).ConfigureAwait(false);
+        }
+
+        var streamedLog = GetStreamedLog(log);
+        streamedLog.Start();
+        try
+        {
+            return await WaitForFinishAsync(waitSecs, cancellationToken).ConfigureAwait(false);
+        }
+        finally
+        {
+            await streamedLog.StopAsync().ConfigureAwait(false);
+        }
+    }
+
+    // Nested accessors inherit this client's params so last-run status/origin filters (see
+    // SetLastRunParams) resolve the intended run's storage/log rather than the latest run's.
+
     /// <summary>A client for this run's default dataset.</summary>
-    public DatasetClient Dataset() => DatasetClient.Nested(_http, _ctx.SubUrl(""), "dataset");
+    public DatasetClient Dataset() => DatasetClient.Nested(_http, _ctx.SubUrl(""), "dataset", _ctx.BaseParams);
 
     /// <summary>A client for this run's default key-value store.</summary>
-    public KeyValueStoreClient KeyValueStore() => KeyValueStoreClient.Nested(_http, _ctx.SubUrl(""), "key-value-store");
+    public KeyValueStoreClient KeyValueStore() => KeyValueStoreClient.Nested(_http, _ctx.SubUrl(""), "key-value-store", _ctx.BaseParams);
 
     /// <summary>A client for this run's default request queue.</summary>
-    public RequestQueueClient RequestQueue() => RequestQueueClient.Nested(_http, _ctx.SubUrl(""), "request-queue");
+    public RequestQueueClient RequestQueue() => RequestQueueClient.Nested(_http, _ctx.SubUrl(""), "request-queue", _ctx.BaseParams);
 
     /// <summary>A client for accessing this run's log.</summary>
-    public LogClient Log() => LogClient.Nested(_http, _ctx.SubUrl(""));
+    public LogClient Log() => LogClient.Nested(_http, _ctx.SubUrl(""), _ctx.BaseParams);
 
     /// <summary>
-    /// Opens a live stream of this run's raw log, for convenient log redirection. The caller reads (and
-    /// disposes) the returned stream.
+    /// Opens a live stream of this run's raw log bytes. The caller reads (and disposes) the returned
+    /// stream. For automatic redirection into a sink, prefer <see cref="GetStreamedLog"/>.
     /// </summary>
     /// <param name="cancellationToken">A token to cancel the request.</param>
     public Task<Stream> GetStreamedLogAsync(CancellationToken cancellationToken = default)
         => Log().StreamAsync(new LogOptions { Raw = true }, cancellationToken);
+
+    /// <summary>
+    /// Creates a <see cref="StreamedLog"/> that redirects this run's live log to <paramref name="toLog"/>,
+    /// one complete message at a time. Call <see cref="StreamedLog.Start"/> to begin and
+    /// <see cref="StreamedLog.StopAsync"/> (or dispose it) to end. Consistent with the reference client's
+    /// run-log redirection convenience.
+    /// </summary>
+    /// <param name="toLog">The sink each complete log message is written to.</param>
+    /// <param name="fromStart">
+    /// If <c>true</c> (default), redirect the whole log including messages from before this call; if
+    /// <c>false</c>, skip messages older than the moment the helper is created.
+    /// </param>
+    public StreamedLog GetStreamedLog(Action<string> toLog, bool fromStart = true)
+        => new(Log(), toLog, fromStart);
 }

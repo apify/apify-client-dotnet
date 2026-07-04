@@ -5,14 +5,16 @@ a specific task with `client.Task(id)`.
 
 ## Collection
 
-- `ListAsync(ListOptions?)` → `PaginationList<ActorTask>`.
+- `ListAsync(ListOptions?)` → `PaginationList<ActorTask>`; `IterateAsync(ListOptions?)` →
+  `IAsyncEnumerable<ActorTask>` (lazy, all pages).
 - `CreateAsync(object task)` → `ActorTask`.
 
 ## Single task — `client.Task(id)`
 
 - `GetAsync()`, `UpdateAsync(newFields)`, `DeleteAsync()`.
 - `StartAsync(object? input = null, TaskStartOptions? options = null)` → `ActorRun`.
-- `CallAsync(object? input = null, TaskStartOptions? options = null, int? waitSecs = null)` → `ActorRun`.
+- `CallAsync(object? input = null, TaskStartOptions? options = null, int? waitSecs = null, Action<string>? log = null)`
+  → `ActorRun` (`log`, if set, redirects the run's live log to that sink for the duration of the wait).
 - `GetInputAsync()` / `UpdateInputAsync(object input)`.
 - `LastRun(LastRunOptions?)` → `RunClient`; `Runs()` → `RunCollectionClient`.
 - `Webhooks()` → read-only `NestedWebhookCollectionClient`.

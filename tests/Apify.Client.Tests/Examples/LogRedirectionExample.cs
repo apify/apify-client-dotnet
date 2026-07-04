@@ -1,20 +1,16 @@
 using System;
-using System.IO;
 using System.Threading.Tasks;
 using Apify.Client;
 
 namespace Apify.Client.Tests.Examples;
 
-/// <summary>Run an Actor with log redirection turned on (stream the run's log).</summary>
+/// <summary>Run an Actor with log redirection turned on: the run's live log is forwarded to a sink.</summary>
 public static class LogRedirectionExample
 {
     public static async Task RunAsync(ApifyClient client)
     {
-        var run = await client.Actor("apify/hello-world").StartAsync();
-        // Wait for the run to finish so the full log is available, then stream it to stdout.
-        await client.Run(run.Id!).WaitForFinishAsync(120);
-        using var stream = await client.Run(run.Id!).GetStreamedLogAsync();
-        using var reader = new StreamReader(stream);
-        Console.WriteLine(await reader.ReadToEndAsync());
+        // The `log` argument redirects the run's live log to the given sink (here, stdout) for the
+        // duration of the wait — the client streams and forwards each complete log message as it arrives.
+        await client.Actor("apify/hello-world").CallAsync(null, null, 120, log: Console.WriteLine);
     }
 }
