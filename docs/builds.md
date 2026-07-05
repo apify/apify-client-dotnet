@@ -19,6 +19,16 @@ Access the account-wide build collection with `client.Builds()`, an Actor's buil
 - `GetOpenApiDefinitionAsync()` → `JsonObject?`.
 - `Log()` → `LogClient`.
 
+Builds are created with `client.Actor(id).BuildAsync(string versionNumber, ActorBuildOptions? options = null)`.
+`ActorBuildOptions` fields:
+
+| Field | Type | Description |
+|---|---|---|
+| `BetaPackages` | `bool?` | Build with beta versions of the Apify SDK/packages. |
+| `Tag` | `string?` | Build tag to apply to the resulting image (e.g. `latest`). |
+| `UseCache` | `bool?` | Reuse cached Docker layers to speed up the build. |
+| `WaitForFinish` | `int?` | Seconds the build request blocks server-side waiting for completion (max 60). |
+
 ```csharp
 using System;
 using Apify.Client;

@@ -22,6 +22,7 @@ All API calls are asynchronous and return `Task`/`Task<T>`; every method accepts
 - [Schedules](schedules.md)
 - [Webhooks](webhooks.md) — webhooks and dispatches.
 - [Misc](misc.md) — the Apify Store, users, logs.
+- [Data models](models.md) — property reference for every returned model (`Actor`, `ActorRun`, `Build`, `PaginationList<T>`, …).
 - [Examples](examples.md) — runnable end-to-end examples.
 
 ## Requirements
@@ -84,7 +85,7 @@ using Apify.Client;
 using Apify.Client.Resources;
 
 var client = new ApifyClient("my-api-token");
-BuildClient build = await client.Actor("apify/hello-world").DefaultBuildAsync();
+BuildClient defaultBuild = await client.Actor("apify/hello-world").DefaultBuildAsync();
 RunClient lastRun = client.Actor("apify/hello-world").LastRun();
 ```
 
@@ -160,6 +161,21 @@ catch (ApifyApiException e)
     Console.WriteLine($"{e.StatusCode} {e.Type}: {e.ApiMessage}");
 }
 ```
+
+`ApifyApiException` members:
+
+| Member | Type | Description |
+|---|---|---|
+| `StatusCode` | `int` | HTTP status code of the error response. |
+| `Type` | `string?` | Machine-readable API error type (e.g. `record-not-found`). |
+| `ApiMessage` | `string` | Raw error message from the API, without the status/type prefix. |
+| `Attempt` | `int` | 1-based number of the API-call attempt that produced the error. |
+| `HttpMethod` | `string` | HTTP method of the failed call (e.g. `GET`, `POST`). |
+| `Path` | `string` | API endpoint path (URL excluding origin). |
+| `ErrorData` | `JsonObject?` | Additional structured error data from the API, if any. |
+
+`ApifyTransportException` is thrown instead when the request never reaches the API (network failure,
+timeout, or DNS error) after all retries are exhausted.
 
 ## Versioning
 

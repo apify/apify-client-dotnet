@@ -5,13 +5,13 @@ Schedules automatically start Actor or task runs at specified times. Access the 
 
 ## Collection
 
-- `ListAsync(ListOptions?)` → `PaginationList<Schedule>`; `IterateAsync(ListOptions?)` →
-  `IAsyncEnumerable<Schedule>` (lazy, all pages).
+- `ListAsync(ListOptions? options = null)` → `PaginationList<Schedule>`;
+  `IterateAsync(ListOptions? options = null)` → `IAsyncEnumerable<Schedule>` (lazy, all pages).
 - `CreateAsync(object schedule)` → `Schedule`.
 
 ## Single schedule — `client.Schedule(id)`
 
-- `GetAsync()`, `UpdateAsync(newFields)`, `DeleteAsync()`.
+- `GetAsync()` → `Schedule?`; `UpdateAsync(object newFields)` → `Schedule`; `DeleteAsync()`.
 - `GetLogAsync()` → `string?` (invocation log; `null` if none yet).
 
 ```csharp

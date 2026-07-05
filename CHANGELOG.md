@@ -41,5 +41,6 @@
   automatic retries with exponential backoff and jitter, growing per-attempt timeouts, and
   HMAC-SHA256 storage URL signing.
 - Public `ApifyClientVersion.ClientVersion` and `ApifyClientVersion.ApiSpecVersion` constants.
-- Integration test suite, documentation with runnable examples, and CI workflows for integration
-  tests and publishing (manual NuGet.org publish using an API key from a repository secret).
+- Integration test suite, documentation with runnable examples, a data-model property reference
+  (`docs/models.md`), and CI workflows for integration tests and publishing (manual NuGet.org publish
+  using an API key from a repository secret).

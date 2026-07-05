@@ -11,7 +11,6 @@ compile error). `ImplicitUsings` is disabled in this repository, so even `System
 
 ```csharp
 using System;
-using System.IO;
 using System.Text;
 using Apify.Client;
 using Apify.Client.Models;

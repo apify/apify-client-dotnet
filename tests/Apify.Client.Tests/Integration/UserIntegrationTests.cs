@@ -16,6 +16,26 @@ public sealed class UserIntegrationTests : IntegrationTestBase
     }
 
     [SkippableFact]
+    public async Task GetPublicUserById()
+    {
+        var client = RequireClient();
+
+        // Resolve our own id and username via the private `me` endpoint, then fetch the same user
+        // through the public `/users/{userId}` endpoint to exercise the non-`me` code path.
+        var me = await client.Me().GetAsync();
+        Assert.NotNull(me);
+        Assert.False(string.IsNullOrEmpty(me!.Id));
+        Assert.False(string.IsNullOrEmpty(me.Username));
+
+        var publicUser = await client.User(me.Id!).GetAsync();
+        Assert.NotNull(publicUser);
+
+        // The public endpoint returns UserPublicInfo, whose schema exposes `username` (not `id`), so
+        // verify we resolved the right user via the username rather than an unspecified `id` field.
+        Assert.Equal(me.Username, publicUser!.Username);
+    }
+
+    [SkippableFact]
     public async Task GetMonthlyUsage()
     {
         var client = RequireClient();

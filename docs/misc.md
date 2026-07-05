@@ -7,12 +7,24 @@
 
 Browse public Actors in the [Apify Store](https://apify.com/store).
 
-- `ListAsync(StoreListOptions?)` → `PaginationList<ActorStoreListItem>` (one page).
-- `IterateAsync(StoreListOptions?)` → `IAsyncEnumerable<ActorStoreListItem>` (lazy, all pages;
-  `Limit` is the page size).
+- `ListAsync(StoreListOptions? options = null)` → `PaginationList<ActorStoreListItem>` (one page).
+- `IterateAsync(StoreListOptions? options = null)` → `IAsyncEnumerable<ActorStoreListItem>` (lazy, all
+  pages; `Limit` is the page size).
 
-`StoreListOptions`: `Offset`, `Limit`, `Search`, `SortBy`, `Category`, `Username`, `PricingModel`,
-`IncludeUnrunnableActors`, `AllowsAgenticUsers`, `ResponseFormat`.
+`StoreListOptions` fields:
+
+| Field | Type | Description |
+|---|---|---|
+| `Offset` | `int?` | Number of Actors to skip from the start. |
+| `Limit` | `int?` | Maximum number of Actors to return in the page. |
+| `Search` | `string?` | Full-text search string to filter Actors by. |
+| `SortBy` | `string?` | Field to sort by (e.g. `popularity`, `newest`). |
+| `Category` | `string?` | Restrict results to a Store category. |
+| `Username` | `string?` | Restrict results to a given owner's Actors. |
+| `PricingModel` | `string?` | Filter by pricing model (`FREE`, `FLAT_PRICE_PER_MONTH`, `PRICE_PER_DATASET_ITEM`, …). |
+| `IncludeUnrunnableActors` | `bool?` | Include Actors that cannot currently be run. |
+| `AllowsAgenticUsers` | `bool?` | Only Actors that permit agentic (automated) users. |
+| `ResponseFormat` | `string?` | Requested response format. |
 
 ```csharp
 using System;
@@ -29,9 +41,10 @@ await foreach (var item in client.Store().IterateAsync(new StoreListOptions { Se
 ## Users — `client.Me()` / `client.User(id)`
 
 - `GetAsync()` → `User?`. For `Me()` the raw payload includes private account details
-  (`ToJsonObject()`).
-- `MonthlyUsageAsync(string? date = null)` → `JsonObject` (only for `Me()`).
-- `LimitsAsync()` / `UpdateLimitsAsync(object newLimits)` (only for `Me()`).
+  (`ToJsonObject()`); for `User(id)` it returns the public profile.
+- `MonthlyUsageAsync(string? date = null)` → `JsonObject` (only for `Me()`; `date` is `YYYY-MM-DD`, and
+  `null` reports the current month).
+- `LimitsAsync()` → `JsonObject` / `UpdateLimitsAsync(object newLimits)` (only for `Me()`).
 
 ```csharp
 using System;
@@ -45,10 +58,11 @@ var usage = await client.Me().MonthlyUsageAsync();
 
 ## Logs — `client.Log(buildOrRunId)`
 
-- `GetAsync(LogOptions?)` → `string?` (buffered).
-- `StreamAsync(LogOptions?)` → `Stream` (live). Also `client.Run(id).GetStreamedLogAsync()`.
+- `GetAsync(LogOptions? options = null)` → `string?` (buffered).
+- `StreamAsync(LogOptions? options = null)` → `Stream` (live). Also `client.Run(id).GetStreamedLogAsync()`.
 
-`LogOptions`: `Raw`, `Download`.
+`LogOptions` fields: `Raw` (`bool?`, return the unprocessed log rather than the parsed form) and
+`Download` (`bool?`, request a download `Content-Disposition`).
 
 ```csharp
 using System;

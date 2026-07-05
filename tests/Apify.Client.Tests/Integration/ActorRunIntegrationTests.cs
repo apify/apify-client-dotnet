@@ -35,6 +35,25 @@ public sealed class ActorRunIntegrationTests : IntegrationTestBase
     }
 
     [SkippableFact]
+    public async Task UpdateAndDeleteRun()
+    {
+        var client = RequireClient();
+
+        // Start a run and wait for it to reach a terminal state before mutating it.
+        var run = await client.Actor("apify/hello-world").CallAsync(null, null, 120);
+        Assert.Equal("SUCCEEDED", run.Status);
+
+        var statusMessage = "updated by dotnet client integration test";
+        var updated = await client.Run(run.Id!).UpdateAsync(new { statusMessage });
+        Assert.Equal(run.Id, updated.Id);
+        Assert.Equal(statusMessage, updated.StatusMessage);
+
+        // Delete the run; DeleteAsync throws on a non-success status, so a clean return is the check.
+        // (No read-after-delete assertion — that would rely on strong replica consistency and could flake.)
+        await client.Run(run.Id!).DeleteAsync();
+    }
+
+    [SkippableFact]
     public async Task LastRunAccess()
     {
         var client = RequireClient();

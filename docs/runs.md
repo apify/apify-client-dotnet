@@ -8,7 +8,11 @@ Access the account-wide run collection with `client.Runs()`, an Actor's or task'
 - `ListAsync(ListOptions? options = null, RunListOptions? filter = null)` → `PaginationList<ActorRun>`.
 - `IterateAsync(ListOptions? options = null, RunListOptions? filter = null)` → `IAsyncEnumerable<ActorRun>`
   (lazy, all pages).
-  `RunListOptions`: `Status` (list), `StartedAfter`, `StartedBefore`.
+
+`ListOptions` fields: `Offset`, `Limit`, `Desc` (standard pagination). `RunListOptions` fields:
+`Status` (`IReadOnlyList<string>?`, filter by one or more run statuses such as `SUCCEEDED`/`RUNNING`),
+`StartedAfter` and `StartedBefore` (ISO 8601 bounds, honoured only by the Actor- and task-scoped run
+collections).
 
 ## Single run — `client.Run(runId)`
 
@@ -26,6 +30,24 @@ Access the account-wide run collection with `client.Runs()`, an Actor's or task'
 - `GetStreamedLog(Action<string> toLog, bool fromStart = true)` → `StreamedLog` — redirects the run's live
   log to `toLog` one complete message at a time. Call `Start()` to begin and `StopAsync()` (or dispose) to
   end. `fromStart: false` skips messages older than the helper's creation.
+
+### Option and charge types
+
+`MetamorphOptions` fields: `Build` (`string?`, pin the target Actor's build) and `ContentType`
+(`string?`, content type of the metamorph `input` body; defaults to `application/json`).
+
+`RunResurrectOptions` overrides run settings when resurrecting a finished run: `Build` (`string?`),
+`MemoryMbytes` (`int?`), `TimeoutSecs` (`int?`), `MaxItems` (`int?`), `MaxTotalChargeUsd` (`double?`),
+and `RestartOnError` (`bool?`). See [Actors](actors.md) for each field's meaning.
+
+`RunChargeOptions` describes a pay-per-event charge and is built via its constructor
+`RunChargeOptions(string eventName, int? count = null, string? idempotencyKey = null)`:
+
+| Property | Type | Description |
+|---|---|---|
+| `EventName` | `string` | Name of the pay-per-event event to charge for (required, non-empty). |
+| `Count` | `int?` | Number of event occurrences to charge (defaults to 1 server-side). |
+| `IdempotencyKey` | `string?` | Key that deduplicates retried charges; auto-generated when omitted. |
 
 ```csharp
 using Apify.Client;
