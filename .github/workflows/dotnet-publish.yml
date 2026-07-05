@@ -5,10 +5,10 @@ name: Publish .NET client
 # of truth in src/Apify.Client/Apify.Client.csproj (<Version>). This workflow packs the library,
 # pushes it to NuGet.org, tags the release, and creates the GitHub release.
 #
-# Publishing uses NuGet.org Trusted Publishing (OIDC): the NuGet/login action exchanges a short-lived
-# GitHub OIDC token for a temporary NuGet API key just before the push, so no long-lived API key is
-# stored in the repo. The only repository secret needed is NUGET_USER (the nuget.org account/profile
-# name that owns the trusted-publishing policy).
+# Publishing uses a NuGet API key read from the NUGET_API_KEY repository secret. NuGet.org Trusted
+# Publishing (OIDC) is not used because, per the official docs, it is still being rolled out gradually
+# and is not generally available, so it is not an officially supported publishing mechanism we can rely
+# on. If/when Trusted Publishing reaches GA, switch to the NuGet/login OIDC flow and drop this secret.
 on:
   workflow_dispatch:
     inputs:
@@ -24,7 +24,6 @@ concurrency:
 
 permissions:
   contents: write # create the tagged GitHub release
-  id-token: write # NuGet Trusted Publishing exchanges this OIDC token for a temporary API key
 
 jobs:
   publish:
@@ -84,19 +83,22 @@ jobs:
       - name: Pack
         run: dotnet pack src/Apify.Client/Apify.Client.csproj --configuration Release --no-build --output ./artifacts
 
-      # Exchange the GitHub OIDC token for a short-lived NuGet API key (Trusted Publishing). Runs
-      # immediately before the push because the temporary key is valid for only ~1 hour.
-      - name: NuGet login (Trusted Publishing OIDC)
+      # Fail fast if the publish secret is missing so a run cannot silently pass without publishing.
+      - name: Require NUGET_API_KEY secret
         if: ${{ github.event.inputs.dry_run != 'true' }}
-        id: nuget_login
-        uses: NuGet/login@v1
-        with:
-          user: ${{ secrets.NUGET_USER }}
+        env:
+          NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
+        run: |
+          if [ -z "${NUGET_API_KEY}" ]; then
+            echo "::error::NUGET_API_KEY secret is empty or missing; cannot publish to NuGet.org."
+            exit 1
+          fi
 
       - name: Push to NuGet
         if: ${{ github.event.inputs.dry_run != 'true' }}
         env:
-          NUGET_API_KEY: ${{ steps.nuget_login.outputs.NUGET_API_KEY }}
+          # The NuGet.org API key is stored as a repository secret.
+          NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
         run: |
           dotnet nuget push "./artifacts/*.nupkg" \
             --api-key "${NUGET_API_KEY}" \

@@ -2,7 +2,7 @@
 
 ## 0.1.0
 
-- Initial .NET client for the Apify API (spec `v2-2026-07-01T115402Z`).
+- Initial .NET client for the Apify API (spec `v2-2026-07-02T131926Z`).
 - Resource clients for Actors, Actor versions and environment variables, builds, runs, datasets,
   key-value stores, request queues, tasks, schedules, webhooks, webhook dispatches, the Apify Store,
   users, and logs.
@@ -42,4 +42,4 @@
   HMAC-SHA256 storage URL signing.
 - Public `ApifyClientVersion.ClientVersion` and `ApifyClientVersion.ApiSpecVersion` constants.
 - Integration test suite, documentation with runnable examples, and CI workflows for integration
-  tests and publishing (NuGet.org Trusted Publishing via OIDC).
+  tests and publishing (manual NuGet.org publish using an API key from a repository secret).
