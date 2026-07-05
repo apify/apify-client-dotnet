@@ -55,3 +55,11 @@ CodeCoverage/
 *.VisualState.xml
 TestResult.xml
 nunit-*.xml
+
+# .NET build output
+bin/
+obj/
+
+# IDE
+.vs/
+*.user

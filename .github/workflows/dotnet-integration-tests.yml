@@ -1,0 +1,77 @@
+name: .NET integration tests
+
+# Language-specific workflow: only runs for the .NET client. Triggers on PRs to master that touch
+# .NET client, test, project, example, or documentation code, and can be dispatched manually from any
+# branch.
+on:
+  pull_request:
+    branches: [master]
+    paths:
+      - '**/*.cs'
+      - '**/*.csproj'
+      - '**/*.sln'
+      - 'Directory.Build.props'
+      - '.editorconfig'
+      # The "Test examples" step validates the in-documentation snippets, so doc changes must re-run
+      # the workflow even though Markdown is not .NET code.
+      - 'docs/**'
+      - 'README.md'
+      - '.github/workflows/dotnet-integration-tests.yml'
+  workflow_dispatch:
+
+# Avoid concurrent runs of the same ref racing on the shared test account.
+concurrency:
+  group: dotnet-integration-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Restore
+        run: dotnet restore
+
+      # Formatting gate mandated by the coding rules (dotnet format).
+      - name: Check formatting (dotnet format)
+        run: dotnet format --verify-no-changes
+
+      # Build with analyzers and warnings-as-errors (the static-analysis gate).
+      - name: Build (warnings as errors)
+        run: dotnet build --configuration Release --no-restore
+
+      # Offline unit tests (mock transport): prove the retry/error/signature logic without the API.
+      - name: Unit tests
+        run: dotnet test --configuration Release --no-build --filter Category=Unit
+
+      # Fail fast if the integration-test secret is missing or empty. Without this guard the
+      # integration tests silently skip (they self-skip when APIFY_TOKEN is unset), so a green run
+      # would not prove the API logic actually executed.
+      - name: Require APIFY_TOKEN secret
+        env:
+          APIFY_TOKEN: ${{ secrets.APIFY_TOKEN }}
+        run: |
+          if [ -z "${APIFY_TOKEN}" ]; then
+            echo "::error::APIFY_TOKEN secret is empty or missing; integration tests would not run against the API."
+            exit 1
+          fi
+
+      - name: Integration tests
+        env:
+          # The integration-test token is stored as a repository secret.
+          APIFY_TOKEN: ${{ secrets.APIFY_TOKEN }}
+        run: dotnet test --configuration Release --no-build --filter Category=Integration
+
+      # Standalone CI step that verifies the documentation examples work end-to-end against the live
+      # API (the Examples suite runs each example).
+      - name: Test examples
+        env:
+          APIFY_TOKEN: ${{ secrets.APIFY_TOKEN }}
+        run: dotnet test --configuration Release --no-build --filter Category=Examples

@@ -1,0 +1,36 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{ED3360CB-7E9D-4B24-8CF1-E80489F99D61}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Apify.Client", "src\Apify.Client\Apify.Client.csproj", "{9A0401C4-477A-4111-ABC1-43D95430E810}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{624E02B9-A559-4043-AB5D-2A5CCFC19DA3}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Apify.Client.Tests", "tests\Apify.Client.Tests\Apify.Client.Tests.csproj", "{6E8E3DF4-F6BA-48A6-8E07-18668FC9A7F6}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{9A0401C4-477A-4111-ABC1-43D95430E810}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{9A0401C4-477A-4111-ABC1-43D95430E810}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{9A0401C4-477A-4111-ABC1-43D95430E810}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{9A0401C4-477A-4111-ABC1-43D95430E810}.Release|Any CPU.Build.0 = Release|Any CPU
+		{6E8E3DF4-F6BA-48A6-8E07-18668FC9A7F6}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{6E8E3DF4-F6BA-48A6-8E07-18668FC9A7F6}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{6E8E3DF4-F6BA-48A6-8E07-18668FC9A7F6}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{6E8E3DF4-F6BA-48A6-8E07-18668FC9A7F6}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{9A0401C4-477A-4111-ABC1-43D95430E810} = {ED3360CB-7E9D-4B24-8CF1-E80489F99D61}
+		{6E8E3DF4-F6BA-48A6-8E07-18668FC9A7F6} = {624E02B9-A559-4043-AB5D-2A5CCFC19DA3}
+	EndGlobalSection
+EndGlobal

@@ -1,0 +1,58 @@
+using System.Threading.Tasks;
+using Xunit;
+
+namespace Apify.Client.Tests.Integration;
+
+[Trait("Category", "Integration")]
+public sealed class UserIntegrationTests : IntegrationTestBase
+{
+    [SkippableFact]
+    public async Task GetOwnAccount()
+    {
+        var client = RequireClient();
+        var user = await client.Me().GetAsync();
+        Assert.NotNull(user);
+        Assert.False(string.IsNullOrEmpty(user!.Id));
+    }
+
+    [SkippableFact]
+    public async Task GetPublicUserById()
+    {
+        var client = RequireClient();
+
+        // Resolve our own id and username via the private `me` endpoint, then fetch the same user
+        // through the public `/users/{userId}` endpoint to exercise the non-`me` code path.
+        var me = await client.Me().GetAsync();
+        Assert.NotNull(me);
+        Assert.False(string.IsNullOrEmpty(me!.Id));
+        Assert.False(string.IsNullOrEmpty(me.Username));
+
+        var publicUser = await client.User(me.Id!).GetAsync();
+        Assert.NotNull(publicUser);
+
+        // The public endpoint returns UserPublicInfo, whose schema exposes `username` (not `id`), so
+        // verify we resolved the right user via the username rather than an unspecified `id` field.
+        Assert.Equal(me.Username, publicUser!.Username);
+    }
+
+    [SkippableFact]
+    public async Task GetMonthlyUsage()
+    {
+        var client = RequireClient();
+        Assert.NotEmpty(await client.Me().MonthlyUsageAsync());
+    }
+
+    [SkippableFact]
+    public async Task GetMonthlyUsageForDate()
+    {
+        var client = RequireClient();
+        Assert.NotEmpty(await client.Me().MonthlyUsageAsync("2026-06-01"));
+    }
+
+    [SkippableFact]
+    public async Task GetLimits()
+    {
+        var client = RequireClient();
+        Assert.NotEmpty(await client.Me().LimitsAsync());
+    }
+}
