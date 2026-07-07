@@ -43,4 +43,5 @@
 - Public `ApifyClientVersion.ClientVersion` and `ApifyClientVersion.ApiSpecVersion` constants.
 - Integration test suite, documentation with runnable examples, a data-model property reference
   (`docs/models.md`), and CI workflows for integration tests and publishing (manual NuGet.org publish
-  using an API key from a repository secret).
+  via Trusted Publishing: the `NuGet/login` action exchanges a GitHub OIDC token for a short-lived
+  key, using only the `NUGET_USER` repository secret — no long-lived NuGet API key is stored).

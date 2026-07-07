@@ -5,10 +5,12 @@ name: Publish .NET client
 # of truth in src/Apify.Client/Apify.Client.csproj (<Version>). This workflow packs the library,
 # pushes it to NuGet.org, tags the release, and creates the GitHub release.
 #
-# Publishing uses a NuGet API key read from the NUGET_API_KEY repository secret. NuGet.org Trusted
-# Publishing (OIDC) is not used because, per the official docs, it is still being rolled out gradually
-# and is not generally available, so it is not an officially supported publishing mechanism we can rely
-# on. If/when Trusted Publishing reaches GA, switch to the NuGet/login OIDC flow and drop this secret.
+# Publishing uses NuGet.org Trusted Publishing (keyless OIDC): the job requests a GitHub OIDC token
+# (permissions.id-token: write) and the NuGet/login action exchanges it for a short-lived (1 hour)
+# NuGet API key, so no long-lived NUGET_API_KEY secret is stored in the repository. The only secret
+# needed is NUGET_USER, the nuget.org username (profile name, NOT an email) the trusted publishing
+# policy is registered under. This requires a Trusted Publishing policy configured on nuget.org for
+# this repository/workflow (Repository Owner, Repository, Workflow File = dotnet-publish.yml).
 on:
   workflow_dispatch:
     inputs:
@@ -22,12 +24,12 @@ concurrency:
   group: dotnet-publish
   cancel-in-progress: false
 
-permissions:
-  contents: write # create the tagged GitHub release
-
 jobs:
   publish:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write # create the tagged GitHub release
+      id-token: write # request the GitHub OIDC token that NuGet Trusted Publishing exchanges for a short-lived key
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -83,25 +85,34 @@ jobs:
       - name: Pack
         run: dotnet pack src/Apify.Client/Apify.Client.csproj --configuration Release --no-build --output ./artifacts
 
-      # Fail fast if the publish secret is missing so a run cannot silently pass without publishing.
-      - name: Require NUGET_API_KEY secret
+      # Fail fast if the trusted-publishing username is missing so a run cannot silently pass without publishing.
+      # Note: this only checks the secret. The other prerequisite — a Trusted Publishing policy registered on
+      # nuget.org for this repo/workflow (Workflow File = dotnet-publish.yml) — cannot be checked here; if it is
+      # missing the NuGet/login step below fails with nuget.org's own error.
+      - name: Require NUGET_USER secret
         if: ${{ github.event.inputs.dry_run != 'true' }}
         env:
-          NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
+          NUGET_USER: ${{ secrets.NUGET_USER }}
         run: |
-          if [ -z "${NUGET_API_KEY}" ]; then
-            echo "::error::NUGET_API_KEY secret is empty or missing; cannot publish to NuGet.org."
+          if [ -z "${NUGET_USER}" ]; then
+            echo "::error::NUGET_USER secret is empty or missing (set it to the nuget.org profile name, not an email). A NuGet Trusted Publishing policy for this repo/workflow must also be registered on nuget.org; see https://learn.microsoft.com/en-us/nuget/nuget-org/trusted-publishing"
             exit 1
           fi
 
+      # Exchange the GitHub OIDC token for a short-lived NuGet API key. Trusted Publishing keys expire
+      # after 1 hour, so this runs immediately before the push (not earlier in the job).
+      - name: NuGet login (OIDC -> short-lived API key)
+        id: login
+        if: ${{ github.event.inputs.dry_run != 'true' }}
+        uses: NuGet/login@v1
+        with:
+          user: ${{ secrets.NUGET_USER }}
+
       - name: Push to NuGet
         if: ${{ github.event.inputs.dry_run != 'true' }}
-        env:
-          # The NuGet.org API key is stored as a repository secret.
-          NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
         run: |
           dotnet nuget push "./artifacts/*.nupkg" \
-            --api-key "${NUGET_API_KEY}" \
+            --api-key "${{ steps.login.outputs.NUGET_API_KEY }}" \
             --source https://api.nuget.org/v3/index.json \
             --skip-duplicate
 
