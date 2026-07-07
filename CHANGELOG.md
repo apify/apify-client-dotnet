@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.1.1
+
+- Bumped `ApifyClientVersion.ApiSpecVersion` to the Apify OpenAPI spec `v2-2026-07-07T132551Z` and the
+  project version to `0.1.1`.
+- Corrected a wrong `LastRunOptions` doc comment: `Origin` and `Status` are spec-declared query
+  parameters on the last-run endpoints (the comment had claimed `Origin` was not); `waitForFinish` is
+  intentionally omitted for parity with the reference client's `lastRun`. Behaviour unchanged.
+
 ## 0.1.0
 
 - Initial .NET client for the Apify API (spec `v2-2026-07-02T131926Z`).

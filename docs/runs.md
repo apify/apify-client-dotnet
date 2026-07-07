@@ -23,7 +23,7 @@ collections).
 - `MetamorphAsync(string targetActorId, object? input = null, MetamorphOptions? options = null)` → `ActorRun`.
 - `RebootAsync()` → `ActorRun`.
 - `ResurrectAsync(RunResurrectOptions? options = null)` → `ActorRun`.
-- `ChargeAsync(RunChargeOptions options)` — record pay-per-event charges (idempotent).
+- `ChargeAsync(RunChargeOptions options)` → `Task` — record pay-per-event charges (idempotent).
 - `WaitForFinishAsync(int? waitSecs = null)` → `ActorRun`.
 - `Dataset()`, `KeyValueStore()`, `RequestQueue()` — the run's default storages.
 - `Log()` → `LogClient`; `GetStreamedLogAsync()` → `Stream` (live raw log).
