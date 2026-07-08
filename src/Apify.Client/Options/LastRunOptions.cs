@@ -5,9 +5,11 @@ namespace Apify.Client.Options;
 /// filter unset.
 /// </summary>
 /// <remarks>
-/// <c>Origin</c> is an Apify-platform convenience exposed by the reference client but not documented as a
-/// query parameter in the OpenAPI spec; it is included for parity, threaded to the same <c>runs/last</c>
-/// endpoint.
+/// <c>Status</c> and <c>Origin</c> are both spec-declared query parameters on the last-run endpoints
+/// (<c>GET /v2/actors/{actorId}/runs/last</c> and <c>GET /v2/actor-tasks/{actorTaskId}/runs/last</c>),
+/// matching the reference client's <c>lastRun({ status, origin })</c>. The spec also declares
+/// <c>waitForFinish</c> on those endpoints, but the reference client does not expose it on <c>lastRun</c>,
+/// so it is intentionally omitted here for parity.
 /// </remarks>
 public sealed class LastRunOptions
 {

@@ -69,10 +69,10 @@ the `using` directives for whichever ones a file references:
 
 | Namespace | What lives here |
 |---|---|
-| `Apify.Client` | The entry point (`ApifyClient`), `ApifyClientOptions`, and `ApifyClientVersion`. |
-| `Apify.Client.Resources` | Every resource client the entry point returns — `ActorClient`, `RunClient`, `BuildClient`, `DatasetClient`, `KeyValueStoreClient`, `RequestQueueClient`, `TaskClient`, `ScheduleClient`, `LogClient`, `UserClient`, the `…CollectionClient` types, etc. |
+| `Apify.Client` | The entry point (`ApifyClient`), `ApifyClientOptions`, `ApifyClientVersion`, and the log-redirection helper `StreamedLog`. |
+| `Apify.Client.Resources` | Every resource client the entry point returns — `ActorClient`, `RunClient`, `BuildClient`, `DatasetClient`, `KeyValueStoreClient`, `RequestQueueClient`, `TaskClient`, `ScheduleClient`, `LogClient`, `UserClient`, the `…CollectionClient` types (including `NestedWebhookCollectionClient` and `WebhookDispatchCollectionClient`), etc. |
 | `Apify.Client.Models` | Data models returned by the clients — `Actor`, `ActorRun`, `Build`, `Dataset`, `RequestQueueRequest`, `ActorEnvVar`, `PaginationList<T>`, and so on. |
-| `Apify.Client.Options` | The option/request objects passed into methods — `ActorStartOptions`, `DatasetListItemsOptions`, `ListOptions`, `SetRecordOptions`, `StorageListOptions`, etc. |
+| `Apify.Client.Options` | The option/request objects passed into methods — `ActorStartOptions`, `DatasetListItemsOptions`, `DownloadItemsFormat`, `ListOptions`, `SetRecordOptions`, `StorageListOptions`, etc. |
 | `Apify.Client.Exceptions` | `ApifyApiException` and `ApifyTransportException`. |
 | `Apify.Client.Http` | The replaceable transport: `IHttpTransport` and the default `HttpClientTransport`. |
 
