@@ -10,7 +10,8 @@ Access the account-wide run collection with `client.Runs()`, an Actor's or task'
   (lazy, all pages).
 
 `ListOptions` fields: `Offset`, `Limit`, `Desc` (standard pagination). `RunListOptions` fields:
-`Status` (`IReadOnlyList<string>?`, filter by one or more run statuses such as `SUCCEEDED`/`RUNNING`),
+`Status` (`IReadOnlyList<ActorJobStatus>?`, filter by one or more run statuses such as
+`ActorJobStatus.Succeeded`/`ActorJobStatus.Running`),
 `StartedAfter` and `StartedBefore` (ISO 8601 bounds, honoured only by the Actor- and task-scoped run
 collections).
 

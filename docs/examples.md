@@ -96,7 +96,7 @@ Console.WriteLine(log);
 
 ```csharp
 await client.Actor("apify/hello-world").CallAsync(null, null, 120);
-var last = await client.Actor("apify/hello-world").LastRun(new LastRunOptions { Status = "SUCCEEDED" }).GetAsync();
+var last = await client.Actor("apify/hello-world").LastRun(new LastRunOptions { Status = ActorJobStatus.Succeeded }).GetAsync();
 if (last is not null)
 {
     await client.Dataset(last.DefaultDatasetId!).ListItemsAsync(new DatasetListItemsOptions());

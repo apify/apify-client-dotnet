@@ -1,5 +1,7 @@
 using System.Collections.Generic;
+using System.Linq;
 using Apify.Client.Internal;
+using Apify.Client.Models;
 
 namespace Apify.Client.Options;
 
@@ -10,10 +12,10 @@ namespace Apify.Client.Options;
 public sealed class RunListOptions
 {
     /// <summary>
-    /// Filter by one or more run statuses (e.g. <c>SUCCEEDED</c>, <c>RUNNING</c>); sent as a
-    /// comma-separated list.
+    /// Filter by one or more run statuses; sent as a comma-separated list. Leave <c>null</c> to not filter
+    /// by status.
     /// </summary>
-    public IReadOnlyList<string>? Status { get; init; }
+    public IReadOnlyList<ActorJobStatus>? Status { get; init; }
 
     /// <summary>Filter to runs started after this ISO-8601 timestamp.</summary>
     public string? StartedAfter { get; init; }
@@ -23,7 +25,7 @@ public sealed class RunListOptions
 
     internal void AppendTo(QueryParams q)
     {
-        q.AddCsv("status", Status)
+        q.AddCsv("status", Status?.Select(s => s.ToWireValue()).ToList())
             .AddString("startedAfter", StartedAfter)
             .AddString("startedBefore", StartedBefore);
     }

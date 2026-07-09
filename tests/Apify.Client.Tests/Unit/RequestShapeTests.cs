@@ -2,6 +2,7 @@ using System;
 using System.Globalization;
 using System.Threading.Tasks;
 using System.Text.Json.Nodes;
+using Apify.Client.Models;
 using Apify.Client.Options;
 using Xunit;
 
@@ -27,7 +28,7 @@ public sealed class RequestShapeTests
     {
         var transport = new MockTransport().QueueResponse(200, "[]");
         await Client(transport).Actor("me/act")
-            .LastRun(new LastRunOptions { Status = "SUCCEEDED", Origin = "API" })
+            .LastRun(new LastRunOptions { Status = ActorJobStatus.Succeeded, Origin = RunOrigin.Api })
             .Dataset()
             .ListItemsAsync(new DatasetListItemsOptions());
 
@@ -42,7 +43,7 @@ public sealed class RequestShapeTests
     {
         var transport = new MockTransport().QueueResponse(200, "value");
         await Client(transport).Actor("me/act")
-            .LastRun(new LastRunOptions { Status = "SUCCEEDED", Origin = "API" })
+            .LastRun(new LastRunOptions { Status = ActorJobStatus.Succeeded, Origin = RunOrigin.Api })
             .KeyValueStore()
             .GetRecordAsync("OUTPUT");
 
@@ -57,7 +58,7 @@ public sealed class RequestShapeTests
     {
         var transport = new MockTransport().QueueResponse(200, "{\"data\":{\"items\":[]}}");
         await Client(transport).Actor("me/act")
-            .LastRun(new LastRunOptions { Status = "SUCCEEDED", Origin = "API" })
+            .LastRun(new LastRunOptions { Status = ActorJobStatus.Succeeded, Origin = RunOrigin.Api })
             .RequestQueue()
             .ListHeadAsync();
 
@@ -72,7 +73,7 @@ public sealed class RequestShapeTests
     {
         var transport = new MockTransport().QueueResponse(200, "log output");
         await Client(transport).Actor("me/act")
-            .LastRun(new LastRunOptions { Status = "SUCCEEDED", Origin = "API" })
+            .LastRun(new LastRunOptions { Status = ActorJobStatus.Succeeded, Origin = RunOrigin.Api })
             .Log()
             .GetAsync();
 
@@ -87,7 +88,7 @@ public sealed class RequestShapeTests
     {
         var transport = new MockTransport().QueueResponse(200, string.Empty);
         await Client(transport).Actor("me/act")
-            .LastRun(new LastRunOptions { Status = "SUCCEEDED", Origin = "API" })
+            .LastRun(new LastRunOptions { Status = ActorJobStatus.Succeeded, Origin = RunOrigin.Api })
             .Dataset()
             .PushItemsAsync(new { hello = "world" });
 
@@ -231,7 +232,7 @@ public sealed class RequestShapeTests
     public async Task RunListJoinsStatusAsCsv()
     {
         var transport = new MockTransport().QueueResponse(200, "{\"data\":{\"items\":[],\"total\":0}}");
-        await Client(transport).Runs().ListAsync(null, new RunListOptions { Status = new[] { "SUCCEEDED", "RUNNING" } });
+        await Client(transport).Runs().ListAsync(null, new RunListOptions { Status = new[] { ActorJobStatus.Succeeded, ActorJobStatus.Running } });
 
         Assert.Contains("status=SUCCEEDED%2CRUNNING", transport.LastRequest.Uri, StringComparison.Ordinal);
     }

@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.2.0
+
+- Idiomatic refactor: values drawn from a fixed API set are now strongly-typed C# enums instead of
+  strings. **Breaking public-interface changes:**
+  - New enums `ActorJobStatus`, `RunOrigin`, `WebhookEventType` (`Apify.Client.Models`) and
+    `PermissionLevel` (`Apify.Client.Options`), each with a `ToWireValue()` mapping to the API string;
+    `ActorJobStatus.IsTerminal()` reports whether a run/build status is final.
+  - `ActorRun.Status` and `Build.Status` are now `ActorJobStatus?` (was `string?`); `Webhook.EventTypes`
+    is now `IReadOnlyList<WebhookEventType>?` (was `IReadOnlyList<string>?`). Unrecognized/absent API
+    values degrade to `null` (or are skipped in the list) and never throw; the raw JSON stays available
+    via `Get(...)`/`ToJsonObject()`.
+  - `LastRunOptions.Status`/`Origin` are now `ActorJobStatus?`/`RunOrigin?`, `RunListOptions.Status` is
+    `IReadOnlyList<ActorJobStatus>?`, and `ActorStartOptions.ForcePermissionLevel` is `PermissionLevel?`.
+- Removed the internal `Statuses` helper; terminal-status logic now lives on `ActorJobStatus.IsTerminal()`.
+
 ## 0.1.1
 
 - Bumped `ApifyClientVersion.ApiSpecVersion` to the Apify OpenAPI spec `v2-2026-07-07T132551Z` and the

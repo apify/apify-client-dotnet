@@ -1,3 +1,5 @@
+using Apify.Client.Models;
+
 namespace Apify.Client.Options;
 
 /// <summary>
@@ -13,9 +15,9 @@ namespace Apify.Client.Options;
 /// </remarks>
 public sealed class LastRunOptions
 {
-    /// <summary>Filter by run status (e.g. <c>SUCCEEDED</c>, <c>FAILED</c>, <c>RUNNING</c>).</summary>
-    public string? Status { get; init; }
+    /// <summary>Filter by run status; leave <c>null</c> to not filter by status.</summary>
+    public ActorJobStatus? Status { get; init; }
 
-    /// <summary>Filter by how the run was started (e.g. <c>DEVELOPMENT</c>, <c>WEB</c>, <c>API</c>).</summary>
-    public string? Origin { get; init; }
+    /// <summary>Filter by how the run was started; leave <c>null</c> to not filter by origin.</summary>
+    public RunOrigin? Origin { get; init; }
 }

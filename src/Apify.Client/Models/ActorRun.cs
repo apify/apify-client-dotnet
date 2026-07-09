@@ -1,5 +1,4 @@
 using System.Text.Json.Nodes;
-using Apify.Client.Internal;
 
 namespace Apify.Client.Models;
 
@@ -26,10 +25,10 @@ public sealed class ActorRun : ApifyResource
     public string? UserId => GetString("userId");
 
     /// <summary>
-    /// The current run status. One of the eight <c>ActorJobStatus</c> values: <c>READY</c>, <c>RUNNING</c>,
-    /// <c>SUCCEEDED</c>, <c>FAILED</c>, <c>TIMING-OUT</c>, <c>TIMED-OUT</c>, <c>ABORTING</c>, <c>ABORTED</c>.
+    /// The current run status, or <c>null</c> if absent or unrecognized. The raw status string is always
+    /// available via <c>Get("status")</c>.
     /// </summary>
-    public string? Status => GetString("status");
+    public ActorJobStatus? Status => ActorJobStatusExtensions.FromWireValue(GetString("status"));
 
     /// <summary>An optional human-readable status message.</summary>
     public string? StatusMessage => GetString("statusMessage");
@@ -56,5 +55,5 @@ public sealed class ActorRun : ApifyResource
     public string? ContainerUrl => GetString("containerUrl");
 
     /// <summary>Whether the run has reached a terminal (finished) status.</summary>
-    public bool IsTerminal => Statuses.IsTerminal(Status);
+    public bool IsTerminal => Status is { } status && status.IsTerminal();
 }

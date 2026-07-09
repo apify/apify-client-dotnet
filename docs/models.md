@@ -50,7 +50,7 @@ Base class for every JSON-backed model below.
 | `ActId` | `string?` | ID of the Actor that was run. |
 | `ActorTaskId` | `string?` | ID of the task the run originated from, if any. |
 | `UserId` | `string?` | ID of the user who started the run. |
-| `Status` | `string?` | Run status (e.g. `RUNNING`, `SUCCEEDED`, `FAILED`, `ABORTED`). |
+| `Status` | `ActorJobStatus?` | Run status (`Ready`/`Running`/`Succeeded`/`Failed`/`TimingOut`/`TimedOut`/`Aborting`/`Aborted`); `null` if absent or unrecognized (raw string via `Get("status")`). |
 | `StatusMessage` | `string?` | Human-readable status message. |
 | `StartedAt` | `string?` | ISO 8601 start timestamp. |
 | `FinishedAt` | `string?` | ISO 8601 finish timestamp (`null` while running). |
@@ -67,7 +67,7 @@ Base class for every JSON-backed model below.
 |---|---|---|
 | `Id` | `string?` | The build's unique ID. |
 | `ActId` | `string?` | ID of the Actor that was built. |
-| `Status` | `string?` | Build status (e.g. `RUNNING`, `SUCCEEDED`, `FAILED`). |
+| `Status` | `ActorJobStatus?` | Build status (same `ActorJobStatus` values as a run); `null` if absent or unrecognized. |
 | `StartedAt` | `string?` | ISO 8601 start timestamp. |
 | `FinishedAt` | `string?` | ISO 8601 finish timestamp (`null` while building). |
 | `BuildNumber` | `string?` | The semantic build number. |
@@ -237,7 +237,7 @@ The aggregate result of a batch add-requests operation.
 | `Id` | `string?` | The webhook's unique ID. |
 | `UserId` | `string?` | ID of the owning user. |
 | `RequestUrl` | `string?` | URL the webhook posts to when triggered. |
-| `EventTypes` | `IReadOnlyList<string>?` | The event types that trigger the webhook. |
+| `EventTypes` | `IReadOnlyList<WebhookEventType>?` | The event types that trigger the webhook; unrecognized values are skipped (raw list via `Get("eventTypes")`). |
 
 ## `WebhookDispatch`
 
@@ -271,3 +271,21 @@ One page of a paginated listing, returned by every `ListAsync` method.
 
 To iterate every item across pages without managing offsets yourself, use the matching
 `IterateAsync` method (an `IAsyncEnumerable<T>`) instead — see the resource-specific docs.
+
+## API enums
+
+Fields whose API values are drawn from a fixed set are typed as C# enums rather than raw strings, so
+they can be used with `switch` expressions and are checked at compile time. Each enum member maps to a
+specific API wire value; call `.ToWireValue()` to obtain that string.
+
+| Enum | Namespace | Members (→ wire value) |
+|---|---|---|
+| `ActorJobStatus` | `Apify.Client.Models` | `Ready`, `Running`, `Succeeded`, `Failed`, `TimingOut` (→ `TIMING-OUT`), `TimedOut` (→ `TIMED-OUT`), `Aborting`, `Aborted`. `status.IsTerminal()` reports whether a status is final. |
+| `RunOrigin` | `Apify.Client.Models` | `Development`, `Web`, `Api`, `Scheduler`, `Test`, `Webhook`, `Actor`, `Cli`, `Ci`, `Standby`, `Mcp`. |
+| `WebhookEventType` | `Apify.Client.Models` | `ActorRunCreated`/`Succeeded`/`Failed`/`TimedOut`/`Aborted`/`Resurrected`, `ActorBuildCreated`/`Succeeded`/`Failed`/`TimedOut`/`Aborted`, `Test` (wire values like `ACTOR.RUN.SUCCEEDED`). |
+| `PermissionLevel` | `Apify.Client.Options` | `LimitedPermissions` (→ `LIMITED_PERMISSIONS`), `FullPermissions` (→ `FULL_PERMISSIONS`). |
+| `DownloadItemsFormat` | `Apify.Client.Options` | `Json`, `Jsonl`, `Csv`, `Xlsx`, `Xml`, `Rss`, `Html`. |
+
+Enum-typed model properties (`ActorRun.Status`, `Build.Status`, `Webhook.EventTypes`) are `null` (or skip
+the item, for the list) when the API returns a value this client does not recognize; the raw JSON is
+always available via `Get(...)`/`ToJsonObject()`.

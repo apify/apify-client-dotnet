@@ -1,5 +1,4 @@
 using System.Text.Json.Nodes;
-using Apify.Client.Internal;
 
 namespace Apify.Client.Models;
 
@@ -20,10 +19,10 @@ public sealed class Build : ApifyResource
     public string? ActId => GetString("actId");
 
     /// <summary>
-    /// The current build status. One of the eight <c>ActorJobStatus</c> values: <c>READY</c>, <c>RUNNING</c>,
-    /// <c>SUCCEEDED</c>, <c>FAILED</c>, <c>TIMING-OUT</c>, <c>TIMED-OUT</c>, <c>ABORTING</c>, <c>ABORTED</c>.
+    /// The current build status, or <c>null</c> if absent or unrecognized. The raw status string is always
+    /// available via <c>Get("status")</c>.
     /// </summary>
-    public string? Status => GetString("status");
+    public ActorJobStatus? Status => ActorJobStatusExtensions.FromWireValue(GetString("status"));
 
     /// <summary>When the build started (ISO-8601 string).</summary>
     public string? StartedAt => GetString("startedAt");
@@ -35,5 +34,5 @@ public sealed class Build : ApifyResource
     public string? BuildNumber => GetString("buildNumber");
 
     /// <summary>Whether the build has reached a terminal (finished) status.</summary>
-    public bool IsTerminal => Statuses.IsTerminal(Status);
+    public bool IsTerminal => Status is { } status && status.IsTerminal();
 }

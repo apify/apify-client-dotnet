@@ -1,4 +1,5 @@
 using System.Threading.Tasks;
+using Apify.Client.Models;
 using Apify.Client.Options;
 using Xunit;
 
@@ -45,6 +46,8 @@ public sealed class WebhookIntegrationTests : IntegrationTestBase
             var got = await client.Webhook(wh.Id!).GetAsync();
             Assert.NotNull(got);
             Assert.Equal(wh.Id, got!.Id);
+            Assert.NotNull(got.EventTypes);
+            Assert.Contains(WebhookEventType.ActorRunSucceeded, got.EventTypes!);
         }
         finally
         {

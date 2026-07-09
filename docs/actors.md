@@ -63,7 +63,7 @@ foreach (var actor in page.Items)
 | `MaxTotalChargeUsd` | `double?` | Maximum total USD the run is allowed to charge. |
 | `ContentType` | `string?` | Content type of the `input` body (defaults to `application/json`). |
 | `RestartOnError` | `bool?` | Automatically restart the run's container if it exits with an error. |
-| `ForcePermissionLevel` | `string?` | Override the Actor's permission level (`LIMITED_PERMISSIONS`/`FULL_PERMISSIONS`). |
+| `ForcePermissionLevel` | `PermissionLevel?` | Override the Actor's permission level (`LimitedPermissions`/`FullPermissions`). |
 | `Webhooks` | `object?` | Ad-hoc webhooks (any JSON-serializable list) to attach to this run. |
 
 ```csharp
@@ -82,8 +82,9 @@ Console.WriteLine(run.Status);
 `ValidateInputOptions` fields: `Build` (`string?`, the Actor build whose input schema to validate
 against) and `ContentType` (`string?`, content type of the input; defaults to `application/json`).
 
-`LastRunOptions` fields: `Status` (`string?`, only consider the last run with this status, e.g.
-`SUCCEEDED`) and `Origin` (`string?`, only consider the last run started from this origin, e.g. `API`).
+`LastRunOptions` fields: `Status` (`ActorJobStatus?`, only consider the last run with this status, e.g.
+`ActorJobStatus.Succeeded`) and `Origin` (`RunOrigin?`, only consider the last run started from this
+origin, e.g. `RunOrigin.Api`).
 
 ## Versions and environment variables
 

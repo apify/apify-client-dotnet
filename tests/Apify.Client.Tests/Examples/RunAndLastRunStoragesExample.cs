@@ -1,6 +1,7 @@
 using System;
 using System.Threading.Tasks;
 using Apify.Client;
+using Apify.Client.Models;
 using Apify.Client.Options;
 
 namespace Apify.Client.Tests.Examples;
@@ -11,7 +12,7 @@ public static class RunAndLastRunStoragesExample
     public static async Task RunAsync(ApifyClient client)
     {
         await client.Actor("apify/hello-world").CallAsync(null, null, 120);
-        var last = await client.Actor("apify/hello-world").LastRun(new LastRunOptions { Status = "SUCCEEDED" }).GetAsync();
+        var last = await client.Actor("apify/hello-world").LastRun(new LastRunOptions { Status = ActorJobStatus.Succeeded }).GetAsync();
         if (last is not null)
         {
             await client.Dataset(last.DefaultDatasetId!).ListItemsAsync(new DatasetListItemsOptions());

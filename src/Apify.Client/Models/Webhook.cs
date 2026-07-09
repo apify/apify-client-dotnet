@@ -22,6 +22,30 @@ public sealed class Webhook : ApifyResource
     /// <summary>The URL the webhook posts to.</summary>
     public string? RequestUrl => GetString("requestUrl");
 
-    /// <summary>The events that trigger the webhook.</summary>
-    public IReadOnlyList<string>? EventTypes => GetStringList("eventTypes");
+    /// <summary>
+    /// The events that trigger the webhook. Unrecognized values are skipped; the raw list is always
+    /// available via <c>Get("eventTypes")</c>. Returns <c>null</c> if the field is absent.
+    /// </summary>
+    public IReadOnlyList<WebhookEventType>? EventTypes
+    {
+        get
+        {
+            var raw = GetStringList("eventTypes");
+            if (raw is null)
+            {
+                return null;
+            }
+
+            var result = new List<WebhookEventType>(raw.Count);
+            foreach (var value in raw)
+            {
+                if (WebhookEventTypeExtensions.FromWireValue(value) is { } eventType)
+                {
+                    result.Add(eventType);
+                }
+            }
+
+            return result;
+        }
+    }
 }

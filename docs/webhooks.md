@@ -21,17 +21,25 @@ are **read-only** (list only); create account-wide webhooks that target an Actor
 - `TestAsync()` → `WebhookDispatch` (dispatch immediately).
 - `Dispatches()` → `WebhookDispatchCollectionClient`.
 
+The webhook definition is an ordinary JSON-serializable object. Use `WebhookEventType.ToWireValue()` to
+turn the strongly-typed event enum into the string the API expects; the `Webhook.EventTypes` you read
+back is a typed `IReadOnlyList<WebhookEventType>`.
+
 ```csharp
+using System;
 using Apify.Client;
+using Apify.Client.Models;
 using Apify.Client.Options;
 
 var client = new ApifyClient("my-api-token");
 var webhook = await client.Webhooks().CreateAsync(new
 {
-    eventTypes = new[] { "ACTOR.RUN.SUCCEEDED" },
+    eventTypes = new[] { WebhookEventType.ActorRunSucceeded.ToWireValue() },
     condition = new { actorId = "apify/hello-world" },
     requestUrl = "https://example.com/webhook",
 });
+
+Console.WriteLine(webhook.EventTypes?.Contains(WebhookEventType.ActorRunSucceeded)); // True
 
 await client.Webhook(webhook.Id!).UpdateAsync(new { requestUrl = "https://example.com/updated" });
 await client.Webhook(webhook.Id!).Dispatches().ListAsync(new ListOptions { Limit = 10 });

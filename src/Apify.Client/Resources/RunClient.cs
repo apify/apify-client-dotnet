@@ -42,14 +42,14 @@ public sealed class RunClient
     /// </summary>
     internal void SetLastRunParams(LastRunOptions options)
     {
-        if (!string.IsNullOrEmpty(options.Status))
+        if (options.Status is { } status)
         {
-            _ctx.BaseParams.AddRaw("status", options.Status);
+            _ctx.BaseParams.AddRaw("status", status.ToWireValue());
         }
 
-        if (!string.IsNullOrEmpty(options.Origin))
+        if (options.Origin is { } origin)
         {
-            _ctx.BaseParams.AddRaw("origin", options.Origin);
+            _ctx.BaseParams.AddRaw("origin", origin.ToWireValue());
         }
     }
 

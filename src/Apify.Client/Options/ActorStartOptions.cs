@@ -32,9 +32,9 @@ public sealed class ActorStartOptions
     public bool? RestartOnError { get; init; }
 
     /// <summary>
-    /// Override the Actor's permission level for this run (<c>LIMITED_PERMISSIONS</c>/<c>FULL_PERMISSIONS</c>).
+    /// Override the Actor's permission level for this run. Leave <c>null</c> to use the Actor's default.
     /// </summary>
-    public string? ForcePermissionLevel { get; init; }
+    public PermissionLevel? ForcePermissionLevel { get; init; }
 
     /// <summary>
     /// Ad-hoc webhooks to attach to this run; a JSON-serializable list serialized to base64-encoded JSON
@@ -55,7 +55,7 @@ public sealed class ActorStartOptions
             .AddInt("maxItems", MaxItems)
             .AddDouble("maxTotalChargeUsd", MaxTotalChargeUsd)
             .AddBool("restartOnError", RestartOnError)
-            .AddString("forcePermissionLevel", ForcePermissionLevel)
+            .AddString("forcePermissionLevel", ForcePermissionLevel?.ToWireValue())
             .AddString("webhooks", EncodeWebhooks(Webhooks));
     }
 

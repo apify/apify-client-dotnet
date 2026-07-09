@@ -1,4 +1,5 @@
 using System.Threading.Tasks;
+using Apify.Client.Models;
 using Apify.Client.Options;
 using Xunit;
 
@@ -22,7 +23,7 @@ public sealed class ActorRunIntegrationTests : IntegrationTestBase
     {
         var client = RequireClient();
         var run = await client.Actor("apify/hello-world").CallAsync(null, null, 120);
-        Assert.Equal("SUCCEEDED", run.Status);
+        Assert.Equal(ActorJobStatus.Succeeded, run.Status);
 
         Assert.NotNull(await client.Run(run.Id!).GetAsync());
 
@@ -41,7 +42,7 @@ public sealed class ActorRunIntegrationTests : IntegrationTestBase
 
         // Start a run and wait for it to reach a terminal state before mutating it.
         var run = await client.Actor("apify/hello-world").CallAsync(null, null, 120);
-        Assert.Equal("SUCCEEDED", run.Status);
+        Assert.Equal(ActorJobStatus.Succeeded, run.Status);
 
         var statusMessage = "updated by dotnet client integration test";
         var updated = await client.Run(run.Id!).UpdateAsync(new { statusMessage });
@@ -59,14 +60,14 @@ public sealed class ActorRunIntegrationTests : IntegrationTestBase
         var client = RequireClient();
         await client.Actor("apify/hello-world").CallAsync(null, null, 120);
 
-        var lastRun = await client.Actor("apify/hello-world").LastRun(new LastRunOptions { Status = "SUCCEEDED" }).GetAsync();
+        var lastRun = await client.Actor("apify/hello-world").LastRun(new LastRunOptions { Status = ActorJobStatus.Succeeded }).GetAsync();
         Assert.NotNull(lastRun);
-        Assert.Equal("SUCCEEDED", lastRun!.Status);
+        Assert.Equal(ActorJobStatus.Succeeded, lastRun!.Status);
 
         var byOrigin = await client.Actor("apify/hello-world")
-            .LastRun(new LastRunOptions { Status = "SUCCEEDED", Origin = "API" })
+            .LastRun(new LastRunOptions { Status = ActorJobStatus.Succeeded, Origin = RunOrigin.Api })
             .GetAsync();
         Assert.NotNull(byOrigin);
-        Assert.Equal("SUCCEEDED", byOrigin!.Status);
+        Assert.Equal(ActorJobStatus.Succeeded, byOrigin!.Status);
     }
 }
