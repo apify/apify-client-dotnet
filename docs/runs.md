@@ -15,6 +15,22 @@ Access the account-wide run collection with `client.Runs()`, an Actor's or task'
 `StartedAfter` and `StartedBefore` (ISO 8601 bounds, honoured only by the Actor- and task-scoped run
 collections).
 
+The status filter accepts several `ActorJobStatus` values at once; the filter is the **second** argument
+to `ListAsync` (pass `null` for the first to keep default pagination):
+
+```csharp
+using System;
+using Apify.Client;
+using Apify.Client.Models;
+using Apify.Client.Options;
+
+var client = new ApifyClient("my-api-token");
+var page = await client.Runs().ListAsync(
+    new ListOptions { Limit = 10 },
+    new RunListOptions { Status = new[] { ActorJobStatus.Succeeded, ActorJobStatus.Running } });
+Console.WriteLine("Runs on this page: " + page.Count);
+```
+
 ## Single run — `client.Run(runId)`
 
 - `GetAsync(int? waitForFinishSecs = null)` → `ActorRun?`.

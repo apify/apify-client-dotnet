@@ -274,17 +274,26 @@ To iterate every item across pages without managing offsets yourself, use the ma
 
 ## API enums
 
-Fields whose API values are drawn from a fixed set are typed as C# enums rather than raw strings, so
-they can be used with `switch` expressions and are checked at compile time. Each enum member maps to a
-specific API wire value; call `.ToWireValue()` to obtain that string.
+Several fields whose API values are drawn from a fixed set are typed as C# enums rather than raw strings,
+so they can be used with `switch` expressions and are checked at compile time. (Some fixed-set fields —
+`ActorVersion.SourceType`, `StorageListOptions.Ownership`, `StoreListOptions.ResponseFormat` — are still
+plain strings and may be typed in a future release.)
 
 | Enum | Namespace | Members (→ wire value) |
 |---|---|---|
-| `ActorJobStatus` | `Apify.Client.Models` | `Ready`, `Running`, `Succeeded`, `Failed`, `TimingOut` (→ `TIMING-OUT`), `TimedOut` (→ `TIMED-OUT`), `Aborting`, `Aborted`. `status.IsTerminal()` reports whether a status is final. |
+| `ActorJobStatus` | `Apify.Client.Models` | `Ready`, `Running`, `Succeeded`, `Failed`, `TimingOut` (→ `TIMING-OUT`), `TimedOut` (→ `TIMED-OUT`), `Aborting`, `Aborted`. |
 | `RunOrigin` | `Apify.Client.Models` | `Development`, `Web`, `Api`, `Scheduler`, `Test`, `Webhook`, `Actor`, `Cli`, `Ci`, `Standby`, `Mcp`. |
-| `WebhookEventType` | `Apify.Client.Models` | `ActorRunCreated`/`Succeeded`/`Failed`/`TimedOut`/`Aborted`/`Resurrected`, `ActorBuildCreated`/`Succeeded`/`Failed`/`TimedOut`/`Aborted`, `Test` (wire values like `ACTOR.RUN.SUCCEEDED`). |
+| `WebhookEventType` | `Apify.Client.Models` | `ActorRunCreated`, `ActorRunSucceeded`, `ActorRunFailed`, `ActorRunTimedOut`, `ActorRunAborted`, `ActorRunResurrected`, `ActorBuildCreated`, `ActorBuildSucceeded`, `ActorBuildFailed`, `ActorBuildTimedOut`, `ActorBuildAborted`, `Test` (wire values like `ACTOR.RUN.SUCCEEDED`). |
 | `PermissionLevel` | `Apify.Client.Options` | `LimitedPermissions` (→ `LIMITED_PERMISSIONS`), `FullPermissions` (→ `FULL_PERMISSIONS`). |
 | `DownloadItemsFormat` | `Apify.Client.Options` | `Json`, `Jsonl`, `Csv`, `Xlsx`, `Xml`, `Rss`, `Html`. |
+
+You set these enums directly on the typed options and read them off models; the client handles the
+string conversion. The one exception is `WebhookEventType`, whose `ToWireValue()` is public because
+webhook definitions are created from free-form objects — see [webhooks](webhooks.md).
+
+`ActorJobStatus.IsTerminal()` reports whether a status is final (`Succeeded`/`Failed`/`Aborted`/`TimedOut`).
+Prefer the `ActorRun.IsTerminal` / `Build.IsTerminal` convenience properties when you already hold a model;
+use the enum extension when you only have an `ActorJobStatus` value.
 
 Enum-typed model properties (`ActorRun.Status`, `Build.Status`, `Webhook.EventTypes`) are `null` (or skip
 the item, for the list) when the API returns a value this client does not recognize; the raw JSON is

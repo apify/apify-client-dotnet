@@ -41,8 +41,11 @@ public enum RunOrigin
     Mcp,
 }
 
-/// <summary>Maps <see cref="RunOrigin"/> to its API wire representation.</summary>
-public static class RunOriginExtensions
+/// <summary>
+/// Maps <see cref="RunOrigin"/> to its API wire representation. Internal: an origin is only ever passed
+/// to the client through <c>LastRunOptions.Origin</c>, so callers never stringify it themselves.
+/// </summary>
+internal static class RunOriginExtensions
 {
     /// <summary>The wire value the API uses for this origin (e.g. <c>SCHEDULER</c>).</summary>
     public static string ToWireValue(this RunOrigin origin) => origin switch

@@ -13,8 +13,9 @@ indent_size = 4
 csharp_style_namespace_declarations = file_scoped:warning
 
 # CA1711: the model type `RequestQueue` deliberately mirrors the Apify API resource name (and the
-# JS/PHP/Java/Go/Rust sibling clients). Renaming it away from the reserved "Queue" suffix would break
-# cross-client naming consistency, which the client requirements mandate. Justified suppression.
+# `RequestQueue` naming used by the JS reference client). Renaming it away from the reserved "Queue"
+# suffix would break the naming consistency with the API/JS reference the client requirements mandate.
+# Justified suppression.
 dotnet_diagnostic.CA1711.severity = none
 
 [*.{csproj,props,targets}]

@@ -96,13 +96,23 @@ Console.WriteLine(log);
 
 ```csharp
 await client.Actor("apify/hello-world").CallAsync(null, null, 120);
-var last = await client.Actor("apify/hello-world").LastRun(new LastRunOptions { Status = ActorJobStatus.Succeeded }).GetAsync();
+
+// Resolve the last run, filtering by both status and how it was started (origin).
+var last = await client.Actor("apify/hello-world")
+    .LastRun(new LastRunOptions { Status = ActorJobStatus.Succeeded, Origin = RunOrigin.Api })
+    .GetAsync();
 if (last is not null)
 {
     await client.Dataset(last.DefaultDatasetId!).ListItemsAsync(new DatasetListItemsOptions());
     await client.KeyValueStore(last.DefaultKeyValueStoreId!).GetRecordAsync("OUTPUT");
     Console.WriteLine("Last run: " + last.Id);
 }
+
+// List the Actor's runs by passing several statuses at once (filter is the 2nd argument).
+var runs = await client.Actor("apify/hello-world").Runs().ListAsync(
+    new ListOptions { Limit = 5 },
+    new RunListOptions { Status = new[] { ActorJobStatus.Succeeded, ActorJobStatus.Running } });
+Console.WriteLine("Matching runs on this page: " + runs.Count);
 ```
 
 ## Lazy iteration of the Apify Store

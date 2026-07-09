@@ -2,8 +2,9 @@
 
 ## 0.2.0
 
-- Idiomatic refactor: values drawn from a fixed API set are now strongly-typed C# enums instead of
-  strings. **Breaking public-interface changes:**
+- Idiomatic refactor: four API fields whose values are drawn from a fixed set (run/build status, run
+  origin, webhook event type, run permission level) are now strongly-typed C# enums instead of strings.
+  **Breaking public-interface changes:**
   - New enums `ActorJobStatus`, `RunOrigin`, `WebhookEventType` (`Apify.Client.Models`) and
     `PermissionLevel` (`Apify.Client.Options`), each with a `ToWireValue()` mapping to the API string;
     `ActorJobStatus.IsTerminal()` reports whether a run/build status is final.

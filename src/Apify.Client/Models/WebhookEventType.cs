@@ -44,7 +44,11 @@ public enum WebhookEventType
     Test,
 }
 
-/// <summary>Maps <see cref="WebhookEventType"/> to and from its API wire representation.</summary>
+/// <summary>
+/// Maps <see cref="WebhookEventType"/> to and from its API wire representation. <see cref="ToWireValue"/>
+/// is public because webhook definitions are created from free-form objects, so callers building an
+/// <c>eventTypes</c> array need to turn the enum into its API string themselves.
+/// </summary>
 public static class WebhookEventTypeExtensions
 {
     /// <summary>The wire value the API uses for this event type (e.g. <c>ACTOR.RUN.SUCCEEDED</c>).</summary>

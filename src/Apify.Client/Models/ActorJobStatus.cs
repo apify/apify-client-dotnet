@@ -32,11 +32,14 @@ public enum ActorJobStatus
     Aborted,
 }
 
-/// <summary>Maps <see cref="ActorJobStatus"/> to and from its API wire representation.</summary>
+/// <summary>Helpers for <see cref="ActorJobStatus"/>.</summary>
 public static class ActorJobStatusExtensions
 {
-    /// <summary>The wire value the API uses for this status (e.g. <c>TIMING-OUT</c>).</summary>
-    public static string ToWireValue(this ActorJobStatus status) => status switch
+    /// <summary>
+    /// The wire value the API uses for this status (e.g. <c>TIMING-OUT</c>). Internal: statuses are passed
+    /// to the client through typed options, so callers never need to stringify them.
+    /// </summary>
+    internal static string ToWireValue(this ActorJobStatus status) => status switch
     {
         ActorJobStatus.Ready => "READY",
         ActorJobStatus.Running => "RUNNING",

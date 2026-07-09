@@ -84,7 +84,20 @@ against) and `ContentType` (`string?`, content type of the input; defaults to `a
 
 `LastRunOptions` fields: `Status` (`ActorJobStatus?`, only consider the last run with this status, e.g.
 `ActorJobStatus.Succeeded`) and `Origin` (`RunOrigin?`, only consider the last run started from this
-origin, e.g. `RunOrigin.Api`).
+origin, e.g. `RunOrigin.Api`). Both enums live in `Apify.Client.Models`:
+
+```csharp
+using System;
+using Apify.Client;
+using Apify.Client.Models;
+using Apify.Client.Options;
+
+var client = new ApifyClient("my-api-token");
+var lastApiRun = await client.Actor("apify/hello-world")
+    .LastRun(new LastRunOptions { Status = ActorJobStatus.Succeeded, Origin = RunOrigin.Api })
+    .GetAsync();
+Console.WriteLine(lastApiRun?.Status); // Succeeded
+```
 
 ## Versions and environment variables
 
