@@ -289,11 +289,29 @@ plain strings and may be typed in a future release.)
 
 You set these enums directly on the typed options and read them off models; the client handles the
 string conversion. The one exception is `WebhookEventType`, whose `ToWireValue()` is public because
-webhook definitions are created from free-form objects — see [webhooks](webhooks.md).
+webhook definitions are created from free-form objects — see [webhooks](webhooks.md). `ToWireValue()` is
+an **extension method** declared in the `Apify.Client.Models` namespace, so a call such as
+`WebhookEventType.ActorRunSucceeded.ToWireValue()` compiles only with `using Apify.Client.Models;` in
+scope.
 
 `ActorJobStatus.IsTerminal()` reports whether a status is final (`Succeeded`/`Failed`/`Aborted`/`TimedOut`).
-Prefer the `ActorRun.IsTerminal` / `Build.IsTerminal` convenience properties when you already hold a model;
-use the enum extension when you only have an `ActorJobStatus` value.
+It, too, is an **extension method** in `Apify.Client.Models` and needs `using Apify.Client.Models;` to
+compile. Prefer the `ActorRun.IsTerminal` / `Build.IsTerminal` convenience properties when you already hold
+a model; use the enum extension when you only have an `ActorJobStatus` value:
+
+```csharp
+using System;
+using Apify.Client;
+using Apify.Client.Models; // ActorJobStatus + the IsTerminal() extension method live here
+
+var client = new ApifyClient("my-api-token");
+var run = await client.Run("some-run-id").GetAsync();
+
+if (run?.Status is { } status && status.IsTerminal())
+{
+    Console.WriteLine($"Run has finished with status {status}.");
+}
+```
 
 Enum-typed model properties (`ActorRun.Status`, `Build.Status`, `Webhook.EventTypes`) are `null` (or skip
 the item, for the list) when the API returns a value this client does not recognize; the raw JSON is

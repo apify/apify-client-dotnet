@@ -82,9 +82,9 @@ Console.WriteLine(run.Status);
 `ValidateInputOptions` fields: `Build` (`string?`, the Actor build whose input schema to validate
 against) and `ContentType` (`string?`, content type of the input; defaults to `application/json`).
 
-`LastRunOptions` fields: `Status` (`ActorJobStatus?`, only consider the last run with this status, e.g.
-`ActorJobStatus.Succeeded`) and `Origin` (`RunOrigin?`, only consider the last run started from this
-origin, e.g. `RunOrigin.Api`). Both enums live in `Apify.Client.Models`:
+`LastRunOptions` (in `Apify.Client.Options`) fields: `Status` (`ActorJobStatus?`, only consider the last
+run with this status, e.g. `ActorJobStatus.Succeeded`) and `Origin` (`RunOrigin?`, only consider the last
+run started from this origin, e.g. `RunOrigin.Api`). Both enums live in `Apify.Client.Models`:
 
 ```csharp
 using System;
