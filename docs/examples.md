@@ -16,8 +16,8 @@ using Apify.Client;
 using Apify.Client.Models;
 using Apify.Client.Options;
 
-// The token parameter is nullable (`string? token = null`), so reading it straight from the
-// environment is valid; this mirrors how the CI example runner constructs the client.
+// ApifyClientOptions.Token is a nullable string, so reading it straight from the environment is
+// valid; this mirrors how the CI example runner constructs the client.
 var client = new ApifyClient(new ApifyClientOptions
 {
     Token = Environment.GetEnvironmentVariable("APIFY_TOKEN"),
