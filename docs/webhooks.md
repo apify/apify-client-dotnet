@@ -27,6 +27,7 @@ back is a typed `IReadOnlyList<WebhookEventType>`.
 
 ```csharp
 using System;
+using System.Linq;
 using Apify.Client;
 using Apify.Client.Models;
 using Apify.Client.Options;

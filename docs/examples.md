@@ -16,7 +16,12 @@ using Apify.Client;
 using Apify.Client.Models;
 using Apify.Client.Options;
 
-var client = new ApifyClient(Environment.GetEnvironmentVariable("APIFY_TOKEN"));
+// The token parameter is nullable (`string? token = null`), so reading it straight from the
+// environment is valid; this mirrors how the CI example runner constructs the client.
+var client = new ApifyClient(new ApifyClientOptions
+{
+    Token = Environment.GetEnvironmentVariable("APIFY_TOKEN"),
+});
 ```
 
 ## Run a store Actor and read its dataset

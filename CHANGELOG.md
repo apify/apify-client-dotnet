@@ -6,7 +6,9 @@
   origin, webhook event type, run permission level) are now strongly-typed C# enums instead of strings.
   **Breaking public-interface changes:**
   - New enums `ActorJobStatus`, `RunOrigin`, `WebhookEventType` (`Apify.Client.Models`) and
-    `PermissionLevel` (`Apify.Client.Options`), each with a `ToWireValue()` mapping to the API string;
+    `PermissionLevel` (`Apify.Client.Options`). You set them on the typed options and read them off
+    models; the client handles the string conversion internally. `WebhookEventType.ToWireValue()` is the
+    one public wire mapping (webhook definitions are built from free-form objects), and
     `ActorJobStatus.IsTerminal()` reports whether a run/build status is final.
   - `ActorRun.Status` and `Build.Status` are now `ActorJobStatus?` (was `string?`); `Webhook.EventTypes`
     is now `IReadOnlyList<WebhookEventType>?` (was `IReadOnlyList<string>?`). Unrecognized/absent API
