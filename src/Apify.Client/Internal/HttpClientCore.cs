@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.IO;
+using System.IO.Compression;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Text;
@@ -30,6 +32,15 @@ internal sealed class HttpClientCore
     private const int BackoffFactor = 2;
 
     private const int NotFound = 404;
+
+    /// <summary>
+    /// Request bodies whose size in bytes is at or above this threshold are compressed before sending,
+    /// matching the reference client's minimum-compression size.
+    /// </summary>
+    private const int MinCompressBytes = 1024;
+
+    /// <summary>The <c>Content-Encoding</c> token used for brotli-compressed request bodies.</summary>
+    private const string BrotliEncoding = "br";
 
     private readonly IHttpTransport _transport;
     private readonly string? _token;
@@ -68,6 +79,9 @@ internal sealed class HttpClientCore
         var maxAttempts = _retry.MaxRetries + 1;
         var path = ExtractPath(url);
         var baseTimeout = timeout ?? TimeSpan.FromSeconds(_retry.TimeoutSecs);
+        // Normalize (and, when large enough, compress) the body once up front so retries reuse the same
+        // prepared payload instead of re-encoding and re-compressing on every attempt.
+        var prepared = PrepareBody(body, bodyBytes, contentType);
         Exception? lastError = null;
 
         for (var attempt = 1; attempt <= maxAttempts; attempt++)
@@ -76,7 +90,7 @@ internal sealed class HttpClientCore
             try
             {
                 var response = await SendOnceAsync(
-                    method, url, body, bodyBytes, contentType, extraHeaders,
+                    method, url, prepared, extraHeaders,
                     AttemptTimeout(baseTimeout, attempt), cancellationToken).ConfigureAwait(false);
 
                 var status = (int)response.StatusCode;
@@ -114,21 +128,19 @@ internal sealed class HttpClientCore
     /// <summary>Opens a live streaming response (single attempt, no retry). Used by log streaming.</summary>
     public Task<HttpResponseMessage> StreamAsync(string url, CancellationToken cancellationToken)
     {
-        var request = BuildRequest(HttpMethod.Get, url, null, null, string.Empty, null);
+        var request = BuildRequest(HttpMethod.Get, url, default, null);
         return _transport.SendAsync(request, TimeSpan.FromSeconds(_retry.TimeoutSecs), streaming: true, cancellationToken);
     }
 
     private async Task<HttpResponseMessage> SendOnceAsync(
         HttpMethod method,
         string url,
-        string? body,
-        byte[]? bodyBytes,
-        string contentType,
+        PreparedBody prepared,
         IReadOnlyDictionary<string, string>? extraHeaders,
         TimeSpan timeout,
         CancellationToken cancellationToken)
     {
-        using var request = BuildRequest(method, url, body, bodyBytes, contentType, extraHeaders);
+        using var request = BuildRequest(method, url, prepared, extraHeaders);
         return await _transport.SendAsync(request, timeout, streaming: false, cancellationToken).ConfigureAwait(false);
     }
 
@@ -136,9 +148,7 @@ internal sealed class HttpClientCore
     private HttpRequestMessage BuildRequest(
         HttpMethod method,
         string url,
-        string? body,
-        byte[]? bodyBytes,
-        string contentType,
+        PreparedBody prepared,
         IReadOnlyDictionary<string, string>? extraHeaders)
     {
         var request = new HttpRequestMessage(method, url);
@@ -156,21 +166,66 @@ internal sealed class HttpClientCore
             }
         }
 
-        // Raw bytes take precedence so binary records (e.g. images, gzip) are sent verbatim; a string body
-        // is UTF-8 encoded. Setting the content type verbatim (no charset appended unless the caller added one).
-        HttpContent? content = bodyBytes is not null
-            ? new ByteArrayContent(bodyBytes)
-            : body is not null ? new StringContent(body, Encoding.UTF8) : null;
-        if (content is not null)
+        if (prepared.Bytes is not null)
         {
-            content.Headers.ContentType = string.IsNullOrEmpty(contentType)
+            var content = new ByteArrayContent(prepared.Bytes);
+            // Set the content type verbatim (no charset appended unless the caller added one).
+            content.Headers.ContentType = string.IsNullOrEmpty(prepared.ContentType)
                 ? null
-                : MediaTypeHeaderValue.Parse(contentType);
+                : MediaTypeHeaderValue.Parse(prepared.ContentType);
+            if (prepared.ContentEncoding is not null)
+            {
+                content.Headers.ContentEncoding.Add(prepared.ContentEncoding);
+            }
+
             request.Content = content;
         }
 
         return request;
     }
+
+    /// <summary>
+    /// Normalizes a request body to bytes and, when it is large enough, compresses it. Raw bytes take
+    /// precedence so binary records (e.g. images) are used as-is rather than re-encoded through a UTF-8
+    /// string; a string body is UTF-8 encoded. Either kind of payload is then compressed once it reaches
+    /// the size threshold (see the remarks).
+    /// </summary>
+    /// <remarks>
+    /// Bodies at or above <see cref="MinCompressBytes"/> are brotli-compressed (<c>Content-Encoding: br</c>),
+    /// matching the reference client, which prefers brotli and only falls back to gzip on runtimes where
+    /// brotli is unavailable. .NET's <see cref="BrotliStream"/> is always available, so brotli is always
+    /// used here and a gzip fallback would be unreachable.
+    /// </remarks>
+    private static PreparedBody PrepareBody(string? body, byte[]? bodyBytes, string contentType)
+    {
+        var raw = bodyBytes ?? (body is not null ? Encoding.UTF8.GetBytes(body) : null);
+        if (raw is null)
+        {
+            return default;
+        }
+
+        return raw.Length >= MinCompressBytes
+            ? new PreparedBody(BrotliCompress(raw), contentType, BrotliEncoding)
+            : new PreparedBody(raw, contentType, null);
+    }
+
+    /// <summary>Brotli-compresses a payload into a self-contained byte array.</summary>
+    private static byte[] BrotliCompress(byte[] data)
+    {
+        using var output = new MemoryStream();
+        using (var brotli = new BrotliStream(output, CompressionMode.Compress))
+        {
+            brotli.Write(data, 0, data.Length);
+        }
+
+        return output.ToArray();
+    }
+
+    /// <summary>
+    /// A request body normalized to bytes, together with the content type and optional
+    /// <c>Content-Encoding</c> to send. A <see langword="default"/> value carries no body.
+    /// </summary>
+    private readonly record struct PreparedBody(byte[]? Bytes, string ContentType, string? ContentEncoding);
 
     /// <summary>
     /// Returns <c>min(overall, base * 2^(attempt-1))</c>: the first attempt uses the base timeout; each

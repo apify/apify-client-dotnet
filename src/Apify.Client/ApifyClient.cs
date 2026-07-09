@@ -266,12 +266,18 @@ public sealed class ApifyClient
         return ua;
     }
 
-    /// <summary>The lowercase operating-system family name, matching the reference clients' convention.</summary>
+    /// <summary>
+    /// The short, lowercase platform identifier used in the <c>User-Agent</c> OS token. These match the
+    /// reference client's Node <c>os.platform()</c> values (<c>win32</c>, <c>darwin</c>, <c>linux</c>,
+    /// <c>android</c>, <c>freebsd</c>) rather than uname-style names, keeping the token aligned across
+    /// Apify clients. Android is checked before Linux so an Android runtime is reported as
+    /// <c>android</c> rather than <c>linux</c>.
+    /// </summary>
     private static string CurrentOs()
     {
         if (OperatingSystem.IsWindows())
         {
-            return "windows";
+            return "win32";
         }
 
         if (OperatingSystem.IsMacOS())
@@ -279,9 +285,19 @@ public sealed class ApifyClient
             return "darwin";
         }
 
+        if (OperatingSystem.IsAndroid())
+        {
+            return "android";
+        }
+
         if (OperatingSystem.IsLinux())
         {
             return "linux";
+        }
+
+        if (OperatingSystem.IsFreeBSD())
+        {
+            return "freebsd";
         }
 
         return "unknown";

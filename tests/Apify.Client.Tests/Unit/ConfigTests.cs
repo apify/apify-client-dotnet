@@ -38,6 +38,22 @@ public sealed class ConfigTests
     }
 
     [Fact]
+    public void UserAgentOsTokenUsesShortLowercasePlatformIdentifier()
+    {
+        // The OS token must be a short, lowercase platform identifier aligned with the other Apify
+        // clients' Node `os.platform()` values, not a uname-style name (e.g. "win32", never "windows").
+        var client = new ApifyClient(new ApifyClientOptions
+        {
+            Token = "t",
+            HttpTransport = new MockTransport(),
+        });
+
+        var osToken = Regex.Match(client.UserAgent, @"\(([^;]+);").Groups[1].Value;
+        Assert.Contains(osToken, new[] { "win32", "darwin", "linux", "android", "freebsd", "unknown" });
+        Assert.DoesNotContain("windows", client.UserAgent, System.StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void ApiBaseUrlAppendsV2()
     {
         var client = new ApifyClient(new ApifyClientOptions { Token = "t", BaseUrl = "https://api.example.com/", HttpTransport = new MockTransport() });

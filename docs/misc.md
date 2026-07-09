@@ -54,6 +54,10 @@ var client = new ApifyClient("my-api-token");
 var me = await client.Me().GetAsync();
 Console.WriteLine(me?.Username);
 var usage = await client.Me().MonthlyUsageAsync();
+
+// Any user's public profile by id (no private fields, and no account-only methods).
+var otherUser = await client.User("some-user-id").GetAsync();
+Console.WriteLine(otherUser?.Username);
 ```
 
 ## Logs — `client.Log(buildOrRunId)`
@@ -66,10 +70,16 @@ var usage = await client.Me().MonthlyUsageAsync();
 
 ```csharp
 using System;
+using System.IO;
 using Apify.Client;
 using Apify.Client.Options;
 
 var client = new ApifyClient("my-api-token");
 var log = await client.Log("some-run-id").GetAsync(new LogOptions { Raw = true });
 Console.WriteLine(log);
+
+// Read a run's raw live log as a stream (the low-level alternative to GetStreamedLog's sink redirection).
+await using var logStream = await client.Run("some-run-id").GetStreamedLogAsync();
+using var reader = new StreamReader(logStream);
+Console.WriteLine(await reader.ReadToEndAsync());
 ```

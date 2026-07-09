@@ -102,10 +102,15 @@ public sealed class MockTransport : IHttpTransport
                 headers[header.Key] = string.Join(",", header.Value);
             }
 
-            // Read the raw bytes so binary bodies can be asserted verbatim; keep a UTF-8 decode for the
-            // string-body assertions (equivalent to ReadAsStringAsync for text content).
+            // Read the raw bytes so binary (and compressed) bodies can be asserted verbatim; keep a UTF-8
+            // decode for the string-body assertions (equivalent to ReadAsStringAsync for text content).
+            // Mimic a server by decompressing the body per Content-Encoding before decoding it to text, so
+            // the logical JSON payload is recovered even when the client compressed a large request body.
             bodyBytes = await request.Content.ReadAsByteArrayAsync(cancellationToken).ConfigureAwait(false);
-            body = System.Text.Encoding.UTF8.GetString(bodyBytes);
+            var encoding = request.Content.Headers.ContentEncoding.Count > 0
+                ? request.Content.Headers.ContentEncoding.ToString()
+                : null;
+            body = System.Text.Encoding.UTF8.GetString(Decompress(bodyBytes, encoding));
         }
 
         lock (_lock)
@@ -168,6 +173,27 @@ public sealed class MockTransport : IHttpTransport
                 _inFlight--;
             }
         }
+    }
+
+    /// <summary>Decompresses a request body per its <c>Content-Encoding</c> (<c>br</c>/<c>gzip</c>), or returns it unchanged.</summary>
+    private static byte[] Decompress(byte[] bytes, string? encoding)
+    {
+        using var input = new System.IO.MemoryStream(bytes);
+        using System.IO.Stream? decompressor = encoding switch
+        {
+            "br" => new System.IO.Compression.BrotliStream(input, System.IO.Compression.CompressionMode.Decompress),
+            "gzip" => new System.IO.Compression.GZipStream(input, System.IO.Compression.CompressionMode.Decompress),
+            _ => null,
+        };
+
+        if (decompressor is null)
+        {
+            return bytes;
+        }
+
+        using var output = new System.IO.MemoryStream();
+        decompressor.CopyTo(output);
+        return output.ToArray();
     }
 
     /// <summary>Builds a 200 batch response echoing each request-body uniqueKey as processed.</summary>

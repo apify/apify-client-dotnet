@@ -1,9 +1,11 @@
 # Examples
 
-Each example below is a complete, runnable scenario. The canonical, compiled versions live in
-[`tests/Apify.Client.Tests/Examples`](../tests/Apify.Client.Tests/Examples) and are executed
-end-to-end against the live API by the **Test examples** CI step (they require an `APIFY_TOKEN`), so
-the snippets here are guaranteed to stay valid and working.
+Each example below is a complete, runnable scenario. The canonical, compiled versions live in the
+client's source repository under
+[`tests/Apify.Client.Tests/Examples`](../tests/Apify.Client.Tests/Examples) — a repo-internal path that
+is not part of the published NuGet package — and are executed end-to-end against the live API by the
+**Test examples** CI step (they require an `APIFY_TOKEN`), so the snippets here are guaranteed to stay
+valid and working.
 
 Every snippet runs inside an `async` context and assumes the following `using` directives appear at the
 top of the file, **before** any top-level statements (a `using` after the first statement is a `CS1529`
@@ -16,7 +18,9 @@ using Apify.Client;
 using Apify.Client.Models;
 using Apify.Client.Options;
 
-var client = new ApifyClient(Environment.GetEnvironmentVariable("APIFY_TOKEN"));
+var client = new ApifyClient(
+    Environment.GetEnvironmentVariable("APIFY_TOKEN")
+    ?? throw new InvalidOperationException("Set the APIFY_TOKEN environment variable."));
 ```
 
 ## Run a store Actor and read its dataset

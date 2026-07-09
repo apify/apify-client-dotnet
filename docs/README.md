@@ -57,7 +57,8 @@ Console.WriteLine("Item count: " + items.Count);
 
 `new ApifyClient("my-api-token")` takes the token as an explicit argument — it does **not** read
 `APIFY_TOKEN` (or any other environment variable) automatically. Read it yourself if you want that,
-e.g. `new ApifyClient(Environment.GetEnvironmentVariable("APIFY_TOKEN"))`.
+e.g. `new ApifyClient(Environment.GetEnvironmentVariable("APIFY_TOKEN") ?? throw new InvalidOperationException("Set APIFY_TOKEN"))`
+(the null-coalescing throw keeps the call null-safe when the variable is unset).
 
 Get your API token from the
 [Apify Console → Settings → API & Integrations](https://console.apify.com/settings/integrations).
@@ -70,7 +71,7 @@ the `using` directives for whichever ones a file references:
 | Namespace | What lives here |
 |---|---|
 | `Apify.Client` | The entry point (`ApifyClient`), `ApifyClientOptions`, `ApifyClientVersion`, and the log-redirection helper `StreamedLog`. |
-| `Apify.Client.Resources` | Every resource client the entry point returns — `ActorClient`, `RunClient`, `BuildClient`, `DatasetClient`, `KeyValueStoreClient`, `RequestQueueClient`, `TaskClient`, `ScheduleClient`, `LogClient`, `UserClient`, the `…CollectionClient` types (including `NestedWebhookCollectionClient` and `WebhookDispatchCollectionClient`), etc. |
+| `Apify.Client.Resources` | Every resource client the entry point returns — `ActorClient`, `RunClient`, `BuildClient`, `DatasetClient`, `KeyValueStoreClient`, `RequestQueueClient`, `TaskClient`, `ScheduleClient`, `LogClient`, `UserClient`, `ActorVersionClient`, `ActorEnvVarClient`, the `…CollectionClient` types (including `ActorVersionCollectionClient`, `ActorEnvVarCollectionClient`, `NestedWebhookCollectionClient`, and `WebhookDispatchCollectionClient`), etc. |
 | `Apify.Client.Models` | Data models returned by the clients — `Actor`, `ActorRun`, `Build`, `Dataset`, `RequestQueueRequest`, `ActorEnvVar`, `PaginationList<T>`, and so on. |
 | `Apify.Client.Options` | The option/request objects passed into methods — `ActorStartOptions`, `DatasetListItemsOptions`, `DownloadItemsFormat`, `ListOptions`, `SetRecordOptions`, `StorageListOptions`, etc. |
 | `Apify.Client.Exceptions` | `ApifyApiException` and `ApifyTransportException`. |

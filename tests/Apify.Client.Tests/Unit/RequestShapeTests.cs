@@ -270,6 +270,38 @@ public sealed class RequestShapeTests
     }
 
     [Fact]
+    public async Task LargeRequestBodyIsBrotliCompressed()
+    {
+        // A JSON body at or above the 1 KiB threshold is sent brotli-compressed: the transport sees the
+        // "br" Content-Encoding, and brotli-decompressing the raw bytes recovers the original JSON.
+        var transport = new MockTransport().QueueResponse(200, string.Empty);
+        var bigValue = new string('x', 4096);
+        await Client(transport).Dataset("ds1").PushItemsAsync(new { blob = bigValue });
+
+        var request = transport.LastRequest;
+        Assert.Equal("br", request.Header("Content-Encoding"));
+
+        using var input = new System.IO.MemoryStream(request.BodyBytes);
+        using var brotli = new System.IO.Compression.BrotliStream(input, System.IO.Compression.CompressionMode.Decompress);
+        using var output = new System.IO.MemoryStream();
+        await brotli.CopyToAsync(output);
+        var decoded = System.Text.Encoding.UTF8.GetString(output.ToArray());
+        Assert.Equal(bigValue, JsonNode.Parse(decoded)!["blob"]!.GetValue<string>());
+    }
+
+    [Fact]
+    public async Task SmallRequestBodyIsNotCompressed()
+    {
+        // A body below the 1 KiB threshold is sent verbatim with no Content-Encoding header.
+        var transport = new MockTransport().QueueResponse(200, string.Empty);
+        await Client(transport).Dataset("ds1").PushItemsAsync(new { blob = "small" });
+
+        var request = transport.LastRequest;
+        Assert.Equal(string.Empty, request.Header("Content-Encoding"));
+        Assert.Equal("small", JsonNode.Parse(request.Body)!["blob"]!.GetValue<string>());
+    }
+
+    [Fact]
     public async Task SetRecordSendsRawBytesWithVerbatimContentType()
     {
         // A binary write must send the bytes verbatim (incl. 0xFF) as ByteArrayContent and set the
