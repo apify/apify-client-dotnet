@@ -290,6 +290,60 @@ public sealed class RequestShapeTests
     }
 
     [Fact]
+    public async Task LargeRequestBodyIsGzipCompressedWhenGzipSelected()
+    {
+        // With RequestCompression.Gzip selected, a body at or above the 1 KiB threshold is sent
+        // gzip-compressed: the transport sees the "gzip" Content-Encoding, and gzip-decompressing the raw
+        // bytes recovers the original JSON. This exercises the gzip code path end to end.
+        var transport = new MockTransport().QueueResponse(200, string.Empty);
+        var client = new ApifyClient(new ApifyClientOptions
+        {
+            Token = "t",
+            MinDelayBetweenRetriesMillis = 1,
+            TimeoutSecs = 5,
+            HttpTransport = transport,
+            RequestCompression = RequestCompression.Gzip,
+        });
+        var bigValue = new string('x', 4096);
+        await client.Dataset("ds1").PushItemsAsync(new { blob = bigValue });
+
+        var request = transport.LastRequest;
+        Assert.Equal("gzip", request.Header("Content-Encoding"));
+
+        using var input = new System.IO.MemoryStream(request.BodyBytes);
+        using var gzip = new System.IO.Compression.GZipStream(input, System.IO.Compression.CompressionMode.Decompress);
+        using var output = new System.IO.MemoryStream();
+        await gzip.CopyToAsync(output);
+        var decoded = System.Text.Encoding.UTF8.GetString(output.ToArray());
+        Assert.Equal(bigValue, JsonNode.Parse(decoded)!["blob"]!.GetValue<string>());
+    }
+
+    [Fact]
+    public async Task LargeRequestBodyUsesBrotliByDefault()
+    {
+        // The default RequestCompression is brotli, so a large body is brotli-compressed even without any
+        // explicit option, keeping the brotli path the reference-preferred default.
+        var transport = new MockTransport().QueueResponse(200, string.Empty);
+        await Client(transport).Dataset("ds1").PushItemsAsync(new { blob = new string('y', 4096) });
+
+        Assert.Equal("br", transport.LastRequest.Header("Content-Encoding"));
+    }
+
+    [Theory]
+    // The threshold (MinCompressBytes = 1024) is inclusive: exactly 1024 bytes is compressed, 1023 is not.
+    // A raw byte payload gives exact control over the body size (no JSON framing to account for).
+    [InlineData(1024, "br")]
+    [InlineData(1023, "")]
+    public async Task CompressionThresholdIsInclusiveAt1024Bytes(int size, string expectedEncoding)
+    {
+        var transport = new MockTransport().QueueResponse(200, string.Empty);
+        var payload = new byte[size]; // zero-filled: size is exact and it compresses when over the threshold
+        await Client(transport).KeyValueStore("s1").SetRecordAsync("OUTPUT", payload, "application/octet-stream");
+
+        Assert.Equal(expectedEncoding, transport.LastRequest.Header("Content-Encoding"));
+    }
+
+    [Fact]
     public async Task SmallRequestBodyIsNotCompressed()
     {
         // A body below the 1 KiB threshold is sent verbatim with no Content-Encoding header.

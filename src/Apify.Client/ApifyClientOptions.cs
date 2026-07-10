@@ -33,6 +33,12 @@ public sealed class ApifyClientOptions
     /// <summary>Custom suffix appended to the <c>User-Agent</c> header.</summary>
     public string? UserAgentSuffix { get; set; }
 
+    /// <summary>
+    /// Algorithm used to compress large request bodies (default <see cref="RequestCompression.Brotli"/>).
+    /// Set it to <see cref="RequestCompression.Gzip"/> to send gzip-compressed bodies instead.
+    /// </summary>
+    public RequestCompression RequestCompression { get; set; } = RequestCompression.Brotli;
+
     /// <summary>Replaces the default transport (<see cref="HttpClientTransport"/>).</summary>
     public IHttpTransport? HttpTransport { get; set; }
 

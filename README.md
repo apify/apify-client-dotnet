@@ -36,7 +36,8 @@ var run = await client.Actor("apify/hello-world").CallAsync(null, null, null);
 
 // Read items from the run's default dataset.
 var items = await client.Dataset(run.DefaultDatasetId!).ListItemsAsync();
-Console.WriteLine("Item count: " + items.Count);
+// Count is the number of items in THIS page; Total is the dataset's full count across all pages.
+Console.WriteLine($"Items on this page: {items.Count} (of {items.Total} total)");
 ```
 
 `new ApifyClient("my-api-token")` takes the token as an explicit argument — it does **not** read

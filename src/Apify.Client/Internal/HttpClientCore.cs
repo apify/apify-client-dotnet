@@ -42,16 +42,26 @@ internal sealed class HttpClientCore
     /// <summary>The <c>Content-Encoding</c> token used for brotli-compressed request bodies.</summary>
     private const string BrotliEncoding = "br";
 
+    /// <summary>The <c>Content-Encoding</c> token used for gzip-compressed request bodies.</summary>
+    private const string GzipEncoding = "gzip";
+
     private readonly IHttpTransport _transport;
     private readonly string? _token;
     private readonly RetryConfig _retry;
+    private readonly RequestCompression _compression;
 
-    public HttpClientCore(IHttpTransport transport, string? token, string userAgent, RetryConfig retry)
+    public HttpClientCore(
+        IHttpTransport transport,
+        string? token,
+        string userAgent,
+        RetryConfig retry,
+        RequestCompression compression)
     {
         _transport = transport;
         _token = token;
         UserAgent = userAgent;
         _retry = retry;
+        _compression = compression;
     }
 
     /// <summary>The <c>User-Agent</c> header value this client sends.</summary>
@@ -191,12 +201,14 @@ internal sealed class HttpClientCore
     /// the size threshold (see the remarks).
     /// </summary>
     /// <remarks>
-    /// Bodies at or above <see cref="MinCompressBytes"/> are brotli-compressed (<c>Content-Encoding: br</c>),
-    /// matching the reference client, which prefers brotli and only falls back to gzip on runtimes where
-    /// brotli is unavailable. .NET's <see cref="BrotliStream"/> is always available, so brotli is always
-    /// used here and a gzip fallback would be unreachable.
+    /// Bodies at or above <see cref="MinCompressBytes"/> are compressed with the configured
+    /// <see cref="RequestCompression"/> algorithm: brotli (<c>Content-Encoding: br</c>) by default, matching
+    /// the reference client's preference, or gzip (<c>Content-Encoding: gzip</c>) when
+    /// <see cref="RequestCompression.Gzip"/> is selected. Both encodings match the reference client's, though
+    /// the reference only reaches gzip when brotli is unavailable; since .NET always ships brotli, gzip here
+    /// is a .NET-only opt-in.
     /// </remarks>
-    private static PreparedBody PrepareBody(string? body, byte[]? bodyBytes, string contentType)
+    private PreparedBody PrepareBody(string? body, byte[]? bodyBytes, string contentType)
     {
         var raw = bodyBytes ?? (body is not null ? Encoding.UTF8.GetBytes(body) : null);
         if (raw is null)
@@ -204,9 +216,14 @@ internal sealed class HttpClientCore
             return default;
         }
 
-        return raw.Length >= MinCompressBytes
-            ? new PreparedBody(BrotliCompress(raw), contentType, BrotliEncoding)
-            : new PreparedBody(raw, contentType, null);
+        if (raw.Length < MinCompressBytes)
+        {
+            return new PreparedBody(raw, contentType, null);
+        }
+
+        return _compression == RequestCompression.Gzip
+            ? new PreparedBody(GzipCompress(raw), contentType, GzipEncoding)
+            : new PreparedBody(BrotliCompress(raw), contentType, BrotliEncoding);
     }
 
     /// <summary>Brotli-compresses a payload into a self-contained byte array.</summary>
@@ -216,6 +233,18 @@ internal sealed class HttpClientCore
         using (var brotli = new BrotliStream(output, CompressionMode.Compress))
         {
             brotli.Write(data, 0, data.Length);
+        }
+
+        return output.ToArray();
+    }
+
+    /// <summary>Gzip-compresses a payload into a self-contained byte array.</summary>
+    private static byte[] GzipCompress(byte[] data)
+    {
+        using var output = new MemoryStream();
+        using (var gzip = new GZipStream(output, CompressionMode.Compress))
+        {
+            gzip.Write(data, 0, data.Length);
         }
 
         return output.ToArray();

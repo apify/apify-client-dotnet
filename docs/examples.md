@@ -2,8 +2,8 @@
 
 Each example below is a complete, runnable scenario. The canonical, compiled versions live in the
 client's source repository under
-[`tests/Apify.Client.Tests/Examples`](../tests/Apify.Client.Tests/Examples) — a repo-internal path that
-is not part of the published NuGet package — and are executed end-to-end against the live API by the
+[`tests/Apify.Client.Tests/Examples`](https://github.com/apify/apify-client-dotnet/tree/master/tests/Apify.Client.Tests/Examples)
+— a repo-internal path that is not part of the published NuGet package — and are executed end-to-end against the live API by the
 **Test examples** CI step (they require an `APIFY_TOKEN`), so the snippets here are guaranteed to stay
 valid and working.
 
@@ -29,7 +29,8 @@ var client = new ApifyClient(
 // The third argument bounds the wait in seconds (120 here); pass null to wait indefinitely.
 var run = await client.Actor("apify/hello-world").CallAsync(null, null, 120);
 var items = await client.Dataset(run.DefaultDatasetId!).ListItemsAsync(new DatasetListItemsOptions());
-Console.WriteLine("Item count: " + items.Count);
+// Count is the number of items in THIS page; Total is the dataset's full count across all pages.
+Console.WriteLine($"Items on this page: {items.Count} (of {items.Total} total)");
 ```
 
 ## Each storage: create, push, read
