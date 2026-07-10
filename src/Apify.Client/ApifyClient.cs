@@ -1,5 +1,6 @@
 using System;
 using System.Globalization;
+using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Text.Json.Nodes;
@@ -81,7 +82,7 @@ public sealed class ApifyClient
             options.TimeoutSecs);
 
         var userAgent = BuildUserAgent(options.UserAgentSuffix, options.IsAtHome ?? DefaultIsAtHome);
-        _http = new HttpClientCore(transport, options.Token, userAgent, retry);
+        _http = new HttpClientCore(transport, options.Token, userAgent, retry, options.RequestCompression);
 
         _baseUrl = TrimTrailingSlash(options.BaseUrl) + "/v2";
         var publicSource = options.PublicBaseUrl ?? options.BaseUrl;
@@ -266,22 +267,85 @@ public sealed class ApifyClient
         return ua;
     }
 
-    /// <summary>The lowercase operating-system family name, matching the reference clients' convention.</summary>
-    private static string CurrentOs()
+    /// <summary>
+    /// Additional Node <c>os.platform()</c> tokens for Unix platforms that .NET has no dedicated
+    /// <see cref="OperatingSystem"/> helper for, matched via <see cref="RuntimeInformation.IsOSPlatform"/>.
+    /// Solaris and illumos both report as <c>sunos</c>, matching Node.
+    /// </summary>
+    /// <remarks>
+    /// These entries are deliberately kept even though .NET has no officially supported runtime on these
+    /// platforms today: the requirement is that every Apify client emit the exact same OS token as the
+    /// reference client's <c>os.platform()</c>, so should .NET ever run there the token stays aligned
+    /// rather than degrading to <c>unknown</c>. They are a forward-compatible superset, not live branches.
+    /// </remarks>
+    private static readonly (OSPlatform Platform, string Token)[] ExtendedOsTokens =
     {
-        if (OperatingSystem.IsWindows())
+        (OSPlatform.Create("OPENBSD"), "openbsd"),
+        (OSPlatform.Create("NETBSD"), "netbsd"),
+        (OSPlatform.Create("SOLARIS"), "sunos"),
+        (OSPlatform.Create("ILLUMOS"), "sunos"),
+        (OSPlatform.Create("AIX"), "aix"),
+    };
+
+    /// <summary>Resolves the current platform to its <c>User-Agent</c> OS token (see <see cref="ResolveOsToken"/>).</summary>
+    private static string CurrentOs() => ResolveOsToken(
+        OperatingSystem.IsWindows(),
+        OperatingSystem.IsMacOS(),
+        OperatingSystem.IsAndroid(),
+        OperatingSystem.IsLinux(),
+        OperatingSystem.IsFreeBSD(),
+        RuntimeInformation.IsOSPlatform);
+
+    /// <summary>
+    /// Maps the detected runtime platform to the short, lowercase token used in the <c>User-Agent</c> OS
+    /// field. The tokens are exactly the reference JS client's Node <c>os.platform()</c> values
+    /// (<c>win32</c>, <c>darwin</c>, <c>android</c>, <c>linux</c>, <c>freebsd</c>, <c>openbsd</c>,
+    /// <c>netbsd</c>, <c>sunos</c>, <c>aix</c>), so the token is identical across Apify clients. Android is
+    /// checked before Linux because an Android runtime is also Linux-based. The five platforms .NET exposes
+    /// dedicated <see cref="OperatingSystem"/> helpers for are matched first; the remaining Unix platforms
+    /// Node names but .NET has no helper for are matched via <paramref name="isOsPlatform"/>. Platforms the
+    /// reference's Node runtime cannot run on at all (e.g. iOS, the browser) have no reference token and so
+    /// fall back to <c>unknown</c>.
+    /// </summary>
+    internal static string ResolveOsToken(
+        bool isWindows,
+        bool isMacOs,
+        bool isAndroid,
+        bool isLinux,
+        bool isFreeBsd,
+        Func<OSPlatform, bool> isOsPlatform)
+    {
+        if (isWindows)
         {
-            return "windows";
+            return "win32";
         }
 
-        if (OperatingSystem.IsMacOS())
+        if (isMacOs)
         {
             return "darwin";
         }
 
-        if (OperatingSystem.IsLinux())
+        if (isAndroid)
+        {
+            return "android";
+        }
+
+        if (isLinux)
         {
             return "linux";
+        }
+
+        if (isFreeBsd)
+        {
+            return "freebsd";
+        }
+
+        foreach (var (platform, token) in ExtendedOsTokens)
+        {
+            if (isOsPlatform(platform))
+            {
+                return token;
+            }
         }
 
         return "unknown";

@@ -48,7 +48,7 @@ foreach (var actor in page.Items)
 - `DefaultBuildAsync(int? waitForFinish = null)` → `BuildClient`.
 - `LastRun(LastRunOptions? options = null)` → `RunClient` (filter by `Status`/`Origin`).
 - `Builds()` → `BuildCollectionClient`; `Runs()` → `RunCollectionClient`.
-- `Version(string versionNumber)` / `Versions()` — Actor versions.
+- `Version(string versionNumber)` → `ActorVersionClient`; `Versions()` → `ActorVersionCollectionClient` — a single Actor version and the version collection.
 - `Webhooks()` → read-only `NestedWebhookCollectionClient`.
 
 `ActorStartOptions` fields:
@@ -86,6 +86,51 @@ against) and `ContentType` (`string?`, content type of the input; defaults to `a
 `SUCCEEDED`) and `Origin` (`string?`, only consider the last run started from this origin, e.g. `API`).
 
 ## Versions and environment variables
+
+Manage an Actor's versions with `client.Actor(id).Versions()` (the whole collection) and
+`client.Actor(id).Version(versionNumber)` (one version). Each version in turn owns a collection of
+environment variables, reached with `.EnvVars()` / `.EnvVar(name)`.
+
+### Version collection — `client.Actor(id).Versions()` → `ActorVersionCollectionClient`
+
+- `ListAsync(ListOptions? options = null)` — list the Actor's versions (one page). Returns
+  `PaginationList<ActorVersion>`.
+- `IterateAsync(ListOptions? options = null)` → `IAsyncEnumerable<ActorVersion>` — lazily iterate every
+  version across pages, fetching each page on demand.
+- `CreateAsync(object version)` — create a version from any JSON-serializable definition. Returns
+  `ActorVersion`.
+
+`ListOptions` fields: `Offset` (`int?`, items to skip), `Limit` (`int?`, page size), `Desc` (`bool?`,
+newest-first when `true`).
+
+### Single version — `client.Actor(id).Version(versionNumber)` → `ActorVersionClient`
+
+`versionNumber` is the version identifier (e.g. `0.1`).
+
+- `GetAsync()` → `ActorVersion?` (null if not found).
+- `UpdateAsync(object newFields)` → `ActorVersion` — update with any JSON-serializable set of fields.
+- `DeleteAsync()`.
+- `EnvVars()` → `ActorEnvVarCollectionClient` — this version's environment-variable collection.
+- `EnvVar(string name)` → `ActorEnvVarClient` — a single environment variable of this version.
+
+### Env-var collection — `Version(versionNumber).EnvVars()` → `ActorEnvVarCollectionClient`
+
+- `ListAsync()` — list the version's environment variables (the endpoint returns them in a single page).
+  Returns `PaginationList<ActorEnvVar>`.
+- `IterateAsync()` → `IAsyncEnumerable<ActorEnvVar>` — iterate the variables; provided for parity with
+  the other collection iterators (yields the single page's items).
+- `CreateAsync(ActorEnvVar envVar)` → `ActorEnvVar` — create an environment variable.
+
+### Single env-var — `Version(versionNumber).EnvVar(name)` → `ActorEnvVarClient`
+
+`name` is the environment variable's name.
+
+- `GetAsync()` → `ActorEnvVar?` (null if not found).
+- `UpdateAsync(ActorEnvVar envVar)` → `ActorEnvVar`.
+- `DeleteAsync()`.
+
+See [`ActorVersion`](models.md#actorversion) and [`ActorEnvVar`](models.md#actorenvvar) for the returned
+models and the `ActorEnvVar` constructor used below.
 
 ```csharp
 using Apify.Client;

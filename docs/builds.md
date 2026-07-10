@@ -17,7 +17,7 @@ Access the account-wide build collection with `client.Builds()`, an Actor's buil
 - `WaitForFinishAsync(int? waitSecs = null)` → `Build` — client-side polling until terminal (`null`
   waits indefinitely).
 - `GetOpenApiDefinitionAsync()` → `JsonObject?`.
-- `Log()` → `LogClient`.
+- `Log()` → `LogClient` (its `GetAsync`/`StreamAsync` methods are documented under [Logs in misc.md](misc.md#logs--clientlogbuildorrunid)).
 
 Builds are created with `client.Actor(id).BuildAsync(string versionNumber, ActorBuildOptions? options = null)`.
 `ActorBuildOptions` fields:

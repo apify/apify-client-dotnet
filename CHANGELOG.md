@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.1.2
+
+- Bumped `ApifyClientVersion.ApiSpecVersion` to the Apify OpenAPI spec `v2-2026-07-08T143931Z` and the
+  project version to `0.1.2`.
+- Aligned the `User-Agent` OS token with the reference client's Node `os.platform()` values (`win32`,
+  `darwin`, `linux`, `android`, `freebsd`, and — for platforms without a dedicated .NET helper —
+  `openbsd`, `netbsd`, `sunos`, `aix`) instead of `windows`.
+- Request bodies of at least 1024 bytes are compressed before sending. The compression algorithm is
+  selectable via the new `ApifyClientOptions.RequestCompression` option (`RequestCompression` enum):
+  brotli (`Content-Encoding: br`) by default, or gzip (`Content-Encoding: gzip`).
+
 ## 0.1.1
 
 - Bumped `ApifyClientVersion.ApiSpecVersion` to the Apify OpenAPI spec `v2-2026-07-07T132551Z` and the

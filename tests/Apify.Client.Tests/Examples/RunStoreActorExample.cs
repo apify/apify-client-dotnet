@@ -12,6 +12,7 @@ public static class RunStoreActorExample
     {
         var run = await client.Actor("apify/hello-world").CallAsync(null, null, 120);
         var items = await client.Dataset(run.DefaultDatasetId!).ListItemsAsync(new DatasetListItemsOptions());
-        Console.WriteLine("Item count: " + items.Count);
+        // Count is the number of items in THIS page; Total is the dataset's full count across all pages.
+        Console.WriteLine($"Items on this page: {items.Count} (of {items.Total} total)");
     }
 }

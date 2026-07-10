@@ -33,7 +33,7 @@ reached from a run (`client.Run(id).Dataset()`, `.KeyValueStore()`, `.RequestQue
   `byte[]` (raw bytes, so binary formats like `Xlsx` are not corrupted; decode text formats yourself).
 - `PushItemsAsync(object items)` — push one object or an array of objects.
 - `GetStatisticsAsync()` → `JsonObject?`.
-- `CreateItemsPublicUrlAsync(DatasetListItemsOptions? options = null, int? expiresInSecs = null)` → signed public URL.
+- `CreateItemsPublicUrlAsync(DatasetListItemsOptions? options = null, int? expiresInSecs = null)` → `string` (a signed public URL).
 
 `DatasetListItemsOptions` selects and reshapes items: `Offset`/`Limit` (pagination), `Desc` (reverse
 order), `Fields`/`OutputFields`/`Omit` (choose columns), `Unwind`/`Flatten` (restructure nested
@@ -96,8 +96,8 @@ Console.WriteLine(Encoding.UTF8.GetString(csvBytes)); // CSV is text; decode the
 - `SetRecordAsync(string key, byte[] value, string contentType, SetRecordOptions? options = null)` and
   `SetRecordJsonAsync(string key, object? value)` (serializes `value` to JSON bytes).
 - `DeleteRecordAsync(string key)`.
-- `GetRecordPublicUrlAsync(string key)` and
-  `CreateKeysPublicUrlAsync(ListKeysOptions? options = null, int? expiresInSecs = null)`.
+- `GetRecordPublicUrlAsync(string key)` → `string` and
+  `CreateKeysPublicUrlAsync(ListKeysOptions? options = null, int? expiresInSecs = null)` → `string` (both signed public URLs).
 
 `ListKeysOptions` fields: `Limit` (page size), `ExclusiveStartKey` (start after this key),
 `Prefix` (only keys with this prefix), `Collection` (a named record collection), and `Signature`
@@ -136,8 +136,9 @@ options set a stable `ClientKey` (required to manage locks the client created) a
 
 - `GetAsync()` → `RequestQueue?`; `UpdateAsync(object newFields)` → `RequestQueue`; `DeleteAsync()`.
 - `AddRequestAsync(RequestQueueRequest request, bool forefront = false)` → `RequestQueueOperationInfo`.
-- `GetRequestAsync(string id)`, `UpdateRequestAsync(RequestQueueRequest request, bool forefront = false)`,
-  `DeleteRequestAsync(string id)`.
+- `GetRequestAsync(string id)` → `RequestQueueRequest?` (null if not found);
+  `UpdateRequestAsync(RequestQueueRequest request, bool forefront = false)` → `RequestQueueOperationInfo`;
+  `DeleteRequestAsync(string id)` (no return value).
 - `ListHeadAsync(int? limit = null)` → `RequestQueueHead`;
   `ListAndLockHeadAsync(int lockSecs, int? limit = null)`.
 - `BatchAddRequestsAsync(IReadOnlyList<RequestQueueRequest> requests, bool forefront = false, BatchAddRequestsOptions? options = null)`

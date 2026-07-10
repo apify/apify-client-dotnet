@@ -52,12 +52,14 @@ var run = await client.Actor("apify/hello-world").CallAsync(null, null, null);
 
 // Read items from the run's default dataset.
 var items = await client.Dataset(run.DefaultDatasetId!).ListItemsAsync();
-Console.WriteLine("Item count: " + items.Count);
+// Count is the number of items in THIS page; Total is the dataset's full count across all pages.
+Console.WriteLine($"Items on this page: {items.Count} (of {items.Total} total)");
 ```
 
 `new ApifyClient("my-api-token")` takes the token as an explicit argument — it does **not** read
 `APIFY_TOKEN` (or any other environment variable) automatically. Read it yourself if you want that,
-e.g. `new ApifyClient(Environment.GetEnvironmentVariable("APIFY_TOKEN"))`.
+e.g. `new ApifyClient(Environment.GetEnvironmentVariable("APIFY_TOKEN") ?? throw new InvalidOperationException("Set APIFY_TOKEN"))`
+(the null-coalescing throw keeps the call null-safe when the variable is unset).
 
 Get your API token from the
 [Apify Console → Settings → API & Integrations](https://console.apify.com/settings/integrations).
@@ -70,11 +72,12 @@ the `using` directives for whichever ones a file references:
 | Namespace | What lives here |
 |---|---|
 | `Apify.Client` | The entry point (`ApifyClient`), `ApifyClientOptions`, `ApifyClientVersion`, and the log-redirection helper `StreamedLog`. |
-| `Apify.Client.Resources` | Every resource client the entry point returns — `ActorClient`, `RunClient`, `BuildClient`, `DatasetClient`, `KeyValueStoreClient`, `RequestQueueClient`, `TaskClient`, `ScheduleClient`, `LogClient`, `UserClient`, the `…CollectionClient` types (including `NestedWebhookCollectionClient` and `WebhookDispatchCollectionClient`), etc. |
+| `Apify.Client.Resources` | Every resource client the entry point returns — `ActorClient`, `RunClient`, `BuildClient`, `DatasetClient`, `KeyValueStoreClient`, `RequestQueueClient`, `TaskClient`, `ScheduleClient`, `LogClient`, `UserClient`, `ActorVersionClient`, `ActorEnvVarClient`, the `…CollectionClient` types (including `ActorVersionCollectionClient`, `ActorEnvVarCollectionClient`, `NestedWebhookCollectionClient`, and `WebhookDispatchCollectionClient`), etc. |
 | `Apify.Client.Models` | Data models returned by the clients — `Actor`, `ActorRun`, `Build`, `Dataset`, `RequestQueueRequest`, `ActorEnvVar`, `PaginationList<T>`, and so on. |
 | `Apify.Client.Options` | The option/request objects passed into methods — `ActorStartOptions`, `DatasetListItemsOptions`, `DownloadItemsFormat`, `ListOptions`, `SetRecordOptions`, `StorageListOptions`, etc. |
 | `Apify.Client.Exceptions` | `ApifyApiException` and `ApifyTransportException`. |
 | `Apify.Client.Http` | The replaceable transport: `IHttpTransport` and the default `HttpClientTransport`. |
+| `System.Text.Json.Nodes` (BCL) | Not an Apify namespace, but required whenever you name the JSON escape-hatch types the client returns/accepts — `JsonObject`/`JsonNode` (e.g. dataset items, `GetInputAsync`/`UpdateInputAsync`, `GetStatisticsAsync`, `GetOpenApiDefinitionAsync`, `MonthlyUsageAsync`/`LimitsAsync`, `RequestQueueRequest.UserData`). Add `using System.Text.Json.Nodes;`. |
 
 Fluent chains such as `client.Actor("id").Builds()` compile with only `using Apify.Client;` because the
 intermediate types are inferred. You only need `using Apify.Client.Resources;` when you name a resource
@@ -116,10 +119,14 @@ var configured = new ApifyClient(new ApifyClientOptions
 | `MaxDelayBetweenRetriesMillis` | request timeout | Upper bound on the growing inter-retry delay. |
 | `TimeoutSecs` | `360` | Overall per-request timeout. |
 | `UserAgentSuffix` | `null` | Custom suffix appended to the `User-Agent` header. |
+| `RequestCompression` | `RequestCompression.Brotli` | Algorithm used to compress request bodies ≥ 1024 bytes: `Brotli` (`Content-Encoding: br`) or `Gzip` (`Content-Encoding: gzip`). |
 | `HttpTransport` | `HttpClientTransport` | The replaceable transport (`Apify.Client.Http.IHttpTransport`). |
 
 Requests are retried on network errors, HTTP 429 (rate limit) and 5xx responses, with exponential
 backoff and jitter. 4xx responses (other than 429) are thrown immediately as `ApifyApiException`.
+
+Request bodies of at least 1024 bytes are compressed before sending. Brotli is used by default; set
+`RequestCompression = RequestCompression.Gzip` to send gzip-compressed bodies instead.
 
 ### Replaceable HTTP transport
 
