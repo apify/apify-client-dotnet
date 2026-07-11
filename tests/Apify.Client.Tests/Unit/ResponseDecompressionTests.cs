@@ -42,6 +42,10 @@ public sealed class ResponseDecompressionTests
         Assert.NotNull(actor);
         Assert.Equal("act1", actor!.Id);
         Assert.Equal("compressed-actor", actor.Name);
+
+        // Surface any exception thrown while the server wrote the response, so a server-side failure fails
+        // the test explicitly instead of hiding behind a client-side timeout.
+        await server.WaitForResponseWrittenAsync();
     }
 
     private static byte[] Compress(byte[] data, string encoding)
@@ -64,40 +68,89 @@ public sealed class ResponseDecompressionTests
     /// <summary>A minimal single-response loopback HTTP server returning a compressed body.</summary>
     private sealed class LoopbackServer : IDisposable
     {
+        /// <summary>How long the test waits for the server to finish writing before giving up.</summary>
+        private static readonly TimeSpan WriteTimeout = TimeSpan.FromSeconds(30);
+
+        /// <summary>Attempts to claim a free port before failing (guards the reserve-then-bind race).</summary>
+        private const int BindAttempts = 20;
+
         private readonly HttpListener _listener = new();
         private readonly string _encoding;
         private readonly byte[] _payload;
+        private Task? _serveTask;
 
         public LoopbackServer(string encoding, byte[] payload)
         {
             _encoding = encoding;
             _payload = payload;
-            var port = FreePort();
-            BaseUrl = $"http://127.0.0.1:{port}";
-            _listener.Prefixes.Add(BaseUrl + "/");
+            BaseUrl = ClaimListenerPort(_listener);
         }
 
         public string BaseUrl { get; }
 
         public void Start()
         {
-            _listener.Start();
-            _ = Task.Run(async () =>
+            _serveTask = Task.Run(async () =>
             {
                 var context = await _listener.GetContextAsync().ConfigureAwait(false);
                 var response = context.Response;
-                response.StatusCode = 200;
-                response.ContentType = "application/json";
-                response.AddHeader("Content-Encoding", _encoding);
-                response.OutputStream.Write(_payload, 0, _payload.Length);
-                response.OutputStream.Close();
+                try
+                {
+                    response.StatusCode = 200;
+                    response.ContentType = "application/json";
+                    response.AddHeader("Content-Encoding", _encoding);
+                    await response.OutputStream.WriteAsync(_payload).ConfigureAwait(false);
+                }
+                finally
+                {
+                    response.OutputStream.Close();
+                }
             });
+        }
+
+        /// <summary>Awaits the single response having been written, propagating any server-side exception.</summary>
+        public async Task WaitForResponseWrittenAsync()
+        {
+            if (_serveTask is null)
+            {
+                return;
+            }
+
+            var finished = await Task.WhenAny(_serveTask, Task.Delay(WriteTimeout)).ConfigureAwait(false);
+            Assert.True(finished == _serveTask, "loopback server did not finish writing the response in time");
+            await _serveTask.ConfigureAwait(false); // rethrows any server-side failure
         }
 
         public void Dispose() => _listener.Close();
 
+        /// <summary>
+        /// Binds and starts the listener on a free loopback port, returning its base URL. A port is reserved
+        /// by briefly binding a <see cref="TcpListener"/> to port 0 and reusing the number; because that
+        /// leaves a race where the port could be re-taken before <see cref="HttpListener"/> claims it,
+        /// binding is retried on conflict rather than assumed to succeed the first time. The listener is left
+        /// running so <see cref="Start"/> can begin accepting immediately.
+        /// </summary>
+        private static string ClaimListenerPort(HttpListener listener)
+        {
+            for (var attempt = 1; ; attempt++)
+            {
+                var baseUrl = $"http://127.0.0.1:{ReserveFreePort()}";
+                listener.Prefixes.Clear();
+                listener.Prefixes.Add(baseUrl + "/");
+                try
+                {
+                    listener.Start();
+                    return baseUrl;
+                }
+                catch (HttpListenerException) when (attempt < BindAttempts)
+                {
+                    // The reserved port was taken between reservation and binding; try another.
+                }
+            }
+        }
+
         /// <summary>Reserves a free TCP port by briefly binding to port 0, then releasing it.</summary>
-        private static int FreePort()
+        private static int ReserveFreePort()
         {
             var probe = new TcpListener(IPAddress.Loopback, 0);
             probe.Start();
