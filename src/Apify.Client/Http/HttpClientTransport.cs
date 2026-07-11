@@ -1,4 +1,5 @@
 using System;
+using System.Net;
 using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
@@ -42,6 +43,11 @@ public sealed class HttpClientTransport : IHttpTransport, IDisposable
             {
                 ConnectTimeout = ConnectTimeout,
                 AllowAutoRedirect = true,
+                // The API advertises brotli/gzip/deflate response compression on the dataset-items and
+                // key-value-store record endpoints. Enabling automatic decompression makes the handler send
+                // the matching `Accept-Encoding` request header and transparently inflate the response, so
+                // compressed payloads are handled the same way as in the reference JS client.
+                AutomaticDecompression = DecompressionMethods.Brotli | DecompressionMethods.GZip | DecompressionMethods.Deflate,
             };
             // The client-side retry orchestrator owns the per-request timeout, so disable HttpClient's own.
             _httpClient = new HttpClient(handler) { Timeout = Timeout.InfiniteTimeSpan };

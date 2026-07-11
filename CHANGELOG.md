@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.3
+
+- Bumped `ApifyClientVersion.ApiSpecVersion` to the Apify OpenAPI spec `v2-2026-07-10T105921Z` and the
+  project version to `0.1.3`.
+- The default HTTP transport now negotiates and transparently decompresses brotli, gzip and deflate
+  responses, matching the API's newly documented response compression and the reference client.
+
 ## 0.1.2
 
 - Bumped `ApifyClientVersion.ApiSpecVersion` to the Apify OpenAPI spec `v2-2026-07-08T143931Z` and the
