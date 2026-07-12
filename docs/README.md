@@ -8,9 +8,10 @@ A resource-oriented .NET client for the [Apify API](https://docs.apify.com/api/v
 official [JavaScript](https://github.com/apify/apify-client-js) reference client: start from an
 `ApifyClient`, then drill down into resources.
 
-All API calls are asynchronous and return `Task`/`Task<T>`; every method accepts an optional
-`CancellationToken`. Method names mirror the reference client with the .NET `Async` suffix
-(`GetAsync`, `ListAsync`, `CallAsync`, …).
+All API calls are asynchronous and return `Task`/`Task<T>`; every method takes an optional
+`CancellationToken cancellationToken = default` as its final parameter (omitted from the reference
+signatures on the pages below for brevity). Method names mirror the reference client with the .NET
+`Async` suffix (`GetAsync`, `ListAsync`, `CallAsync`, …).
 
 ## Contents
 
