@@ -14,11 +14,11 @@ public static class ApifyClientVersion
     /// The semantic version of this client library (see https://semver.org/). Changes to the public
     /// interface other than additive ones are considered breaking changes.
     /// </summary>
-    public const string ClientVersion = "0.1.3";
+    public const string ClientVersion = "0.1.4";
 
     /// <summary>
     /// The version of the Apify OpenAPI specification this client was generated and verified against.
     /// Corresponds to the <c>info.version</c> field of the Apify OpenAPI document.
     /// </summary>
-    public const string ApiSpecVersion = "v2-2026-07-10T105921Z";
+    public const string ApiSpecVersion = "v2-2026-07-13T092445Z";
 }

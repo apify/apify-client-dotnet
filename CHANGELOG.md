@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.4
+
+- Bumped `ApifyClientVersion.ApiSpecVersion` to the Apify OpenAPI spec `v2-2026-07-13T092445Z` and the
+  project version to `0.1.4`.
+
 ## 0.1.3
 
 - Bumped `ApifyClientVersion.ApiSpecVersion` to the Apify OpenAPI spec `v2-2026-07-10T105921Z` and the
