@@ -72,14 +72,14 @@ public sealed class TaskIntegrationTests : IntegrationTestBase
         {
             var tc = client.Task(task.Id!);
 
-            // Unpublishing only requires write permission to the task itself, so it succeeds even
-            // though the task's Actor (apify/hello-world) is not owned by the test account.
+            // Unpublishing an already-unpublished task is a documented no-op: it succeeds and returns
+            // the task unchanged (still not public).
             var unpublished = await tc.UnpublishAsync();
+            Assert.Equal(task.Id, unpublished.Id);
             Assert.True(unpublished.IsPublic != true);
 
-            // Publishing additionally requires write permission to the task's Actor, which the test
-            // account does not have for apify/hello-world, so this is expected to fail rather than
-            // to succeed.
+            // Publishing requires write permission to both the task and its Actor (apify/hello-world),
+            // which the test account does not have, so this is expected to fail rather than succeed.
             var ex = await Assert.ThrowsAsync<ApifyApiException>(() => tc.PublishAsync());
             Assert.True(ex.StatusCode is 400 or 403);
         }

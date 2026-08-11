@@ -18,8 +18,7 @@ a specific task with `client.Task(id)`.
   already published task does nothing.
 - `UnpublishAsync()` → `ActorTask` — unpublishes the task (sets `isPublic: false`); `PublicConfig` is
   preserved so the task can be published again without re-entering it. Requires write permission to
-  the task only (unlike `PublishAsync()`, it does not require permission to the task's Actor).
-  Unpublishing a task that is not published does nothing.
+  both the task and its Actor. Unpublishing a task that is not published does nothing.
 - `StartAsync(object? input = null, TaskStartOptions? options = null)` → `ActorRun`.
 - `CallAsync(object? input = null, TaskStartOptions? options = null, int? waitSecs = null, Action<string>? log = null)`
   → `ActorRun` (`log`, if set, redirects the run's live log to that sink for the duration of the wait).

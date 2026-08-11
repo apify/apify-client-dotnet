@@ -68,9 +68,8 @@ public sealed class TaskClient
     /// </summary>
     /// <remarks>
     /// The public display configuration (<see cref="ActorTask.PublicConfig"/>) is preserved, so the
-    /// task can be published again without re-entering it. Requires write permission to the task only
-    /// (unlike <see cref="PublishAsync"/>, it does not require permission to the task's Actor).
-    /// Unpublishing a task that is not published does nothing.
+    /// task can be published again without re-entering it. Requires write permission to both the task
+    /// and its Actor. Unpublishing a task that is not published does nothing.
     /// </remarks>
     /// <param name="cancellationToken">A token to cancel the request.</param>
     public Task<ActorTask> UnpublishAsync(CancellationToken cancellationToken = default) =>
