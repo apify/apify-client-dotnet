@@ -1,4 +1,5 @@
 using System.Threading.Tasks;
+using Apify.Client.Exceptions;
 using Apify.Client.Options;
 using Xunit;
 
@@ -55,6 +56,32 @@ public sealed class TaskIntegrationTests : IntegrationTestBase
             Assert.NotNull(await tc.GetInputAsync());
             await tc.UpdateAsync(new { name = UniqueName("task-renamed") });
             await tc.Runs().ListAsync(new ListOptions(), new RunListOptions());
+        }
+        finally
+        {
+            await client.Task(task.Id!).DeleteAsync();
+        }
+    }
+
+    [SkippableFact]
+    public async Task TaskPublishUnpublish()
+    {
+        var client = RequireClient();
+        var task = await client.Tasks().CreateAsync(TaskDef(UniqueName("task-publish")));
+        try
+        {
+            var tc = client.Task(task.Id!);
+
+            // Unpublishing only requires write permission to the task itself, so it succeeds even
+            // though the task's Actor (apify/hello-world) is not owned by the test account.
+            var unpublished = await tc.UnpublishAsync();
+            Assert.True(unpublished.IsPublic != true);
+
+            // Publishing additionally requires write permission to the task's Actor, which the test
+            // account does not have for apify/hello-world, so this is expected to fail rather than
+            // to succeed.
+            var ex = await Assert.ThrowsAsync<ApifyApiException>(() => tc.PublishAsync());
+            Assert.True(ex.StatusCode is 400 or 403);
         }
         finally
         {

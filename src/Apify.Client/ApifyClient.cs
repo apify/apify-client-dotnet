@@ -16,9 +16,7 @@ namespace Apify.Client;
 /// </summary>
 /// <remarks>
 /// <para>
-/// <b>Official, but experimental — AI-generated and AI-maintained.</b> This is an official Apify client,
-/// but it is experimental: it is generated and maintained by AI. Review the code before relying on it in
-/// production and report issues on the repository.
+/// See the project's top-level README for the client's official-but-experimental status.
 /// </para>
 /// <para>
 /// Construct it with an API token (and optional settings via <see cref="ApifyClientOptions"/>), then

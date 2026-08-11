@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.2.0
+
+- Bumped `ApifyClientVersion.ApiSpecVersion` to the Apify OpenAPI spec `v2-2026-08-05T133145Z` and the
+  project version to `0.2.0`.
+- Added `TaskClient.PublishAsync()` and `TaskClient.UnpublishAsync()`, plus `ActorTask.IsPublic` and
+  `ActorTask.PublicConfig` (backed by the new `TaskPublicConfig` model), matching the reference
+  client's task publish/unpublish support.
+- Removed the duplicated AI-disclaimer paragraph from `docs/README.md` and the `ApifyClient` XML
+  doc comment; it is now stated once, in the top-level `README.md`, per the client requirements.
+
 ## 0.1.4
 
 - Bumped `ApifyClientVersion.ApiSpecVersion` to the Apify OpenAPI spec `v2-2026-07-13T092445Z` and the
