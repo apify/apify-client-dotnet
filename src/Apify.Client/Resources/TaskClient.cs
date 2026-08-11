@@ -49,6 +49,32 @@ public sealed class TaskClient
     /// <param name="cancellationToken">A token to cancel the request.</param>
     public Task DeleteAsync(CancellationToken cancellationToken = default) => _ctx.DeleteResourceAsync("", cancellationToken);
 
+    /// <summary>
+    /// Publishes the task on its public landing page in Apify Store, by setting <c>isPublic</c>
+    /// through <see cref="UpdateAsync"/>.
+    /// </summary>
+    /// <remarks>
+    /// The task's Actor must be public and the task must already have its public display
+    /// configuration (<see cref="ActorTask.PublicConfig"/>) set up. Requires write permission to both
+    /// the task and its Actor. Publishing an already published task does nothing.
+    /// </remarks>
+    /// <param name="cancellationToken">A token to cancel the request.</param>
+    public Task<ActorTask> PublishAsync(CancellationToken cancellationToken = default) =>
+        UpdateAsync(new { isPublic = true }, cancellationToken);
+
+    /// <summary>
+    /// Unpublishes the task from its public landing page, by setting <c>isPublic</c> through
+    /// <see cref="UpdateAsync"/>.
+    /// </summary>
+    /// <remarks>
+    /// The public display configuration (<see cref="ActorTask.PublicConfig"/>) is preserved, so the
+    /// task can be published again without re-entering it. Requires write permission to both the task
+    /// and its Actor. Unpublishing a task that is not published does nothing.
+    /// </remarks>
+    /// <param name="cancellationToken">A token to cancel the request.</param>
+    public Task<ActorTask> UnpublishAsync(CancellationToken cancellationToken = default) =>
+        UpdateAsync(new { isPublic = false }, cancellationToken);
+
     /// <summary>Starts the task and returns immediately with the created run.</summary>
     /// <param name="input">Optionally overrides the task's stored input (<c>null</c> to use it).</param>
     /// <param name="options">Optional run-start options.</param>

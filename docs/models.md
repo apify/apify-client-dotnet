@@ -114,6 +114,20 @@ An entry returned when browsing the Apify Store.
 | `Title` | `string?` | Human-readable title. |
 | `CreatedAt` | `string?` | ISO 8601 creation timestamp. |
 | `ModifiedAt` | `string?` | ISO 8601 last-modification timestamp. |
+| `IsPublic` | `bool?` | Whether the task is published on its public landing page. Set via `TaskClient.PublishAsync()`/`UnpublishAsync()`, not directly. |
+| `PublicConfig` | `TaskPublicConfig?` | The task's public landing page display configuration, or `null` if not set. |
+
+## `TaskPublicConfig`
+
+| Property | Type | Description |
+|---|---|---|
+| `PublishedAt` | `string?` | ISO 8601 timestamp the task was published, or `null` if unpublished. Read-only. |
+| `SeoTitle` | `string?` | Name to display for search engines. |
+| `SeoDescription` | `string?` | Description to display for search engines. |
+| `Categorization` | `string?` | The task's category on its public landing page. |
+| `InputSchemaFields` | `IReadOnlyList<string>?` | Input schema fields shown on the public landing page. |
+| `DatasetName` | `string?` | Name of the dataset shown on the public landing page. |
+| `DatasetView` | `string?` | View of the dataset shown on the public landing page. |
 
 ## `Dataset`
 

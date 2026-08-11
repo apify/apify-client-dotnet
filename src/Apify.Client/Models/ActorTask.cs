@@ -38,4 +38,14 @@ public sealed class ActorTask : ApifyResource
 
     /// <summary>When the task was last modified (ISO-8601 string).</summary>
     public string? ModifiedAt => GetString("modifiedAt");
+
+    /// <summary>
+    /// Whether the task is published on its public landing page in Apify Store. Derived from
+    /// <see cref="PublicConfig"/>'s <c>publishedAt</c>; set it via <see cref="Resources.TaskClient.PublishAsync"/>
+    /// or <see cref="Resources.TaskClient.UnpublishAsync"/>, not by writing this field directly.
+    /// </summary>
+    public bool? IsPublic => GetBool("isPublic");
+
+    /// <summary>The task's public landing page display configuration, or <c>null</c> if not set.</summary>
+    public TaskPublicConfig? PublicConfig => Get("publicConfig") is JsonObject obj ? new TaskPublicConfig(obj) : null;
 }

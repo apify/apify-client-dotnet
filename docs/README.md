@@ -1,8 +1,6 @@
 # Apify .NET client documentation
 
-> **Official, but experimental — AI-generated and AI-maintained.** This is an official Apify client,
-> but it is experimental: it is generated and maintained by AI. Review the code before relying on it in
-> production and report issues on the repository.
+See the [top-level README](../README.md) for the client's official-but-experimental status.
 
 A resource-oriented .NET client for the [Apify API](https://docs.apify.com/api/v2), mirroring the
 official [JavaScript](https://github.com/apify/apify-client-js) reference client: start from an

@@ -210,6 +210,36 @@ public sealed class RequestShapeTests
     }
 
     [Fact]
+    public async Task PublishPutsIsPublicTrue()
+    {
+        var transport = new MockTransport().QueueResponse(
+            200,
+            "{\"data\":{\"id\":\"t1\",\"isPublic\":true,\"publicConfig\":{\"publishedAt\":\"2026-01-01T00:00:00.000Z\",\"seoTitle\":\"My task\"}}}");
+        var task = await Client(transport).Task("t1").PublishAsync();
+
+        var request = transport.LastRequest;
+        Assert.Equal("PUT", request.Method);
+        Assert.Contains("/actor-tasks/t1", request.Uri, StringComparison.Ordinal);
+        Assert.True(JsonNode.Parse(request.Body)!["isPublic"]!.GetValue<bool>());
+        Assert.True(task.IsPublic);
+        Assert.Equal("2026-01-01T00:00:00.000Z", task.PublicConfig!.PublishedAt);
+        Assert.Equal("My task", task.PublicConfig!.SeoTitle);
+    }
+
+    [Fact]
+    public async Task UnpublishPutsIsPublicFalse()
+    {
+        var transport = new MockTransport().QueueResponse(200, "{\"data\":{\"id\":\"t1\",\"isPublic\":false}}");
+        var task = await Client(transport).Task("t1").UnpublishAsync();
+
+        var request = transport.LastRequest;
+        Assert.Equal("PUT", request.Method);
+        Assert.Contains("/actor-tasks/t1", request.Uri, StringComparison.Ordinal);
+        Assert.False(JsonNode.Parse(request.Body)!["isPublic"]!.GetValue<bool>());
+        Assert.False(task.IsPublic);
+    }
+
+    [Fact]
     public async Task DatasetListItemsJoinsMultiValueParamsAsCsv()
     {
         // fields/omit/unwind are list parameters: each is joined with a comma (URL-encoded as %2C).
