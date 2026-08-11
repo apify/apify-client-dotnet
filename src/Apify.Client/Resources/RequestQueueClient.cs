@@ -443,9 +443,9 @@ public sealed class RequestQueueClient
     }
 
     /// <summary>Encodes a list of requests as their raw JSON objects, for a batch request body.</summary>
-    private static List<JsonObject> ToPayload(IEnumerable<RequestQueueRequest> requests)
+    private static List<JsonObject> ToPayload(IReadOnlyCollection<RequestQueueRequest> requests)
     {
-        var payload = new List<JsonObject>();
+        var payload = new List<JsonObject>(requests.Count);
         foreach (var r in requests)
         {
             payload.Add(r.ToJsonObject());

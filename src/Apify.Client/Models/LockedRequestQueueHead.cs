@@ -10,6 +10,7 @@ public sealed class LockedRequestQueueHead
     private LockedRequestQueueHead(
         IReadOnlyList<RequestQueueRequest> items,
         long limit,
+        string? queueModifiedAt,
         bool hadMultipleClients,
         long lockSecs,
         bool? queueHasLockedRequests,
@@ -17,6 +18,7 @@ public sealed class LockedRequestQueueHead
     {
         Items = items;
         Limit = limit;
+        QueueModifiedAt = queueModifiedAt;
         HadMultipleClients = hadMultipleClients;
         LockSecs = lockSecs;
         QueueHasLockedRequests = queueHasLockedRequests;
@@ -37,6 +39,7 @@ public sealed class LockedRequestQueueHead
         return new LockedRequestQueueHead(
             items,
             JsonValues.IntOr(obj, "limit", items.Count),
+            JsonValues.String(obj, "queueModifiedAt"),
             JsonValues.BoolOr(obj, "hadMultipleClients", false),
             JsonValues.IntOr(obj, "lockSecs", 0),
             obj.ContainsKey("queueHasLockedRequests") ? JsonValues.BoolOr(obj, "queueHasLockedRequests", false) : null,
@@ -48,6 +51,9 @@ public sealed class LockedRequestQueueHead
 
     /// <summary>The maximum number of requests requested.</summary>
     public long Limit { get; }
+
+    /// <summary>ISO 8601 timestamp of the last modification to the queue.</summary>
+    public string? QueueModifiedAt { get; }
 
     /// <summary>Whether multiple clients have accessed the queue.</summary>
     public bool HadMultipleClients { get; }

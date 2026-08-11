@@ -404,6 +404,21 @@ public sealed class RequestShapeTests
     }
 
     [Fact]
+    public async Task ListHeadDecodesRequestQueueHead()
+    {
+        var transport = new MockTransport().QueueResponse(200, """
+            {"data":{"limit":3,"queueModifiedAt":"2018-03-14T23:00:00.000Z","hadMultipleClients":false,
+            "items":[{"id":"r1","uniqueKey":"k1","url":"https://example.com"}]}}
+            """);
+        var head = await Client(transport).RequestQueue("q1").ListHeadAsync(3);
+
+        Assert.Equal(3, head.Limit);
+        Assert.Equal("2018-03-14T23:00:00.000Z", head.QueueModifiedAt);
+        Assert.False(head.HadMultipleClients);
+        Assert.Equal("r1", Assert.Single(head.Items).Id);
+    }
+
+    [Fact]
     public async Task ListAndLockHeadDecodesLockedRequestQueueHead()
     {
         var transport = new MockTransport().QueueResponse(200, """
@@ -419,6 +434,7 @@ public sealed class RequestShapeTests
         Assert.Contains("/request-queues/q1/head/lock", request.Uri, StringComparison.Ordinal);
         Assert.Contains("lockSecs=60", request.Uri, StringComparison.Ordinal);
         Assert.Equal(2, head.Limit);
+        Assert.Equal("2018-03-14T23:00:00.000Z", head.QueueModifiedAt);
         Assert.Equal(60, head.LockSecs);
         Assert.True(head.HadMultipleClients);
         Assert.True(head.QueueHasLockedRequests);

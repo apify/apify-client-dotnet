@@ -7,10 +7,11 @@ namespace Apify.Client.Models;
 /// <summary>The head (front) of a request queue.</summary>
 public sealed class RequestQueueHead
 {
-    private RequestQueueHead(IReadOnlyList<RequestQueueRequest> items, long limit, bool hadMultipleClients)
+    private RequestQueueHead(IReadOnlyList<RequestQueueRequest> items, long limit, string? queueModifiedAt, bool hadMultipleClients)
     {
         Items = items;
         Limit = limit;
+        QueueModifiedAt = queueModifiedAt;
         HadMultipleClients = hadMultipleClients;
     }
 
@@ -28,6 +29,7 @@ public sealed class RequestQueueHead
         return new RequestQueueHead(
             items,
             JsonValues.IntOr(obj, "limit", items.Count),
+            JsonValues.String(obj, "queueModifiedAt"),
             JsonValues.BoolOr(obj, "hadMultipleClients", false));
     }
 
@@ -36,6 +38,9 @@ public sealed class RequestQueueHead
 
     /// <summary>The maximum number of requests requested.</summary>
     public long Limit { get; }
+
+    /// <summary>ISO 8601 timestamp of the last modification to the queue.</summary>
+    public string? QueueModifiedAt { get; }
 
     /// <summary>Whether multiple clients have accessed the queue.</summary>
     public bool HadMultipleClients { get; }

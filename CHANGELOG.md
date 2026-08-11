@@ -14,6 +14,8 @@ sibling clients already apply to this same resource:
   `BatchDeleteResult` (was `object requests` / `JsonObject`).
 - `RequestQueueRequest` gained `RetryCount`/`LockExpiresAt` properties, populated on requests returned
   by `ListAndLockHeadAsync`/`ListRequestsAsync`.
+- `RequestQueueHead` and `LockedRequestQueueHead` gained the previously-missing `QueueModifiedAt`
+  field (present in the OpenAPI spec and the reference client, but not yet exposed by this client).
 
 ## 0.2.0
 

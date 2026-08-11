@@ -214,6 +214,7 @@ The head (front) of a request queue.
 |---|---|---|
 | `Items` | `IReadOnlyList<RequestQueueRequest>` | The requests at the head of the queue. |
 | `Limit` | `long` | The page-size limit that was applied. |
+| `QueueModifiedAt` | `string?` | ISO 8601 timestamp of the last modification to the queue. |
 | `HadMultipleClients` | `bool` | `true` if more than one client has accessed the queue (concurrency hint). |
 
 ## `LockedRequestQueueHead`
@@ -225,6 +226,7 @@ processing. Each item's `RequestQueueRequest.LockExpiresAt` holds its individual
 |---|---|---|
 | `Items` | `IReadOnlyList<RequestQueueRequest>` | The locked requests. |
 | `Limit` | `long` | The maximum number of requests requested. |
+| `QueueModifiedAt` | `string?` | ISO 8601 timestamp of the last modification to the queue. |
 | `HadMultipleClients` | `bool` | `true` if more than one client has accessed the queue. |
 | `LockSecs` | `long` | The lock duration applied to every returned request, in seconds. |
 | `QueueHasLockedRequests` | `bool?` | Whether the queue has any requests locked by any client. |
