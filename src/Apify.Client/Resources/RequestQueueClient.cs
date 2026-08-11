@@ -154,17 +154,18 @@ public sealed class RequestQueueClient
 
     /// <summary>
     /// Atomically returns and locks up to <paramref name="limit"/> requests from the head of the queue for
-    /// <paramref name="lockSecs"/> seconds. Returns the raw locked-head object.
+    /// <paramref name="lockSecs"/> seconds.
     /// </summary>
     /// <param name="lockSecs">How long to lock the returned requests, in seconds.</param>
     /// <param name="limit">The maximum number of requests to lock.</param>
     /// <param name="cancellationToken">A token to cancel the request.</param>
-    public Task<JsonObject> ListAndLockHeadAsync(int lockSecs, int? limit = null, CancellationToken cancellationToken = default)
+    public async Task<LockedRequestQueueHead> ListAndLockHeadAsync(int lockSecs, int? limit = null, CancellationToken cancellationToken = default)
     {
         var q = new QueryParams();
         q.AddInt("lockSecs", lockSecs).AddInt("limit", limit);
         ApplyClientKey(q);
-        return _ctx.PostWithBodyAsync("head/lock", q, null, "", cancellationToken);
+        var data = await _ctx.PostWithBodyAsync("head/lock", q, null, "", cancellationToken).ConfigureAwait(false);
+        return LockedRequestQueueHead.FromData(data);
     }
 
     /// <summary>
@@ -279,11 +280,7 @@ public sealed class RequestQueueClient
     /// </summary>
     private static List<RequestQueueRequest> SliceByByteLength(List<RequestQueueRequest> requests, int maxByteLength, int startIndex)
     {
-        var payloads = new List<JsonObject>(requests.Count);
-        foreach (var r in requests)
-        {
-            payloads.Add(r.ToJsonObject());
-        }
+        var payloads = ToPayload(requests);
 
         if (Encoding.UTF8.GetByteCount(Json.Encode(payloads)) < maxByteLength)
         {
@@ -371,13 +368,7 @@ public sealed class RequestQueueClient
         var q = new QueryParams();
         q.AddBool("forefront", forefront);
         ApplyClientKey(q);
-        var payload = new List<JsonObject>(requests.Count);
-        foreach (var r in requests)
-        {
-            payload.Add(r.ToJsonObject());
-        }
-
-        var data = await _ctx.PostWithBodyAsync("requests/batch", q, Json.Encode(payload), ResourceContext.ContentTypeJson, cancellationToken).ConfigureAwait(false);
+        var data = await _ctx.PostWithBodyAsync("requests/batch", q, Json.Encode(ToPayload(requests)), ResourceContext.ContentTypeJson, cancellationToken).ConfigureAwait(false);
 
         var processed = new List<RequestQueueOperationInfo>();
         if (data.TryGetPropertyValue("processedRequests", out var pNode) && pNode is JsonArray pArray)
@@ -437,22 +428,36 @@ public sealed class RequestQueueClient
     }
 
     /// <summary>
-    /// Deletes multiple requests in a single call. Each entry identifies a request (e.g. by id or
-    /// uniqueKey). Returns the raw batch result.
+    /// Deletes multiple requests in a single call. Each entry must have its <see cref="RequestQueueRequest.Id"/>
+    /// and/or <see cref="RequestQueueRequest.UniqueKey"/> set to identify the request to delete; other fields
+    /// are ignored.
     /// </summary>
-    /// <param name="requests">A JSON-serializable list identifying the requests to delete.</param>
+    /// <param name="requests">The requests to delete, identified by <c>Id</c> and/or <c>UniqueKey</c>.</param>
     /// <param name="cancellationToken">A token to cancel the request.</param>
-    public Task<JsonObject> BatchDeleteRequestsAsync(object requests, CancellationToken cancellationToken = default)
+    public async Task<BatchDeleteResult> BatchDeleteRequestsAsync(IReadOnlyList<RequestQueueRequest> requests, CancellationToken cancellationToken = default)
     {
         var q = new QueryParams();
         ApplyClientKey(q);
-        return _ctx.DeleteWithBodyAsync("requests/batch", q, requests, cancellationToken);
+        var data = await _ctx.DeleteWithBodyAsync("requests/batch", q, ToPayload(requests), cancellationToken).ConfigureAwait(false);
+        return BatchDeleteResult.FromData(data);
     }
 
-    /// <summary>Lists the queue's requests with pagination. Returns the raw response.</summary>
+    /// <summary>Encodes a list of requests as their raw JSON objects, for a batch request body.</summary>
+    private static List<JsonObject> ToPayload(IEnumerable<RequestQueueRequest> requests)
+    {
+        var payload = new List<JsonObject>();
+        foreach (var r in requests)
+        {
+            payload.Add(r.ToJsonObject());
+        }
+
+        return payload;
+    }
+
+    /// <summary>Lists the queue's requests with pagination.</summary>
     /// <param name="options">Optional listing filters and pagination.</param>
     /// <param name="cancellationToken">A token to cancel the request.</param>
-    public async Task<JsonObject> ListRequestsAsync(ListRequestsOptions? options = null, CancellationToken cancellationToken = default)
+    public async Task<RequestQueueRequestsPage> ListRequestsAsync(ListRequestsOptions? options = null, CancellationToken cancellationToken = default)
     {
         options ??= new ListRequestsOptions();
         options.Validate();
@@ -460,18 +465,18 @@ public sealed class RequestQueueClient
         options.AppendTo(q);
         ApplyClientKey(q);
         var data = await _ctx.GetResourceRequiredAsync("requests", q, cancellationToken).ConfigureAwait(false);
-        return data as JsonObject ?? new JsonObject();
+        return RequestQueueRequestsPage.FromData(data);
     }
 
     /// <summary>
     /// Extends the lock on a request by <paramref name="lockSecs"/> seconds. If <paramref name="forefront"/>
-    /// is true, the request is moved to the front when its lock expires. Returns the raw response.
+    /// is true, the request is moved to the front when its lock expires.
     /// </summary>
     /// <param name="id">The request ID.</param>
     /// <param name="lockSecs">How much longer to hold the lock, in seconds.</param>
     /// <param name="forefront">Whether to move the request to the front when the lock expires.</param>
     /// <param name="cancellationToken">A token to cancel the request.</param>
-    public async Task<JsonObject> ProlongRequestLockAsync(string id, int lockSecs, bool forefront = false, CancellationToken cancellationToken = default)
+    public async Task<RequestLockInfo> ProlongRequestLockAsync(string id, int lockSecs, bool forefront = false, CancellationToken cancellationToken = default)
     {
         var q = new QueryParams();
         q.AddInt("lockSecs", lockSecs).AddBool("forefront", forefront);
@@ -479,7 +484,7 @@ public sealed class RequestQueueClient
         var url = _ctx.MergedParams(q).ApplyToUrl(_ctx.SubUrl("requests/" + ResourceContext.EncodePathSegment(id) + "/lock"));
         using var response = await _http.CallAsync(HttpMethod.Put, url, null, "", _timeout, cancellationToken: cancellationToken).ConfigureAwait(false);
         var data = Json.DecodeData(await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false));
-        return data as JsonObject ?? new JsonObject();
+        return RequestLockInfo.FromData(data);
     }
 
     /// <summary>
@@ -505,13 +510,14 @@ public sealed class RequestQueueClient
         }
     }
 
-    /// <summary>Releases all locks the client holds on this queue's requests. Returns the raw response.</summary>
+    /// <summary>Releases all locks the client holds on this queue's requests.</summary>
     /// <param name="cancellationToken">A token to cancel the request.</param>
-    public Task<JsonObject> UnlockRequestsAsync(CancellationToken cancellationToken = default)
+    public async Task<UnlockRequestsResult> UnlockRequestsAsync(CancellationToken cancellationToken = default)
     {
         var q = new QueryParams();
         ApplyClientKey(q);
-        return _ctx.PostWithBodyAsync("requests/unlock", q, null, "", cancellationToken);
+        var data = await _ctx.PostWithBodyAsync("requests/unlock", q, null, "", cancellationToken).ConfigureAwait(false);
+        return UnlockRequestsResult.FromData(data);
     }
 
     /// <summary>
@@ -553,22 +559,19 @@ public sealed class RequestQueueClient
                 },
                 cancellationToken).ConfigureAwait(false);
 
-            var items = page.TryGetPropertyValue("items", out var itemsNode) && itemsNode is JsonArray array
-                ? array
-                : new JsonArray();
-            if (items.Count == 0)
+            if (page.Items.Count == 0)
             {
                 yield break;
             }
 
-            foreach (var item in items)
+            foreach (var item in page.Items)
             {
-                yield return RequestQueueRequest.FromJsonObject(item as JsonObject ?? new JsonObject());
+                yield return item;
             }
 
-            iterated += items.Count;
+            iterated += page.Items.Count;
 
-            nextCursor = JsonValues.String(page, "nextCursor");
+            nextCursor = page.NextCursor;
             if ((limit is not null && iterated >= limit.Value) || string.IsNullOrEmpty(nextCursor))
             {
                 yield break;

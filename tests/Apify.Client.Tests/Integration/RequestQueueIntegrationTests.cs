@@ -128,15 +128,27 @@ public sealed class RequestQueueIntegrationTests : IntegrationTestBase
         {
             var queue = client.RequestQueue(rq.Id!).WithClientKey("dotnet-test-client-key");
             var info = await queue.AddRequestAsync(new RequestQueueRequest("https://lock.example.com", "lock"));
-            Assert.True((await queue.ListRequestsAsync(new ListRequestsOptions())).ContainsKey("items"));
+            Assert.NotEmpty((await queue.ListRequestsAsync(new ListRequestsOptions())).Items);
             await queue.ListRequestsAsync(new ListRequestsOptions
             {
                 Filter = new[] { ListRequestsOptions.FilterLocked, ListRequestsOptions.FilterPending },
             });
-            Assert.True((await queue.ListAndLockHeadAsync(60, 10)).ContainsKey("items"));
-            await queue.ProlongRequestLockAsync(info.RequestId!, 30);
+
+            var locked = await queue.ListAndLockHeadAsync(60, 10);
+            Assert.NotEmpty(locked.Items);
+            Assert.Equal(60, locked.LockSecs);
+            Assert.NotNull(locked.Items[0].LockExpiresAt);
+
+            var prolonged = await queue.ProlongRequestLockAsync(info.RequestId!, 30);
+            Assert.NotNull(prolonged.LockExpiresAt);
+
             await queue.DeleteRequestLockAsync(info.RequestId!);
-            await queue.UnlockRequestsAsync();
+
+            var unlocked = await queue.UnlockRequestsAsync();
+            Assert.True(unlocked.UnlockedCount >= 0);
+
+            var deleted = await queue.BatchDeleteRequestsAsync(new[] { new RequestQueueRequest { Id = info.RequestId } });
+            Assert.Equal(info.RequestId, Assert.Single(deleted.ProcessedRequests).Id);
         }
         finally
         {

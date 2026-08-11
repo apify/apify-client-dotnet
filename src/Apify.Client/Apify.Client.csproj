@@ -6,7 +6,7 @@
 
     <!-- NuGet package metadata (see the publish workflow). -->
     <PackageId>Apify.Client</PackageId>
-    <Version>0.2.0</Version>
+    <Version>0.3.0</Version>
     <Authors>Apify</Authors>
     <Company>Apify</Company>
     <Product>Apify API client for .NET</Product>
