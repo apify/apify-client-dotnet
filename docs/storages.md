@@ -140,16 +140,18 @@ options set a stable `ClientKey` (required to manage locks the client created) a
   `UpdateRequestAsync(RequestQueueRequest request, bool forefront = false)` → `RequestQueueOperationInfo`;
   `DeleteRequestAsync(string id)` (no return value).
 - `ListHeadAsync(int? limit = null)` → `RequestQueueHead`;
-  `ListAndLockHeadAsync(int lockSecs, int? limit = null)`.
+  `ListAndLockHeadAsync(int lockSecs, int? limit = null)` → `LockedRequestQueueHead` (each item's
+  `RequestQueueRequest.LockExpiresAt`/`RetryCount` is populated).
 - `BatchAddRequestsAsync(IReadOnlyList<RequestQueueRequest> requests, bool forefront = false, BatchAddRequestsOptions? options = null)`
   → `BatchAddResult` — auto-chunks by count (25) and payload size (~9 MiB) and retries unprocessed
   requests. Every request needs a non-empty `UniqueKey`.
-- `BatchDeleteRequestsAsync(object requests)` → `JsonObject` — delete a batch of requests in one call
-  (`requests` is any JSON-serializable list of requests/keys to remove).
-- `ListRequestsAsync(ListRequestsOptions? options = null)` → `JsonObject` and
+- `BatchDeleteRequestsAsync(IReadOnlyList<RequestQueueRequest> requests)` → `BatchDeleteResult` — delete a
+  batch of requests in one call; each entry identifies the request to delete via `Id` and/or `UniqueKey`.
+- `ListRequestsAsync(ListRequestsOptions? options = null)` → `RequestQueueRequestsPage` and
   `PaginateRequestsAsync(PaginateRequestsOptions? options = null)` → `IAsyncEnumerable<RequestQueueRequest>`.
-- Lock management: `ProlongRequestLockAsync(string id, int lockSecs, bool forefront = false)` → `JsonObject`,
-  `DeleteRequestLockAsync(string id, bool forefront = false)`, `UnlockRequestsAsync()` → `JsonObject`.
+- Lock management: `ProlongRequestLockAsync(string id, int lockSecs, bool forefront = false)` →
+  `RequestLockInfo`, `DeleteRequestLockAsync(string id, bool forefront = false)`,
+  `UnlockRequestsAsync()` → `UnlockRequestsResult`.
 - `WithClientKey(string clientKey)` → `RequestQueueClient` — returns a copy of this client bound to the
   given client key (a fluent alternative to passing `RequestQueueClientOptions.ClientKey` on
   `client.RequestQueue(id, options)`); the client key ties lock ownership to this client.

@@ -62,6 +62,36 @@ public sealed class RequestQueueRequest : ApifyResource
         set => SetString("method", value);
     }
 
+    /// <summary>
+    /// The number of times this request has been retried after a failed processing attempt (assigned by
+    /// the API; absent on create).
+    /// </summary>
+    public long? RetryCount
+    {
+        get => GetInt("retryCount");
+        set
+        {
+            if (value is null)
+            {
+                ToJsonObject().Remove("retryCount");
+            }
+            else
+            {
+                ToJsonObject()["retryCount"] = value.Value;
+            }
+        }
+    }
+
+    /// <summary>
+    /// When this request's processing lock expires (ISO-8601 string). Only present on requests returned
+    /// by <see cref="Resources.RequestQueueClient.ListAndLockHeadAsync"/>.
+    /// </summary>
+    public string? LockExpiresAt
+    {
+        get => GetString("lockExpiresAt");
+        set => SetString("lockExpiresAt", value);
+    }
+
     /// <summary>Arbitrary user-attached metadata.</summary>
     public JsonNode? UserData
     {

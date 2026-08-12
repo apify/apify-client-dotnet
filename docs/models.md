@@ -203,6 +203,8 @@ A read/write model (request input and response). Fields set to `null` are omitte
 | `UniqueKey` | `string?` | The key used to deduplicate the request within the queue. |
 | `Method` | `string?` | HTTP method (defaults to `GET` on the server). |
 | `UserData` | `JsonNode?` | Arbitrary user-defined JSON payload attached to the request. |
+| `RetryCount` | `long?` | Number of times the request has been retried (assigned by the queue). |
+| `LockExpiresAt` | `string?` | ISO 8601 lock expiry; only set on requests returned by `ListAndLockHeadAsync`. |
 
 ## `RequestQueueHead`
 
@@ -212,7 +214,60 @@ The head (front) of a request queue.
 |---|---|---|
 | `Items` | `IReadOnlyList<RequestQueueRequest>` | The requests at the head of the queue. |
 | `Limit` | `long` | The page-size limit that was applied. |
+| `QueueModifiedAt` | `string?` | ISO 8601 timestamp of the last modification to the queue. |
 | `HadMultipleClients` | `bool` | `true` if more than one client has accessed the queue (concurrency hint). |
+
+## `LockedRequestQueueHead`
+
+The result of `RequestQueueClient.ListAndLockHeadAsync()`: a batch of requests locked for exclusive
+processing. Each item's `RequestQueueRequest.LockExpiresAt` holds its individual lock expiry.
+
+| Property | Type | Description |
+|---|---|---|
+| `Items` | `IReadOnlyList<RequestQueueRequest>` | The locked requests. |
+| `Limit` | `long` | The maximum number of requests requested. |
+| `QueueModifiedAt` | `string?` | ISO 8601 timestamp of the last modification to the queue. |
+| `HadMultipleClients` | `bool` | `true` if more than one client has accessed the queue. |
+| `LockSecs` | `long` | The lock duration applied to every returned request, in seconds. |
+| `QueueHasLockedRequests` | `bool?` | Whether the queue has any requests locked by any client. |
+| `ClientKey` | `string?` | The client key used to acquire the locks. |
+
+## `RequestLockInfo`
+
+The result of `RequestQueueClient.ProlongRequestLockAsync()`.
+
+| Property | Type | Description |
+|---|---|---|
+| `LockExpiresAt` | `string?` | ISO 8601 timestamp the (possibly just-extended) lock expires at. |
+
+## `UnlockRequestsResult`
+
+The result of `RequestQueueClient.UnlockRequestsAsync()`.
+
+| Property | Type | Description |
+|---|---|---|
+| `UnlockedCount` | `long` | Number of requests that were unlocked. |
+
+## `RequestQueueRequestsPage`
+
+One cursor-paginated page of `RequestQueueClient.ListRequestsAsync()`.
+
+| Property | Type | Description |
+|---|---|---|
+| `Items` | `IReadOnlyList<RequestQueueRequest>` | The requests in this page. |
+| `Limit` | `long` | The page-size limit that was applied. |
+| `ExclusiveStartId` | `string?` | Deprecated by the API in favor of `Cursor`/`NextCursor`. |
+| `Cursor` | `string?` | The cursor that produced this page. |
+| `NextCursor` | `string?` | Cursor to pass to fetch the next page, or `null` if this is the last page. |
+
+## `BatchDeleteResult`
+
+The aggregate result of `RequestQueueClient.BatchDeleteRequestsAsync()`.
+
+| Property | Type | Description |
+|---|---|---|
+| `ProcessedRequests` | `IReadOnlyList<RequestQueueRequest>` | Requests successfully deleted. |
+| `UnprocessedRequests` | `IReadOnlyList<RequestQueueRequest>` | Requests that failed to delete and can be retried. |
 
 ## `RequestQueueOperationInfo`
 

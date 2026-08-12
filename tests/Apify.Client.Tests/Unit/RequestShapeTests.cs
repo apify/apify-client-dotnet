@@ -2,6 +2,7 @@ using System;
 using System.Globalization;
 using System.Threading.Tasks;
 using System.Text.Json.Nodes;
+using Apify.Client.Models;
 using Apify.Client.Options;
 using Xunit;
 
@@ -400,5 +401,111 @@ public sealed class RequestShapeTests
         Assert.Equal("application/octet-stream", request.Header("Content-Type"));
         Assert.DoesNotContain("charset", request.Header("Content-Type"), StringComparison.OrdinalIgnoreCase);
         Assert.Equal(bytes, request.BodyBytes);
+    }
+
+    [Fact]
+    public async Task ListHeadDecodesRequestQueueHead()
+    {
+        var transport = new MockTransport().QueueResponse(200, """
+            {"data":{"limit":3,"queueModifiedAt":"2018-03-14T23:00:00.000Z","hadMultipleClients":false,
+            "items":[{"id":"r1","uniqueKey":"k1","url":"https://example.com"}]}}
+            """);
+        var head = await Client(transport).RequestQueue("q1").ListHeadAsync(3);
+
+        Assert.Equal(3, head.Limit);
+        Assert.Equal("2018-03-14T23:00:00.000Z", head.QueueModifiedAt);
+        Assert.False(head.HadMultipleClients);
+        Assert.Equal("r1", Assert.Single(head.Items).Id);
+    }
+
+    [Fact]
+    public async Task ListAndLockHeadDecodesLockedRequestQueueHead()
+    {
+        var transport = new MockTransport().QueueResponse(200, """
+            {"data":{"limit":2,"queueModifiedAt":"2018-03-14T23:00:00.000Z","hadMultipleClients":true,
+            "lockSecs":60,"queueHasLockedRequests":true,"clientKey":"client-one",
+            "items":[{"id":"r1","uniqueKey":"k1","url":"https://example.com","method":"GET",
+            "retryCount":0,"lockExpiresAt":"2022-06-14T23:00:00.000Z"}]}}
+            """);
+        var head = await Client(transport).RequestQueue("q1").ListAndLockHeadAsync(60, 2);
+
+        var request = transport.LastRequest;
+        Assert.Equal("POST", request.Method);
+        Assert.Contains("/request-queues/q1/head/lock", request.Uri, StringComparison.Ordinal);
+        Assert.Contains("lockSecs=60", request.Uri, StringComparison.Ordinal);
+        Assert.Equal(2, head.Limit);
+        Assert.Equal("2018-03-14T23:00:00.000Z", head.QueueModifiedAt);
+        Assert.Equal(60, head.LockSecs);
+        Assert.True(head.HadMultipleClients);
+        Assert.True(head.QueueHasLockedRequests);
+        Assert.Equal("client-one", head.ClientKey);
+        var item = Assert.Single(head.Items);
+        Assert.Equal("r1", item.Id);
+        Assert.Equal("k1", item.UniqueKey);
+        Assert.Equal(0, item.RetryCount);
+        Assert.Equal("2022-06-14T23:00:00.000Z", item.LockExpiresAt);
+    }
+
+    [Fact]
+    public async Task ProlongRequestLockDecodesLockExpiresAt()
+    {
+        var transport = new MockTransport().QueueResponse(200, "{\"data\":{\"lockExpiresAt\":\"2022-06-14T23:00:00.000Z\"}}");
+        var info = await Client(transport).RequestQueue("q1").ProlongRequestLockAsync("r1", 30);
+
+        var request = transport.LastRequest;
+        Assert.Equal("PUT", request.Method);
+        Assert.Contains("/request-queues/q1/requests/r1/lock", request.Uri, StringComparison.Ordinal);
+        Assert.Contains("lockSecs=30", request.Uri, StringComparison.Ordinal);
+        Assert.Equal("2022-06-14T23:00:00.000Z", info.LockExpiresAt);
+    }
+
+    [Fact]
+    public async Task UnlockRequestsDecodesUnlockedCount()
+    {
+        var transport = new MockTransport().QueueResponse(200, "{\"data\":{\"unlockedCount\":3}}");
+        var result = await Client(transport).RequestQueue("q1").UnlockRequestsAsync();
+
+        Assert.Equal("POST", transport.LastRequest.Method);
+        Assert.Contains("/request-queues/q1/requests/unlock", transport.LastRequest.Uri, StringComparison.Ordinal);
+        Assert.Equal(3, result.UnlockedCount);
+    }
+
+    [Fact]
+    public async Task ListRequestsDecodesCursorPage()
+    {
+        var transport = new MockTransport().QueueResponse(200, """
+            {"data":{"limit":2,"cursor":"c0","nextCursor":"c1",
+            "items":[{"id":"r1","uniqueKey":"k1","url":"https://example.com"}]}}
+            """);
+        var page = await Client(transport).RequestQueue("q1").ListRequestsAsync();
+
+        Assert.Equal(2, page.Limit);
+        Assert.Equal("c0", page.Cursor);
+        Assert.Equal("c1", page.NextCursor);
+        Assert.Equal("r1", Assert.Single(page.Items).Id);
+    }
+
+    [Fact]
+    public async Task BatchDeleteRequestsSendsIdentifiersAndDecodesResult()
+    {
+        var transport = new MockTransport().QueueResponse(200, """
+            {"data":{"processedRequests":[{"id":"r1","uniqueKey":"k1"}],
+            "unprocessedRequests":[{"uniqueKey":"k2","url":"https://example.com/2"}]}}
+            """);
+        var result = await Client(transport).RequestQueue("q1").BatchDeleteRequestsAsync(new[]
+        {
+            new RequestQueueRequest { Id = "r1" },
+            new RequestQueueRequest { UniqueKey = "k2" },
+        });
+
+        var request = transport.LastRequest;
+        Assert.Equal("DELETE", request.Method);
+        Assert.Contains("/request-queues/q1/requests/batch", request.Uri, StringComparison.Ordinal);
+        var sent = JsonNode.Parse(request.Body)!.AsArray();
+        Assert.Equal("r1", sent[0]!["id"]!.GetValue<string>());
+        Assert.Equal("k2", sent[1]!["uniqueKey"]!.GetValue<string>());
+
+        Assert.Equal("r1", Assert.Single(result.ProcessedRequests).Id);
+        Assert.Equal("k2", Assert.Single(result.UnprocessedRequests).UniqueKey);
     }
 }

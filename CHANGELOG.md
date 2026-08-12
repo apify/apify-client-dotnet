@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.3.0
+
+Breaking: `RequestQueueClient` methods that previously returned a raw `JsonObject`/took an untyped
+`object` now use typed models, matching the OpenAPI-documented response schemas and the typing the
+sibling clients already apply to this same resource:
+
+- `ListAndLockHeadAsync` now returns `LockedRequestQueueHead` (was `JsonObject`).
+- `ProlongRequestLockAsync` now returns `RequestLockInfo` (was `JsonObject`).
+- `UnlockRequestsAsync` now returns `UnlockRequestsResult` (was `JsonObject`).
+- `ListRequestsAsync` now returns `RequestQueueRequestsPage` (was `JsonObject`).
+- `BatchDeleteRequestsAsync` now takes `IReadOnlyList<RequestQueueRequest>` and returns
+  `BatchDeleteResult` (was `object requests` / `JsonObject`).
+- `RequestQueueRequest` gained `RetryCount`/`LockExpiresAt` properties, populated on requests returned
+  by `ListAndLockHeadAsync`/`ListRequestsAsync`.
+- `RequestQueueHead` and `LockedRequestQueueHead` gained the previously-missing `QueueModifiedAt`
+  field (present in the OpenAPI spec and the reference client, but not yet exposed by this client).
+
 ## 0.2.0
 
 - Bumped `ApifyClientVersion.ApiSpecVersion` to the Apify OpenAPI spec `v2-2026-08-05T133145Z` and the
