@@ -2,9 +2,7 @@
 
 ## 0.3.1
 
-- Bumped `ApifyClientVersion.ApiSpecVersion` to the Apify OpenAPI spec `v2-2026-08-14T072928Z`,
-  which officially documents the `Task.isPublic`/`publicConfig` fields and `TaskPublicConfig`
-  schema this client already implemented ahead of the spec (0.2.0).
+- Bumped `ApifyClientVersion.ApiSpecVersion` to the Apify OpenAPI spec `v2-2026-08-14T072928Z`.
 - Corrected the publish/unpublish permission wording in `TaskClient.PublishAsync`/`UnpublishAsync`,
   `docs/tasks.md`, and the `TaskPublishUnpublish` integration test comment: publishing/unpublishing
   requires write permission to the task's Actor only, not to the task itself.
