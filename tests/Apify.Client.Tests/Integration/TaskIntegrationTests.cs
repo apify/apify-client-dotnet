@@ -78,8 +78,8 @@ public sealed class TaskIntegrationTests : IntegrationTestBase
             Assert.Equal(task.Id, unpublished.Id);
             Assert.True(unpublished.IsPublic != true);
 
-            // Publishing requires write permission to both the task and its Actor (apify/hello-world),
-            // which the test account does not have, so this is expected to fail rather than succeed.
+            // Publishing requires write permission to the task's Actor (apify/hello-world), which the
+            // test account does not have, so this is expected to fail rather than succeed.
             var ex = await Assert.ThrowsAsync<ApifyApiException>(() => tc.PublishAsync());
             Assert.True(ex.StatusCode is 400 or 403);
         }

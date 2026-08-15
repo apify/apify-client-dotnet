@@ -124,7 +124,7 @@ An entry returned when browsing the Apify Store.
 | `PublishedAt` | `string?` | ISO 8601 timestamp the task was published, or `null` if unpublished. Read-only. |
 | `SeoTitle` | `string?` | Name to display for search engines. |
 | `SeoDescription` | `string?` | Description to display for search engines. |
-| `Categorization` | `string?` | The task's category on its public landing page. |
+| `Categorization` | `string?` | The task's category on its public landing page. Not part of the documented `TaskPublicConfig` schema; kept for parity with the reference JS client. |
 | `InputSchemaFields` | `IReadOnlyList<string>?` | Input schema fields shown on the public landing page. |
 | `DatasetName` | `string?` | Name of the dataset shown on the public landing page. |
 | `DatasetView` | `string?` | View of the dataset shown on the public landing page. |

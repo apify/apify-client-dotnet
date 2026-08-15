@@ -54,9 +54,10 @@ public sealed class TaskClient
     /// through <see cref="UpdateAsync"/>.
     /// </summary>
     /// <remarks>
-    /// The task's Actor must be public and the task must already have its public display
-    /// configuration (<see cref="ActorTask.PublicConfig"/>) set up. Requires write permission to both
-    /// the task and its Actor. Publishing an already published task does nothing.
+    /// The task's Actor must be public, <see cref="ActorTask.PublicConfig"/>'s <c>InputSchemaFields</c>
+    /// and <c>DatasetView</c> must already be set, and the Actor must have fewer than 50 published
+    /// tasks. Requires write permission to the task's Actor. Publishing an already published task
+    /// does nothing.
     /// </remarks>
     /// <param name="cancellationToken">A token to cancel the request.</param>
     public Task<ActorTask> PublishAsync(CancellationToken cancellationToken = default) =>
@@ -68,8 +69,8 @@ public sealed class TaskClient
     /// </summary>
     /// <remarks>
     /// The public display configuration (<see cref="ActorTask.PublicConfig"/>) is preserved, so the
-    /// task can be published again without re-entering it. Requires write permission to both the task
-    /// and its Actor. Unpublishing a task that is not published does nothing.
+    /// task can be published again without re-entering it. Requires write permission to the task's
+    /// Actor. Unpublishing a task that is not published does nothing.
     /// </remarks>
     /// <param name="cancellationToken">A token to cancel the request.</param>
     public Task<ActorTask> UnpublishAsync(CancellationToken cancellationToken = default) =>
