@@ -29,7 +29,11 @@ public sealed class TaskPublicConfig : ApifyResource
     /// <summary>Description to display for search engines such as Google.</summary>
     public string? SeoDescription => GetString("seoDescription");
 
-    /// <summary>The task's category on its public landing page.</summary>
+    /// <summary>
+    /// The task's category on its public landing page. Not part of the documented OpenAPI schema for
+    /// this resource; kept for parity with the reference JS client, which exposes the same
+    /// undocumented field.
+    /// </summary>
     public string? Categorization => GetString("categorization");
 
     /// <summary>The input schema fields shown on the public landing page.</summary>

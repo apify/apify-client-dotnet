@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.3.1
+
+- Bumped `ApifyClientVersion.ApiSpecVersion` to the Apify OpenAPI spec `v2-2026-08-14T072928Z`.
+- Corrected the publish/unpublish permission wording in `TaskClient.PublishAsync`/`UnpublishAsync`,
+  `docs/tasks.md`, and the `TaskPublishUnpublish` integration test comment: publishing/unpublishing
+  requires write permission to the task's Actor only, not to the task itself.
+- `TaskClient.PublishAsync`'s doc comment and `docs/tasks.md` now state the concrete publish
+  preconditions from the spec (Actor public, `publicConfig.inputSchemaFields` and
+  `publicConfig.datasetView` set, Actor has fewer than 50 published tasks).
+- Noted in `TaskPublicConfig.Categorization`'s doc comment and `docs/models.md` that the field is
+  not part of the documented schema and is kept only for parity with the reference JS client.
+
 ## 0.3.0
 
 Breaking: `RequestQueueClient` methods that previously returned a raw `JsonObject`/took an untyped
