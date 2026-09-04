@@ -33,6 +33,9 @@ public sealed class ActorTask : ApifyResource
     /// <summary>The human-readable title shown in the UI.</summary>
     public string? Title => GetString("title");
 
+    /// <summary>The human-readable description shown in the UI and on the task's public landing page.</summary>
+    public string? Description => GetString("description");
+
     /// <summary>When the task was created (ISO-8601 string).</summary>
     public string? CreatedAt => GetString("createdAt");
 

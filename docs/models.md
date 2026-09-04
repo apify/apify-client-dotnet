@@ -112,6 +112,7 @@ An entry returned when browsing the Apify Store.
 | `UserId` | `string?` | ID of the user who owns the task. |
 | `Name` | `string?` | The task's technical name. |
 | `Title` | `string?` | Human-readable title. |
+| `Description` | `string?` | Human-readable description, shown on the task's public landing page. |
 | `CreatedAt` | `string?` | ISO 8601 creation timestamp. |
 | `ModifiedAt` | `string?` | ISO 8601 last-modification timestamp. |
 | `IsPublic` | `bool?` | Whether the task is published on its public landing page. Set via `TaskClient.PublishAsync()`/`UnpublishAsync()`, not directly. |

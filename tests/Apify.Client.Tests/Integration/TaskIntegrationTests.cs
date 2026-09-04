@@ -55,6 +55,9 @@ public sealed class TaskIntegrationTests : IntegrationTestBase
             await tc.UpdateInputAsync(new { message = "updated" });
             Assert.NotNull(await tc.GetInputAsync());
             await tc.UpdateAsync(new { name = UniqueName("task-renamed") });
+            var described = await tc.UpdateAsync(new { title = "My task", description = "A test task." });
+            Assert.Equal("My task", described.Title);
+            Assert.Equal("A test task.", described.Description);
             await tc.Runs().ListAsync(new ListOptions(), new RunListOptions());
         }
         finally
