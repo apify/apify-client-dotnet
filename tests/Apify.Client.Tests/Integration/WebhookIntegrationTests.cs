@@ -7,14 +7,6 @@ namespace Apify.Client.Tests.Integration;
 [Trait("Category", "Integration")]
 public sealed class WebhookIntegrationTests : IntegrationTestBase
 {
-    private static object WebhookDef(string url) => new
-    {
-        isAdHoc = true,
-        eventTypes = new[] { "ACTOR.RUN.SUCCEEDED" },
-        condition = new { actorRunId = "ZZZZZZZZZZZZZZZZZ" },
-        requestUrl = url,
-    };
-
     [SkippableFact]
     public async Task ListWebhooks()
     {
@@ -39,7 +31,7 @@ public sealed class WebhookIntegrationTests : IntegrationTestBase
     public async Task GetWebhook()
     {
         var client = RequireClient();
-        var wh = await client.Webhooks().CreateAsync(WebhookDef("https://example.com/webhook"));
+        var wh = await client.Webhooks().CreateAsync(MinimalWebhook("https://example.com/webhook"));
         try
         {
             var got = await client.Webhook(wh.Id!).GetAsync();
@@ -56,7 +48,7 @@ public sealed class WebhookIntegrationTests : IntegrationTestBase
     public async Task GetWebhookDispatch()
     {
         var client = RequireClient();
-        var wh = await client.Webhooks().CreateAsync(WebhookDef("https://example.com/webhook"));
+        var wh = await client.Webhooks().CreateAsync(MinimalWebhook("https://example.com/webhook"));
         try
         {
             var dispatch = await client.Webhook(wh.Id!).TestAsync();
@@ -74,7 +66,7 @@ public sealed class WebhookIntegrationTests : IntegrationTestBase
     public async Task WebhookCrudFlow()
     {
         var client = RequireClient();
-        var wh = await client.Webhooks().CreateAsync(WebhookDef("https://example.com/webhook"));
+        var wh = await client.Webhooks().CreateAsync(MinimalWebhook("https://example.com/webhook"));
         try
         {
             var webhook = client.Webhook(wh.Id!);

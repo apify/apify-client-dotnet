@@ -7,15 +7,6 @@ namespace Apify.Client.Tests.Integration;
 [Trait("Category", "Integration")]
 public sealed class ScheduleIntegrationTests : IntegrationTestBase
 {
-    private static object ScheduleDef(string name) => new
-    {
-        name,
-        cronExpression = "0 0 * * *",
-        isEnabled = false,
-        isExclusive = true,
-        actions = System.Array.Empty<object>(),
-    };
-
     [SkippableFact]
     public async Task ListSchedules()
     {
@@ -30,7 +21,7 @@ public sealed class ScheduleIntegrationTests : IntegrationTestBase
     public async Task GetSchedule()
     {
         var client = RequireClient();
-        var sch = await client.Schedules().CreateAsync(ScheduleDef(UniqueName("sch-get")));
+        var sch = await client.Schedules().CreateAsync(MinimalSchedule(UniqueName("sch-get")));
         try
         {
             var got = await client.Schedule(sch.Id!).GetAsync();
@@ -47,7 +38,7 @@ public sealed class ScheduleIntegrationTests : IntegrationTestBase
     public async Task ScheduleCrudFlow()
     {
         var client = RequireClient();
-        var sch = await client.Schedules().CreateAsync(ScheduleDef(UniqueName("sch-crud")));
+        var sch = await client.Schedules().CreateAsync(MinimalSchedule(UniqueName("sch-crud")));
         try
         {
             var schedule = client.Schedule(sch.Id!);

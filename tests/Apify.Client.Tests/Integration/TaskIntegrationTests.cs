@@ -8,14 +8,6 @@ namespace Apify.Client.Tests.Integration;
 [Trait("Category", "Integration")]
 public sealed class TaskIntegrationTests : IntegrationTestBase
 {
-    private static object TaskDef(string name) => new
-    {
-        actId = "apify/hello-world",
-        name,
-        options = new { build = "latest", memoryMbytes = 256, timeoutSecs = 60 },
-        input = new { message = "hello" },
-    };
-
     [SkippableFact]
     public async Task ListTasks()
     {
@@ -30,7 +22,7 @@ public sealed class TaskIntegrationTests : IntegrationTestBase
     public async Task GetTask()
     {
         var client = RequireClient();
-        var task = await client.Tasks().CreateAsync(TaskDef(UniqueName("task-get")));
+        var task = await client.Tasks().CreateAsync(MinimalTask(UniqueName("task-get")));
         try
         {
             var got = await client.Task(task.Id!).GetAsync();
@@ -47,7 +39,7 @@ public sealed class TaskIntegrationTests : IntegrationTestBase
     public async Task TaskCrudFlow()
     {
         var client = RequireClient();
-        var task = await client.Tasks().CreateAsync(TaskDef(UniqueName("task-crud")));
+        var task = await client.Tasks().CreateAsync(MinimalTask(UniqueName("task-crud")));
         try
         {
             var tc = client.Task(task.Id!);
@@ -70,7 +62,7 @@ public sealed class TaskIntegrationTests : IntegrationTestBase
     public async Task TaskPublishUnpublish()
     {
         var client = RequireClient();
-        var task = await client.Tasks().CreateAsync(TaskDef(UniqueName("task-publish")));
+        var task = await client.Tasks().CreateAsync(MinimalTask(UniqueName("task-publish")));
         try
         {
             var tc = client.Task(task.Id!);

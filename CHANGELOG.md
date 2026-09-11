@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.3.4
+
+- Bumped `ApifyClientVersion.ApiSpecVersion` to the Apify OpenAPI spec `v2-2026-09-10T091137Z` and
+  the project version to `0.3.4`. This spec update only documents `X-Apify-Pagination-*` response
+  headers and the `offset`/`limit`/`desc` query parameters already supported by this client; no
+  client behavior changed.
+- Added missing iteration integration tests (`IterationIntegrationTests`) covering every
+  `IterateAsync` collection client that previously had no dedicated test: Actors, Actor versions,
+  Actor environment variables, datasets, key-value stores, request queues, tasks, schedules,
+  webhooks, builds, runs, and webhook dispatches.
+
 ## 0.3.3
 
 - Bumped `ApifyClientVersion.ApiSpecVersion` to the Apify OpenAPI spec `v2-2026-09-02T154542Z` and
