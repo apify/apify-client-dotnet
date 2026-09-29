@@ -16,9 +16,9 @@ a specific task with `client.Task(id)`.
   (sets `isPublic: true`). The task's Actor must be public, `PublicConfig.InputSchemaFields` and
   `PublicConfig.DatasetView` must already be set, and the Actor must not already have 10 published
   tasks (accounts are capped at 100 published tasks across all Actors; contact Apify support to raise
-  these limits). If any condition isn't met, the whole update fails and no fields — including ones
-  unrelated to publishing — are applied. Requires write permission to the task's Actor. Publishing an
-  already published task does nothing.
+  these limits). If any condition isn't met, the publish request fails and `isPublic` is left
+  unchanged. Requires write permission to the task's Actor. Publishing an already published task does
+  nothing.
 - `UnpublishAsync()` → `ActorTask` — unpublishes the task (sets `isPublic: false`); `PublicConfig` is
   preserved so the task can be published again without re-entering it. Requires write permission to
   the task's Actor. Unpublishing a task that is not published does nothing.
