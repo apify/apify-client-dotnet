@@ -55,9 +55,11 @@ public sealed class TaskClient
     /// </summary>
     /// <remarks>
     /// The task's Actor must be public, <see cref="ActorTask.PublicConfig"/>'s <c>InputSchemaFields</c>
-    /// and <c>DatasetView</c> must already be set, and the Actor must have fewer than 50 published
-    /// tasks. Requires write permission to the task's Actor. Publishing an already published task
-    /// does nothing.
+    /// and <c>DatasetView</c> must already be set, and the Actor must not already have 10 published
+    /// tasks (accounts are capped at 100 published tasks across all Actors; contact Apify support to
+    /// raise these limits). If any condition isn't met, the publish request fails and <c>isPublic</c>
+    /// is left unchanged. Requires write permission to the task's Actor. Publishing an already
+    /// published task does nothing.
     /// </remarks>
     /// <param name="cancellationToken">A token to cancel the request.</param>
     public Task<ActorTask> PublishAsync(CancellationToken cancellationToken = default) =>

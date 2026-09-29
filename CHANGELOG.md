@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.3.5
+
+- Bumped `ApifyClientVersion.ApiSpecVersion` to the Apify OpenAPI spec `v2-2026-09-28T115051Z` and
+  the project version to `0.3.5`.
+- Updated the task-publishing limit documented on `TaskClient.PublishAsync` and in `docs/tasks.md`
+  from "fewer than 50 published tasks" to "not already have 10 published tasks (100 per account)",
+  matching the corrected spec wording.
+
 ## 0.3.4
 
 - Bumped `ApifyClientVersion.ApiSpecVersion` to the Apify OpenAPI spec `v2-2026-09-10T091137Z` and
