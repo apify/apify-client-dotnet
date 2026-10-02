@@ -41,6 +41,7 @@ internal sealed class ResourceContext
     private readonly string _apiOrigin;
     private string _publicOrigin;
     private TimeSpan? _requestTimeout;
+    private bool _ambiguousNotFound;
 
     private ResourceContext(HttpClientCore http, string url, string baseUrl)
     {
@@ -80,6 +81,21 @@ internal sealed class ResourceContext
     public static ResourceContext Single(HttpClientCore http, string baseUrl, string resourcePath, string id)
         => new(http, baseUrl + "/" + resourcePath + "/" + ToSafeId(id), baseUrl);
 
+    /// <summary>
+    /// Creates a context for a resource addressed without its own id: a run/build's nested default dataset,
+    /// key-value store, request queue or log (<c>{base}/{resourcePath}</c>, same shape as
+    /// <see cref="Collection"/>). A 404 through <see cref="GetResourceAsync"/>/<see cref="DeleteResourceAsync"/>
+    /// on such a context is ambiguous — it could mean the parent resource (e.g. the run) or the nested one is
+    /// missing — so those methods propagate it instead of resolving to <c>null</c>, matching the reference
+    /// client's <c>catchNotFoundForResourceOrThrow()</c> distinction between id-addressed and chained clients.
+    /// </summary>
+    public static ResourceContext NestedSingleton(HttpClientCore http, string baseUrl, string resourcePath, QueryParams? inheritedParams = null)
+    {
+        var ctx = Collection(http, baseUrl, resourcePath, inheritedParams);
+        ctx._ambiguousNotFound = true;
+        return ctx;
+    }
+
     /// <summary>Sets an overall per-request timeout for every call made through this context.</summary>
     public ResourceContext WithTimeout(TimeSpan? timeout)
     {
@@ -116,9 +132,20 @@ internal sealed class ResourceContext
 
     // ---- CRUD primitives ------------------------------------------------------
 
-    /// <summary>GET a single resource, returning its decoded <c>data</c>, or <c>null</c> on not-found.</summary>
+    /// <summary>
+    /// GET a single resource, returning its decoded <c>data</c>. A 404 resolves to <c>null</c>, unless
+    /// <paramref name="subPath"/> addresses this context's own resource (empty) <em>and</em> the context was
+    /// built with <see cref="NestedSingleton"/> — then the 404 is ambiguous (it could mean the parent
+    /// resource or the nested one is missing) and propagates instead. A non-empty <paramref name="subPath"/>
+    /// (e.g. a request looked up by its own id) is never ambiguous regardless of how this context was built.
+    /// </summary>
     public async Task<JsonNode?> GetResourceAsync(string subPath, QueryParams p, CancellationToken ct)
     {
+        if (_ambiguousNotFound && subPath.Length == 0)
+        {
+            return await GetResourceRequiredAsync(subPath, p, ct).ConfigureAwait(false);
+        }
+
         try
         {
             return await GetResourceRequiredAsync(subPath, p, ct).ConfigureAwait(false);
@@ -146,10 +173,21 @@ internal sealed class ResourceContext
         return AsObject(Json.DecodeData(await response.Content.ReadAsStringAsync(ct).ConfigureAwait(false)));
     }
 
-    /// <summary>Performs a DELETE; a not-found is treated as a successful no-op.</summary>
+    /// <summary>
+    /// Performs a DELETE. A not-found is treated as a successful no-op, unless <paramref name="subPath"/>
+    /// addresses this context's own resource (empty) <em>and</em> the context was built with
+    /// <see cref="NestedSingleton"/> — then the 404 is ambiguous (the parent resource or the nested one could
+    /// be missing) and propagates instead.
+    /// </summary>
     public async Task DeleteResourceAsync(string subPath, CancellationToken ct)
     {
         var url = MergedParams(new QueryParams()).ApplyToUrl(SubUrl(subPath));
+        if (_ambiguousNotFound && subPath.Length == 0)
+        {
+            using var ambiguousResponse = await Http.CallAsync(HttpMethod.Delete, url, timeout: _requestTimeout, cancellationToken: ct).ConfigureAwait(false);
+            return;
+        }
+
         try
         {
             using var response = await Http.CallAsync(HttpMethod.Delete, url, timeout: _requestTimeout, cancellationToken: ct).ConfigureAwait(false);
@@ -233,23 +271,50 @@ internal sealed class ResourceContext
         return AsObject(Json.DecodeData(await response.Content.ReadAsStringAsync(ct).ConfigureAwait(false)));
     }
 
-    /// <summary>POST with an optional raw body and content type, unwrapping the data envelope.</summary>
-    public async Task<JsonObject> PostWithBodyAsync(string subPath, QueryParams p, string? body, string contentType, CancellationToken ct)
+    /// <summary>
+    /// POST with an optional raw body and content type, unwrapping the data envelope. Pass
+    /// <paramref name="bodyBytes"/> instead of <paramref name="body"/> to send raw bytes (e.g. an Actor's raw
+    /// byte input, see <see cref="EncodeInputBody"/>) without re-encoding them as a JSON string.
+    /// </summary>
+    public async Task<JsonObject> PostWithBodyAsync(string subPath, QueryParams p, string? body, string contentType, CancellationToken ct, byte[]? bodyBytes = null)
     {
         var url = MergedParams(p).ApplyToUrl(SubUrl(subPath));
-        using var response = await Http.CallAsync(HttpMethod.Post, url, body, contentType, _requestTimeout, cancellationToken: ct).ConfigureAwait(false);
+        using var response = await Http.CallAsync(HttpMethod.Post, url, body, contentType, _requestTimeout, bodyBytes: bodyBytes, cancellationToken: ct).ConfigureAwait(false);
         return AsObject(Json.DecodeData(await response.Content.ReadAsStringAsync(ct).ConfigureAwait(false)));
     }
 
     /// <summary>
     /// POST with a raw body, parsing the response directly <em>without</em> unwrapping a data envelope.
-    /// Used by endpoints (e.g. actor input validation) whose response is a plain object.
+    /// Used by endpoints (e.g. actor input validation) whose response is a plain object. Pass
+    /// <paramref name="bodyBytes"/> instead of <paramref name="body"/> to send raw bytes (see
+    /// <see cref="EncodeInputBody"/>) without re-encoding them as a JSON string.
     /// </summary>
-    public async Task<JsonNode?> PostWithBodyNoEnvelopeAsync(string subPath, QueryParams p, string? body, string contentType, CancellationToken ct)
+    public async Task<JsonNode?> PostWithBodyNoEnvelopeAsync(string subPath, QueryParams p, string? body, string contentType, CancellationToken ct, byte[]? bodyBytes = null)
     {
         var url = MergedParams(p).ApplyToUrl(SubUrl(subPath));
-        using var response = await Http.CallAsync(HttpMethod.Post, url, body, contentType, _requestTimeout, cancellationToken: ct).ConfigureAwait(false);
+        using var response = await Http.CallAsync(HttpMethod.Post, url, body, contentType, _requestTimeout, bodyBytes: bodyBytes, cancellationToken: ct).ConfigureAwait(false);
         return Json.Decode(await response.Content.ReadAsStringAsync(ct).ConfigureAwait(false));
+    }
+
+    /// <summary>
+    /// Encodes an Actor/task run input for the request body: raw bytes (e.g. a pre-serialized or binary
+    /// payload, typically paired with an explicit content type) are sent as-is, and anything else is
+    /// JSON-encoded, matching the reference client's <c>ActorInput</c> (a plain object/array, or raw bytes).
+    /// </summary>
+    /// <param name="input">The input value, or <c>null</c> for no input.</param>
+    /// <param name="body">The JSON-encoded body, or <c>null</c> when <paramref name="bodyBytes"/> is used.</param>
+    /// <param name="bodyBytes">The raw bytes to send, or <c>null</c> when <paramref name="body"/> is used.</param>
+    public static void EncodeInputBody(object? input, out string? body, out byte[]? bodyBytes)
+    {
+        if (input is byte[] raw)
+        {
+            body = null;
+            bodyBytes = raw;
+            return;
+        }
+
+        body = input is null ? null : Json.Encode(input);
+        bodyBytes = null;
     }
 
     /// <summary>DELETE with a JSON body (used for batch request deletion), unwrapping the data envelope.</summary>
@@ -275,6 +340,19 @@ internal sealed class ResourceContext
         {
             return null;
         }
+    }
+
+    /// <summary>
+    /// GET returning the raw response body (no data envelope); propagates a 404 instead of swallowing it.
+    /// Used by sub-path endpoints whose parent resource must already exist for the call to make sense (e.g.
+    /// dataset statistics, a schedule's log, a task's input), so a missing parent surfaces as an error rather
+    /// than as an ambiguous empty result.
+    /// </summary>
+    public async Task<string> GetRawRequiredAsync(string subPath, QueryParams p, CancellationToken ct)
+    {
+        var url = MergedParams(p).ApplyToUrl(SubUrl(subPath));
+        using var response = await Http.CallAsync(HttpMethod.Get, url, timeout: _requestTimeout, cancellationToken: ct).ConfigureAwait(false);
+        return await response.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
     }
 
     /// <summary>HEAD request; returns whether the resource exists.</summary>

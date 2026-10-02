@@ -95,7 +95,10 @@ public sealed class RunClient
 
     /// <summary>Transforms the run into a run of another Actor with a new input.</summary>
     /// <param name="targetActorId">The Actor to metamorph into.</param>
-    /// <param name="input">The new input (<c>null</c> for none).</param>
+    /// <param name="input">
+    /// The new input: a plain object or array serialized to JSON, raw bytes (<c>byte[]</c>) sent as-is, or
+    /// <c>null</c> for none.
+    /// </param>
     /// <param name="options">Optional metamorph options.</param>
     /// <param name="cancellationToken">A token to cancel the request.</param>
     public async Task<ActorRun> MetamorphAsync(
@@ -112,8 +115,8 @@ public sealed class RunClient
             q.AddString("build", options.Build);
         }
 
-        var body = input is null ? null : Json.Encode(input);
-        return new ActorRun(await _ctx.PostWithBodyAsync("metamorph", q, body, options.ContentTypeOrDefault(), cancellationToken).ConfigureAwait(false));
+        ResourceContext.EncodeInputBody(input, out var body, out var bodyBytes);
+        return new ActorRun(await _ctx.PostWithBodyAsync("metamorph", q, body, options.ContentTypeOrDefault(), cancellationToken, bodyBytes).ConfigureAwait(false));
     }
 
     /// <summary>Reboots the run (restarts its container while keeping the same run).</summary>
@@ -240,8 +243,13 @@ public sealed class RunClient
     /// stream. For automatic redirection into a sink, prefer <see cref="GetStreamedLog"/>.
     /// </summary>
     /// <param name="cancellationToken">A token to cancel the request.</param>
-    public Task<Stream> GetStreamedLogAsync(CancellationToken cancellationToken = default)
-        => Log().StreamAsync(new LogOptions { Raw = true }, cancellationToken);
+    public async Task<Stream> GetStreamedLogAsync(CancellationToken cancellationToken = default)
+    {
+        // Log() is this run's nested (ambiguous) log client, which never resolves a 404 to null — it throws
+        // instead, since the run itself could be what's missing — so the stream is always non-null here.
+        var stream = await Log().StreamAsync(new LogOptions { Raw = true }, cancellationToken).ConfigureAwait(false);
+        return stream!;
+    }
 
     /// <summary>
     /// Creates a <see cref="StreamedLog"/> that redirects this run's live log to <paramref name="toLog"/>,

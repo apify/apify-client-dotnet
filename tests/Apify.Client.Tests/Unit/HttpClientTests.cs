@@ -62,7 +62,9 @@ public sealed class HttpClientTests
     {
         var transport = new MockTransport().QueueResponse(400, "{\"error\":{\"type\":\"bad-input\",\"message\":\"invalid\"}}");
 
-        var ex = await Assert.ThrowsAsync<ApifyApiException>(() => Client(transport).Actors().CreateAsync(new { name = "x" }));
+        // A 400 is thrown as the InvalidRequestException subclass (see ApifyApiException.Create), which still
+        // satisfies an `ApifyApiException ex` catch/assignment.
+        var ex = await Assert.ThrowsAsync<InvalidRequestException>(() => Client(transport).Actors().CreateAsync(new { name = "x" }));
         Assert.Equal(400, ex.StatusCode);
         Assert.Equal("bad-input", ex.Type);
         Assert.Contains("invalid", ex.ApiMessage, StringComparison.Ordinal);
@@ -184,7 +186,8 @@ public sealed class HttpClientTests
         };
         var transport = (MockTransport)options.HttpTransport;
 
-        var ex = await Assert.ThrowsAsync<ApifyApiException>(() => new ApifyClient(options).Actor("x").GetAsync());
+        // A 5xx is thrown as the ServerException subclass (see ApifyApiException.Create).
+        var ex = await Assert.ThrowsAsync<ServerException>(() => new ApifyClient(options).Actor("x").GetAsync());
         Assert.Equal(500, ex.StatusCode);
         Assert.Equal(3, ex.Attempt);
         Assert.Equal(3, transport.CallCount);
@@ -228,8 +231,9 @@ public sealed class HttpClientTests
             HttpTransport = transport,
         });
 
-        // A per-queue timeout of 5s becomes the base per-attempt timeout that then doubles.
-        await Assert.ThrowsAsync<ApifyApiException>(
+        // A per-queue timeout of 5s becomes the base per-attempt timeout that then doubles. A 5xx is thrown
+        // as the ServerException subclass (see ApifyApiException.Create).
+        await Assert.ThrowsAsync<ServerException>(
             () => client.RequestQueue("q1", new Options.RequestQueueClientOptions { TimeoutSecs = 5 }).ListHeadAsync(5));
 
         Assert.Equal(new[] { 5.0, 10.0, 20.0, 40.0, 80.0, 100.0 }, transport.Timeouts);

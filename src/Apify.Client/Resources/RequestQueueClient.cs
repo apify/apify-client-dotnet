@@ -50,7 +50,7 @@ public sealed class RequestQueueClient
     }
 
     internal static RequestQueueClient Nested(HttpClientCore http, string baseUrl, string subPath, QueryParams? inheritedParams = null)
-        => new(http, ResourceContext.Collection(http, baseUrl, subPath, inheritedParams), null, null);
+        => new(http, ResourceContext.NestedSingleton(http, baseUrl, subPath, inheritedParams), null, null);
 
     /// <summary>
     /// Returns a copy of the client that identifies its requests with <paramref name="clientKey"/>. A

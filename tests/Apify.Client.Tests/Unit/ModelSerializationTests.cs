@@ -77,4 +77,24 @@ public sealed class ModelSerializationTests
         Assert.Equal("V", json["value"]!.GetValue<string>());
         Assert.True(json["isSecret"]!.GetValue<bool>());
     }
+
+    [Fact]
+    public void BuildImageDigestReadsFromRawField()
+    {
+        var build = new Build(new JsonObject
+        {
+            ["id"] = "build1",
+            ["imageDigest"] = "1b2f1e8c0d5a4c7f9e3b6a2d8c4e0f7a5b9d3c1e6f8a2b4d0c7e9f1a3b5d7c9e",
+        });
+
+        Assert.Equal("1b2f1e8c0d5a4c7f9e3b6a2d8c4e0f7a5b9d3c1e6f8a2b4d0c7e9f1a3b5d7c9e", build.ImageDigest);
+    }
+
+    [Fact]
+    public void BuildImageDigestIsNullWhenAbsent()
+    {
+        var build = new Build(new JsonObject { ["id"] = "build1" });
+
+        Assert.Null(build.ImageDigest);
+    }
 }

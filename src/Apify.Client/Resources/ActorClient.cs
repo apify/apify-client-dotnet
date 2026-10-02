@@ -55,7 +55,10 @@ public sealed class ActorClient
     public Task DeleteAsync(CancellationToken cancellationToken = default) => _ctx.DeleteResourceAsync("", cancellationToken);
 
     /// <summary>Starts the Actor and returns immediately with the created run.</summary>
-    /// <param name="input">Any JSON-serializable value (or <c>null</c> for no input).</param>
+    /// <param name="input">
+    /// A plain object or array serialized to JSON, raw bytes (<c>byte[]</c>) sent as-is (typically paired
+    /// with <see cref="ActorStartOptions.ContentType"/>), or <c>null</c> for no input.
+    /// </param>
     /// <param name="options">Optional run-start options.</param>
     /// <param name="cancellationToken">A token to cancel the request.</param>
     public async Task<ActorRun> StartAsync(object? input = null, ActorStartOptions? options = null, CancellationToken cancellationToken = default)
@@ -63,8 +66,8 @@ public sealed class ActorClient
         options ??= new ActorStartOptions();
         var q = new QueryParams();
         options.AppendTo(q);
-        var body = input is null ? null : Json.Encode(input);
-        return new ActorRun(await _ctx.PostWithBodyAsync("runs", q, body, options.ContentTypeOrDefault(), cancellationToken).ConfigureAwait(false));
+        ResourceContext.EncodeInputBody(input, out var body, out var bodyBytes);
+        return new ActorRun(await _ctx.PostWithBodyAsync("runs", q, body, options.ContentTypeOrDefault(), cancellationToken, bodyBytes).ConfigureAwait(false));
     }
 
     /// <summary>Starts the Actor and waits (client-side polling) for it to finish.</summary>
@@ -89,7 +92,9 @@ public sealed class ActorClient
     }
 
     /// <summary>Validates <paramref name="input"/> against the Actor's input schema and returns whether it is valid.</summary>
-    /// <param name="input">Any JSON-serializable value (or <c>null</c>).</param>
+    /// <param name="input">
+    /// A plain object or array serialized to JSON, raw bytes (<c>byte[]</c>) sent as-is, or <c>null</c>.
+    /// </param>
     /// <param name="options">Optional validation options.</param>
     /// <param name="cancellationToken">A token to cancel the request.</param>
     public async Task<bool> ValidateInputAsync(object? input = null, ValidateInputOptions? options = null, CancellationToken cancellationToken = default)
@@ -97,10 +102,10 @@ public sealed class ActorClient
         options ??= new ValidateInputOptions();
         var q = new QueryParams();
         options.AppendTo(q);
-        var body = input is null ? null : Json.Encode(input);
+        ResourceContext.EncodeInputBody(input, out var body, out var bodyBytes);
         // The validate-input endpoint returns a bare {"valid": <bool>} object, not the standard
         // {"data": ...} envelope, so parse it without unwrapping.
-        var result = await _ctx.PostWithBodyNoEnvelopeAsync("validate-input", q, body, options.ContentTypeOrDefault(), cancellationToken).ConfigureAwait(false);
+        var result = await _ctx.PostWithBodyNoEnvelopeAsync("validate-input", q, body, options.ContentTypeOrDefault(), cancellationToken, bodyBytes).ConfigureAwait(false);
         return result is JsonObject obj && obj.TryGetPropertyValue("valid", out var valid)
             && valid?.GetValueKind() == System.Text.Json.JsonValueKind.True;
     }
@@ -148,8 +153,16 @@ public sealed class ActorClient
     public RunCollectionClient Runs() => new(_http, _ctx.SubUrl(""), "runs");
 
     /// <summary>A client for a specific version of this Actor.</summary>
-    /// <param name="versionNumber">The version identifier (e.g. <c>0.1</c>).</param>
-    public ActorVersionClient Version(string versionNumber) => new(_http, _ctx.SubUrl(""), versionNumber);
+    /// <param name="versionNumber">The version identifier (e.g. <c>0.1</c>). Must not be empty.</param>
+    public ActorVersionClient Version(string versionNumber)
+    {
+        if (versionNumber.Length == 0)
+        {
+            throw new ArgumentException("versionNumber must not be empty", nameof(versionNumber));
+        }
+
+        return new ActorVersionClient(_http, _ctx.SubUrl(""), versionNumber);
+    }
 
     /// <summary>A client for this Actor's version collection.</summary>
     public ActorVersionCollectionClient Versions() => new(_http, _ctx.SubUrl(""));

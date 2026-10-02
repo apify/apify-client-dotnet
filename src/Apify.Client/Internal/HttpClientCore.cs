@@ -45,6 +45,57 @@ internal sealed class HttpClientCore
     /// <summary>The <c>Content-Encoding</c> token used for gzip-compressed request bodies.</summary>
     private const string GzipEncoding = "gzip";
 
+    /// <summary>Media type prefixes whose payloads carry their own compression (e.g. <c>image/png</c>).</summary>
+    private static readonly string[] AlreadyCompressedMediaTypePrefixes = { "audio/", "image/", "video/" };
+
+    /// <summary>Exact media types whose payloads carry their own compression (archives, packages, fonts).</summary>
+    private static readonly HashSet<string> AlreadyCompressedMediaTypes = new(StringComparer.Ordinal)
+    {
+        "application/epub+zip",
+        "application/gzip",
+        "application/java-archive",
+        "application/vnd.android.package-archive",
+        "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        "application/vnd.rar",
+        "application/x-7z-compressed",
+        "application/x-bzip",
+        "application/x-bzip2",
+        "application/x-gzip",
+        "application/x-rar-compressed",
+        "application/x-xz",
+        "application/x-zip-compressed",
+        "application/zip",
+        "application/zstd",
+        "font/woff",
+        "font/woff2",
+    };
+
+    /// <summary>Uncompressed media types that sit under an already-compressed prefix but still benefit from compression.</summary>
+    private static readonly HashSet<string> CompressibleMediaTypes = new(StringComparer.Ordinal)
+    {
+        "audio/aiff",
+        "audio/basic",
+        "audio/l16",
+        "audio/l24",
+        "audio/midi",
+        "audio/vnd.wave",
+        "audio/wav",
+        "audio/wave",
+        "audio/x-aiff",
+        "audio/x-wav",
+        "image/bmp",
+        "image/tiff",
+        "image/vnd.adobe.photoshop",
+        "image/vnd.microsoft.icon",
+        "image/x-icon",
+        "image/x-ms-bmp",
+    };
+
+    /// <summary>Structured syntax suffixes marking a media type as text even under an already-compressed prefix (e.g. <c>image/svg+xml</c>).</summary>
+    private static readonly string[] CompressibleMediaTypeSuffixes = { "+json", "+xml" };
+
     private readonly IHttpTransport _transport;
     private readonly string? _token;
     private readonly RetryConfig _retry;
@@ -216,7 +267,7 @@ internal sealed class HttpClientCore
             return default;
         }
 
-        if (raw.Length < MinCompressBytes)
+        if (raw.Length < MinCompressBytes || !IsCompressibleContentType(contentType))
         {
             return new PreparedBody(raw, contentType, null);
         }
@@ -224,6 +275,61 @@ internal sealed class HttpClientCore
         return _compression == RequestCompression.Gzip
             ? new PreparedBody(GzipCompress(raw), contentType, GzipEncoding)
             : new PreparedBody(BrotliCompress(raw), contentType, BrotliEncoding);
+    }
+
+    /// <summary>
+    /// Decides whether a request body with the given content type is worth compressing, matching the
+    /// reference client's <c>isCompressibleContentType()</c>.
+    /// </summary>
+    /// <remarks>
+    /// Images, audio, video and archives already carry their own compression: running them through
+    /// brotli/gzip burns CPU, holds a second full copy of the body in memory, and usually produces output
+    /// slightly larger than the input. Formats that are raw despite such a media type (e.g. <c>image/bmp</c>,
+    /// <c>audio/wav</c>) are still compressed, as are <c>+json</c>/<c>+xml</c> structured-syntax suffixes
+    /// (e.g. <c>image/svg+xml</c>). <c>application/octet-stream</c> is deliberately left off the
+    /// already-compressed list: it is the catch-all for unknown binary data and <c>SetRecordAsync</c>'s
+    /// fallback when no content type is given. No content type is assumed compressible.
+    /// </remarks>
+    internal static bool IsCompressibleContentType(string? contentType)
+    {
+        if (string.IsNullOrEmpty(contentType))
+        {
+            return true;
+        }
+
+        // Content-Type may carry parameters, e.g. "text/plain; charset=utf-8".
+        var semicolon = contentType.IndexOf(';', StringComparison.Ordinal);
+        var mediaType = (semicolon >= 0 ? contentType.Substring(0, semicolon) : contentType)
+            .Trim()
+            .ToLowerInvariant();
+
+        if (CompressibleMediaTypes.Contains(mediaType))
+        {
+            return true;
+        }
+
+        foreach (var suffix in CompressibleMediaTypeSuffixes)
+        {
+            if (mediaType.EndsWith(suffix, StringComparison.Ordinal))
+            {
+                return true;
+            }
+        }
+
+        if (AlreadyCompressedMediaTypes.Contains(mediaType))
+        {
+            return false;
+        }
+
+        foreach (var prefix in AlreadyCompressedMediaTypePrefixes)
+        {
+            if (mediaType.StartsWith(prefix, StringComparison.Ordinal))
+            {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     /// <summary>Brotli-compresses a payload into a self-contained byte array.</summary>
@@ -314,7 +420,7 @@ internal sealed class HttpClientCore
             ? "unexpected error with status " + status.ToString(CultureInfo.InvariantCulture)
             : "unexpected error: " + body;
 
-        return new ApifyApiException(status, type, message, attempt, method, path, data);
+        return ApifyApiException.Create(status, type, message, attempt, method, path, data);
     }
 
     private static string? AsString(System.Text.Json.Nodes.JsonObject obj, string key)

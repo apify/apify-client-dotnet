@@ -301,6 +301,32 @@ public sealed class RequestShapeTests
     }
 
     [Fact]
+    public async Task StartAsyncSendsRawBytesInputVerbatimWithoutJsonEncoding()
+    {
+        var transport = new MockTransport().QueueResponse(200, "{\"data\":{\"id\":\"r\"}}");
+        var rawInput = new byte[] { 0x00, 0x01, 0xFF, (byte)'{', (byte)'}' };
+
+        await Client(transport).Actor("act").StartAsync(rawInput, new ActorStartOptions { ContentType = "application/octet-stream" });
+
+        Assert.Equal(rawInput, transport.LastRequest.BodyBytes);
+        Assert.Equal("application/octet-stream", transport.LastRequest.Header("Content-Type"));
+    }
+
+    [Fact]
+    public async Task MetamorphAsyncSendsRawBytesInputVerbatimWithoutJsonEncoding()
+    {
+        var transport = new MockTransport().QueueResponse(200, "{\"data\":{\"id\":\"r\"}}");
+        var rawInput = new byte[] { 0x10, 0x20, 0x30 };
+
+        await Client(transport).Run("run1").MetamorphAsync(
+            "other-actor",
+            rawInput,
+            new MetamorphOptions { ContentType = "application/octet-stream" });
+
+        Assert.Equal(rawInput, transport.LastRequest.BodyBytes);
+    }
+
+    [Fact]
     public async Task LargeRequestBodyIsBrotliCompressed()
     {
         // A JSON body at or above the 1 KiB threshold is sent brotli-compressed: the transport sees the
@@ -356,6 +382,64 @@ public sealed class RequestShapeTests
         // explicit option, keeping the brotli path the reference-preferred default.
         var transport = new MockTransport().QueueResponse(200, string.Empty);
         await Client(transport).Dataset("ds1").PushItemsAsync(new { blob = new string('y', 4096) });
+
+        Assert.Equal("br", transport.LastRequest.Header("Content-Encoding"));
+    }
+
+    [Fact]
+    public async Task LargeAlreadyCompressedContentTypeIsSentUncompressed()
+    {
+        // image/png already carries its own compression, so the client skips compressing the record body
+        // even though it is well above the 1 KiB threshold: no Content-Encoding header, and the bytes on
+        // the wire are the exact bytes passed in.
+        var transport = new MockTransport().QueueResponse(200, string.Empty);
+        var bigPng = new byte[4096];
+        Array.Fill(bigPng, (byte)0xAB);
+
+        await Client(transport).KeyValueStore("kvs1").SetRecordAsync("k", bigPng, "image/png");
+
+        var request = transport.LastRequest;
+        Assert.Equal(string.Empty, request.Header("Content-Encoding"));
+        Assert.Equal(bigPng, request.BodyBytes);
+    }
+
+    [Fact]
+    public async Task LargeRawFormatUnderAnAlreadyCompressedPrefixIsStillCompressed()
+    {
+        // image/bmp sits under the "image/" prefix but is itself uncompressed, so it is still compressed
+        // like any other large body (the already-compressed skip-list excludes it explicitly).
+        var transport = new MockTransport().QueueResponse(200, string.Empty);
+        var bigBmp = new byte[4096];
+        Array.Fill(bigBmp, (byte)0xCD);
+
+        await Client(transport).KeyValueStore("kvs1").SetRecordAsync("k", bigBmp, "image/bmp");
+
+        Assert.Equal("br", transport.LastRequest.Header("Content-Encoding"));
+    }
+
+    [Fact]
+    public async Task LargeStructuredSyntaxSuffixUnderAnAlreadyCompressedPrefixIsStillCompressed()
+    {
+        // image/svg+xml sits under the "image/" prefix but the +xml structured-syntax suffix marks it as
+        // text, so it is still compressed.
+        var transport = new MockTransport().QueueResponse(200, string.Empty);
+        var bigSvg = System.Text.Encoding.UTF8.GetBytes("<svg>" + new string('x', 4096) + "</svg>");
+
+        await Client(transport).KeyValueStore("kvs1").SetRecordAsync("k", bigSvg, "image/svg+xml");
+
+        Assert.Equal("br", transport.LastRequest.Header("Content-Encoding"));
+    }
+
+    [Fact]
+    public async Task LargeOctetStreamIsStillCompressed()
+    {
+        // application/octet-stream is deliberately off the already-compressed list: it is the catch-all for
+        // unknown binary data and SetRecordJsonAsync's content type, so it is still compressed.
+        var transport = new MockTransport().QueueResponse(200, string.Empty);
+        var bigBlob = new byte[4096];
+        Array.Fill(bigBlob, (byte)0x42);
+
+        await Client(transport).KeyValueStore("kvs1").SetRecordAsync("k", bigBlob, "application/octet-stream");
 
         Assert.Equal("br", transport.LastRequest.Header("Content-Encoding"));
     }

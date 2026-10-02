@@ -12,10 +12,17 @@ public sealed class ApifyClientOptions
     /// <summary>API token, sent as a Bearer token.</summary>
     public string? Token { get; set; }
 
-    /// <summary>API base URL; the <c>/v2</c> suffix is appended automatically.</summary>
+    /// <summary>
+    /// API base URL, with or without the <c>/v2</c> API version path: the path is appended when not already
+    /// present, so <c>https://api.apify.com</c> and <c>https://api.apify.com/v2</c> are both accepted and
+    /// resolve to the same <see cref="ApifyClient.ApiBaseUrl"/>.
+    /// </summary>
     public string BaseUrl { get; set; } = ApifyClient.DefaultBaseUrl;
 
-    /// <summary>Base URL for building public, shareable resource URLs (defaults to <see cref="BaseUrl"/>).</summary>
+    /// <summary>
+    /// Base URL for building public, shareable resource URLs (defaults to <see cref="BaseUrl"/>). Like
+    /// <see cref="BaseUrl"/>, accepted with or without the <c>/v2</c> API version path.
+    /// </summary>
     public string? PublicBaseUrl { get; set; }
 
     /// <summary>Maximum retries for failed requests (default 8).</summary>

@@ -12,7 +12,7 @@ Schedules automatically start Actor or task runs at specified times. Access the 
 ## Single schedule — `client.Schedule(id)`
 
 - `GetAsync()` → `Schedule?`; `UpdateAsync(object newFields)` → `Schedule`; `DeleteAsync()`.
-- `GetLogAsync()` → `string?` (invocation log; `null` if none yet).
+- `GetLogAsync()` → `string` (invocation log; throws if the schedule does not exist).
 
 ```csharp
 using Apify.Client;

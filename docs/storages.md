@@ -32,8 +32,8 @@ reached from a run (`client.Run(id).Dataset()`, `.KeyValueStore()`, `.RequestQue
 - `DownloadItemsAsync(DownloadItemsFormat format, DatasetDownloadOptions? options = null)` → serialized items as
   `byte[]` (raw bytes, so binary formats like `Xlsx` are not corrupted; decode text formats yourself).
 - `PushItemsAsync(object items)` — push one object or an array of objects.
-- `GetStatisticsAsync()` → `JsonObject?`.
-- `CreateItemsPublicUrlAsync(DatasetListItemsOptions? options = null, int? expiresInSecs = null)` → `string` (a signed public URL).
+- `GetStatisticsAsync()` → `JsonObject` (throws if the dataset does not exist).
+- `CreateItemsPublicUrlAsync(DatasetListItemsOptions? options = null, int? expiresInSecs = null, DownloadItemsFormat? format = null)` → `string` (a signed public URL; `format` defaults to `Json`).
 
 `DatasetListItemsOptions` selects and reshapes items: `Offset`/`Limit` (pagination), `Desc` (reverse
 order), `Fields`/`OutputFields`/`Omit` (choose columns), `Unwind`/`Flatten` (restructure nested

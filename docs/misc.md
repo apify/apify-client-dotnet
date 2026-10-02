@@ -62,8 +62,14 @@ Console.WriteLine(otherUser?.Username);
 
 ## Logs — `client.Log(buildOrRunId)`
 
-- `GetAsync(LogOptions? options = null)` → `string?` (buffered).
-- `StreamAsync(LogOptions? options = null)` → `Stream` (live). Also `client.Run(id).GetStreamedLogAsync()`.
+- `GetAsync(LogOptions? options = null)` → `string?` (buffered; `null` if the log does not exist).
+- `StreamAsync(LogOptions? options = null)` → `Stream?` (live; `null` if the log does not exist). Also
+  `client.Run(id).GetStreamedLogAsync()`.
+
+Addressed by its own id (`client.Log(buildOrRunId)`) as above, a missing log resolves to `null`. Reached
+through a run or build instead (`client.Run(id).Log()`, `client.Build(id).Log()`), a 404 is ambiguous —
+it could mean the run/build itself or its log is missing — so both methods throw an `ApifyApiException`
+there instead.
 
 `LogOptions` fields: `Raw` (`bool?`, return the unprocessed log rather than the parsed form) and
 `Download` (`bool?`, request a download `Content-Disposition`).

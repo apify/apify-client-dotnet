@@ -104,7 +104,9 @@ public sealed class StreamedLog : IAsyncDisposable
 
     private async Task StreamLogAsync(CancellationToken cancellationToken)
     {
-        using var stream = await _logClient.StreamAsync(new LogOptions { Raw = true }, cancellationToken).ConfigureAwait(false);
+        // _logClient is always the run/build-nested (ambiguous) client (see the internal constructor's only
+        // caller, RunClient.GetStreamedLog), which never resolves a 404 to null — it throws instead.
+        using var stream = (await _logClient.StreamAsync(new LogOptions { Raw = true }, cancellationToken).ConfigureAwait(false))!;
         using var reader = new StreamReader(stream, Encoding.UTF8);
 
         var buffer = new StringBuilder();

@@ -34,6 +34,13 @@ public sealed class Build : ApifyResource
     /// <summary>The human-readable build number (e.g. <c>0.1.2</c>).</summary>
     public string? BuildNumber => GetString("buildNumber");
 
+    /// <summary>
+    /// Digest of the built Docker image manifest, without the <c>sha256:</c> prefix. Compare the digests of
+    /// two builds to find out whether their image contents differ. <c>null</c> if the digest is not
+    /// available.
+    /// </summary>
+    public string? ImageDigest => GetString("imageDigest");
+
     /// <summary>Whether the build has reached a terminal (finished) status.</summary>
     public bool IsTerminal => Statuses.IsTerminal(Status);
 }

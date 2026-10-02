@@ -71,6 +71,7 @@ Base class for every JSON-backed model below.
 | `StartedAt` | `string?` | ISO 8601 start timestamp. |
 | `FinishedAt` | `string?` | ISO 8601 finish timestamp (`null` while building). |
 | `BuildNumber` | `string?` | The semantic build number. |
+| `ImageDigest` | `string?` | Digest of the built Docker image manifest (no `sha256:` prefix); compare two builds' digests to tell whether their image contents differ. |
 | `IsTerminal` | `bool` | `true` if `Status` is a terminal state. |
 
 ## `ActorVersion`

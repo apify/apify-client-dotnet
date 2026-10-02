@@ -111,8 +111,8 @@ var configured = new ApifyClient(new ApifyClientOptions
 | Option | Default | Meaning |
 |---|---|---|
 | `Token` | `null` | API token, sent as a Bearer token. |
-| `BaseUrl` | `https://api.apify.com` | API base URL; the `/v2` suffix is appended automatically. |
-| `PublicBaseUrl` | `BaseUrl` | Base URL used when building public, shareable resource URLs. |
+| `BaseUrl` | `https://api.apify.com` | API base URL, with or without the `/v2` version path — it's appended only when not already present. |
+| `PublicBaseUrl` | `BaseUrl` | Base URL used when building public, shareable resource URLs. Also accepted with or without `/v2`. |
 | `MaxRetries` | `8` | Maximum retries for failed requests. |
 | `MinDelayBetweenRetriesMillis` | `500` | Minimum delay between retries (exponential backoff). |
 | `MaxDelayBetweenRetriesMillis` | request timeout | Upper bound on the growing inter-retry delay. |

@@ -118,6 +118,27 @@ public sealed class ConfigTests
     }
 
     [Fact]
+    public void ApiBaseUrlAcceptsAlreadyPresentV2WithoutDoublingIt()
+    {
+        var client = new ApifyClient(new ApifyClientOptions { Token = "t", BaseUrl = "https://api.example.com/v2", HttpTransport = new MockTransport() });
+        Assert.Equal("https://api.example.com/v2", client.ApiBaseUrl);
+    }
+
+    [Fact]
+    public void ApiBaseUrlAcceptsAlreadyPresentV2WithTrailingSlashWithoutDoublingIt()
+    {
+        var client = new ApifyClient(new ApifyClientOptions { Token = "t", BaseUrl = "https://api.example.com/v2/", HttpTransport = new MockTransport() });
+        Assert.Equal("https://api.example.com/v2", client.ApiBaseUrl);
+    }
+
+    [Fact]
+    public void ApiBaseUrlTreatsOtherVersionSegmentAsHostPathAndStillAppendsV2()
+    {
+        var client = new ApifyClient(new ApifyClientOptions { Token = "t", BaseUrl = "https://api.example.com/v3", HttpTransport = new MockTransport() });
+        Assert.Equal("https://api.example.com/v3/v2", client.ApiBaseUrl);
+    }
+
+    [Fact]
     public void VersionConstants()
     {
         Assert.Matches(new Regex(@"^\d+\.\d+\.\d+$"), ApifyClientVersion.ClientVersion);

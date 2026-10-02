@@ -82,9 +82,24 @@ public sealed class ApifyClient
         var userAgent = BuildUserAgent(options.UserAgentSuffix, options.IsAtHome ?? DefaultIsAtHome);
         _http = new HttpClientCore(transport, options.Token, userAgent, retry, options.RequestCompression);
 
-        _baseUrl = TrimTrailingSlash(options.BaseUrl) + "/v2";
-        var publicSource = options.PublicBaseUrl ?? options.BaseUrl;
-        _publicBaseUrl = TrimTrailingSlash(publicSource) + "/v2";
+        _baseUrl = ToApiBaseUrl(options.BaseUrl);
+        _publicBaseUrl = ToApiBaseUrl(options.PublicBaseUrl ?? options.BaseUrl);
+    }
+
+    /// <summary>The <c>/v2</c> API version path, appended to a base URL that does not already end with it.</summary>
+    private const string ApiVersionPath = "/v2";
+
+    /// <summary>
+    /// Normalizes a caller-supplied base URL into one ending in the API version path: trailing slashes are
+    /// stripped, and <see cref="ApiVersionPath"/> is appended unless the URL already ends with it (so passing
+    /// <c>https://api.apify.com/v2</c> does not double up into <c>.../v2/v2</c>). Only an exact <c>/v2</c>
+    /// suffix counts; another version segment (e.g. <c>/v3</c>) is treated as part of the host path and still
+    /// gets <c>/v2</c> appended, since the client's endpoints only exist under v2.
+    /// </summary>
+    private static string ToApiBaseUrl(string url)
+    {
+        var trimmed = TrimTrailingSlash(url);
+        return trimmed.EndsWith(ApiVersionPath, StringComparison.Ordinal) ? trimmed : trimmed + ApiVersionPath;
     }
 
     /// <summary>The <c>User-Agent</c> header value this client sends.</summary>
@@ -108,8 +123,16 @@ public sealed class ApifyClient
     public BuildCollectionClient Builds() => new(_http, _baseUrl, "actor-builds");
 
     /// <summary>A client for a specific Actor build.</summary>
-    /// <param name="id">The build ID.</param>
-    public BuildClient Build(string id) => new(_http, _baseUrl, id);
+    /// <param name="id">The build ID. Must not be empty.</param>
+    public BuildClient Build(string id)
+    {
+        if (id.Length == 0)
+        {
+            throw new ArgumentException("id must not be empty", nameof(id));
+        }
+
+        return new BuildClient(_http, _baseUrl, id);
+    }
 
     // ----- Run accessors -------------------------------------------------------
 

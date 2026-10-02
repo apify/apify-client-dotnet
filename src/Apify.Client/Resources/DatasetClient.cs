@@ -28,7 +28,7 @@ public sealed class DatasetClient
         => new(http, ResourceContext.Single(http, baseUrl, "datasets", id));
 
     internal static DatasetClient Nested(HttpClientCore http, string baseUrl, string subPath, QueryParams? inheritedParams = null)
-        => new(http, ResourceContext.Collection(http, baseUrl, subPath, inheritedParams));
+        => new(http, ResourceContext.NestedSingleton(http, baseUrl, subPath, inheritedParams));
 
     internal DatasetClient WithPublicBase(string publicBaseUrl)
     {
@@ -66,18 +66,33 @@ public sealed class DatasetClient
     /// </remarks>
     /// <param name="options">Optional item filtering/projection and pagination.</param>
     /// <param name="cancellationToken">A token to cancel the request.</param>
-    public Task<PaginationList<JsonNode?>> ListItemsAsync(DatasetListItemsOptions? options = null, CancellationToken cancellationToken = default)
+    public async Task<PaginationList<JsonNode?>> ListItemsAsync(DatasetListItemsOptions? options = null, CancellationToken cancellationToken = default)
     {
         options ??= new DatasetListItemsOptions();
         var q = new QueryParams();
         options.AppendTo(q);
-        return FetchItemsPageAsync(q, options.Desc ?? false, cancellationToken);
+        var (page, _) = await FetchItemsPageAsync(q, options.Desc ?? false, cancellationToken).ConfigureAwait(false);
+        return page;
     }
 
     /// <summary>
     /// Lazily iterates over all items of the dataset across pages, fetching each page on demand. Mirrors
     /// the reference client's auto-paging <c>listItems</c> iterator.
     /// </summary>
+    /// <remarks>
+    /// The offset for the next page, and whether iteration continues, follow the number of rows the API
+    /// scanned (<c>X-Apify-Pagination-Count</c>) rather than the number of items a page returned. The
+    /// <see cref="DatasetListItemsOptions.Clean"/>/<see cref="DatasetListItemsOptions.SkipEmpty"/>/
+    /// <see cref="DatasetListItemsOptions.SkipHidden"/> filters apply after <c>offset</c>/<c>limit</c>, so a
+    /// page can scan up to the requested limit of rows while returning fewer of them, or none at all;
+    /// advancing by the returned count (as <see cref="PaginationList{T}.Count"/> intentionally does, since it
+    /// is public and reports this page's item count) would re-scan rows on the next page or stop iteration
+    /// in front of rows a filter hid. <see cref="DatasetListItemsOptions.Unwind"/> can conversely leave a page
+    /// with more items than rows scanned, so the two counts cannot be mixed. The scanned count is read from
+    /// the response header and falls back to the returned item count only when the header itself is absent
+    /// (the API always sends it; a missing header means something between the client and the API, such as a
+    /// proxy, stripped it).
+    /// </remarks>
     /// <param name="options">Optional item filtering/projection; <c>Offset</c>/<c>Limit</c> bound where
     /// iteration starts and the total number of items yielded.</param>
     /// <param name="cancellationToken">A token to cancel the iteration.</param>
@@ -100,15 +115,15 @@ public sealed class DatasetClient
                 q.Set("limit", Math.Max(limit.Value - yielded, 0));
             }
 
-            var page = await FetchItemsPageAsync(q, desc, cancellationToken).ConfigureAwait(false);
+            var (page, scannedCount) = await FetchItemsPageAsync(q, desc, cancellationToken).ConfigureAwait(false);
             foreach (var item in page.Items)
             {
                 yield return item;
                 yielded++;
             }
 
-            offset += (int)page.Count;
-            if (page.Count == 0 || offset >= page.Total || (limit is not null && yielded >= limit.Value))
+            offset += (int)scannedCount;
+            if (scannedCount == 0 || offset >= page.Total || (limit is not null && yielded >= limit.Value))
             {
                 yield break;
             }
@@ -117,9 +132,11 @@ public sealed class DatasetClient
 
     /// <summary>
     /// Fetches a single page of dataset items. The endpoint returns a bare JSON array with pagination in
-    /// <c>X-Apify-Pagination-*</c> response headers.
+    /// <c>X-Apify-Pagination-*</c> response headers. Returns the page alongside the number of rows the API
+    /// scanned to produce it (<c>X-Apify-Pagination-Count</c>), which the offset iterator paginates by (see
+    /// <see cref="IterateItemsAsync"/>); it falls back to the item count when the header is absent.
     /// </summary>
-    private async Task<PaginationList<JsonNode?>> FetchItemsPageAsync(QueryParams q, bool desc, CancellationToken cancellationToken)
+    private async Task<(PaginationList<JsonNode?> Page, long ScannedCount)> FetchItemsPageAsync(QueryParams q, bool desc, CancellationToken cancellationToken)
     {
         var url = _ctx.MergedParams(q).ApplyToUrl(_ctx.SubUrl("items"));
         using var response = await _http.CallAsync(HttpMethod.Get, url, timeout: _ctx.RequestTimeout, cancellationToken: cancellationToken).ConfigureAwait(false);
@@ -135,12 +152,14 @@ public sealed class DatasetClient
         }
 
         var count = items.Count;
-        return PaginationList<JsonNode?>.FromItems(
+        var page = PaginationList<JsonNode?>.FromItems(
             items,
             HeaderInt(response, "X-Apify-Pagination-Total", count),
             HeaderInt(response, "X-Apify-Pagination-Offset", 0),
             HeaderInt(response, "X-Apify-Pagination-Limit", count),
             desc);
+        var scannedCount = HeaderInt(response, "X-Apify-Pagination-Count", count);
+        return (page, scannedCount);
     }
 
     /// <summary>
@@ -178,12 +197,17 @@ public sealed class DatasetClient
             cancellationToken: cancellationToken).ConfigureAwait(false);
     }
 
-    /// <summary>Returns statistical information about the dataset, or <c>null</c> if unavailable.</summary>
+    /// <summary>Returns statistical information about the dataset.</summary>
+    /// <remarks>
+    /// Throws if the dataset does not exist (no longer resolves to <c>null</c>): the statistics endpoint has
+    /// no meaning apart from its parent dataset, so a missing dataset is reported as an error rather than an
+    /// ambiguous empty result, matching the reference client.
+    /// </remarks>
     /// <param name="cancellationToken">A token to cancel the request.</param>
-    public async Task<JsonObject?> GetStatisticsAsync(CancellationToken cancellationToken = default)
+    public async Task<JsonObject> GetStatisticsAsync(CancellationToken cancellationToken = default)
     {
-        var body = await _ctx.GetRawAsync("statistics", new QueryParams(), cancellationToken).ConfigureAwait(false);
-        return body is null ? null : Json.DecodeData(body) as JsonObject;
+        var body = await _ctx.GetRawRequiredAsync("statistics", new QueryParams(), cancellationToken).ConfigureAwait(false);
+        return Json.DecodeData(body) as JsonObject ?? new JsonObject();
     }
 
     /// <summary>
@@ -197,14 +221,21 @@ public sealed class DatasetClient
     /// </remarks>
     /// <param name="options">Optional item filtering/projection options forwarded into the URL.</param>
     /// <param name="expiresInSecs">Optional expiry in seconds for a signed URL.</param>
+    /// <param name="format">Output format served by the URL (<c>null</c> defaults to <see cref="DownloadItemsFormat.Json"/>).</param>
     /// <param name="cancellationToken">A token to cancel the request.</param>
     public async Task<string> CreateItemsPublicUrlAsync(
         DatasetListItemsOptions? options = null,
         int? expiresInSecs = null,
+        DownloadItemsFormat? format = null,
         CancellationToken cancellationToken = default)
     {
         var q = new QueryParams();
         (options ?? new DatasetListItemsOptions()).AppendTo(q);
+        if (format is not null)
+        {
+            q.AddString("format", format.Value.ToWireValue());
+        }
+
         var dataset = await GetAsync(cancellationToken).ConfigureAwait(false);
         if (dataset is not null)
         {

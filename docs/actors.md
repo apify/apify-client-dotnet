@@ -44,6 +44,11 @@ foreach (var actor in page.Items)
   → `ActorRun` (starts then waits; `waitSecs` bounds the wait, `null` waits indefinitely; `log`, if set,
   redirects the run's live log to that sink for the duration of the wait).
 - `ValidateInputAsync(object? input = null, ValidateInputOptions? options = null)` → `bool`.
+
+`input` on `StartAsync`/`CallAsync`/`ValidateInputAsync` (and `RunClient.MetamorphAsync`, see
+[Runs](runs.md)) is a plain object or array serialized to JSON, or raw bytes (`byte[]`) sent as-is —
+pass `byte[]` together with `ActorStartOptions.ContentType` to send a pre-serialized or binary body
+without re-encoding it as JSON.
 - `BuildAsync(string versionNumber, ActorBuildOptions? options = null)` → `Build`.
 - `DefaultBuildAsync(int? waitForFinish = null)` → `BuildClient`.
 - `LastRun(LastRunOptions? options = null)` → `RunClient` (filter by `Status`/`Origin`).
@@ -93,15 +98,14 @@ environment variables, reached with `.EnvVars()` / `.EnvVar(name)`.
 
 ### Version collection — `client.Actor(id).Versions()` → `ActorVersionCollectionClient`
 
-- `ListAsync(ListOptions? options = null)` — list the Actor's versions (one page). Returns
-  `PaginationList<ActorVersion>`.
-- `IterateAsync(ListOptions? options = null)` → `IAsyncEnumerable<ActorVersion>` — lazily iterate every
-  version across pages, fetching each page on demand.
+The endpoint returns every version in one response and does not support pagination, so unlike most
+collection clients these methods take no filtering/paging options.
+
+- `ListAsync()` — list the Actor's versions. Returns `PaginationList<ActorVersion>`.
+- `IterateAsync()` → `IAsyncEnumerable<ActorVersion>` — iterate the versions; exists for API parity
+  with the other collection iterators (the endpoint has only the one page).
 - `CreateAsync(object version)` — create a version from any JSON-serializable definition. Returns
   `ActorVersion`.
-
-`ListOptions` fields: `Offset` (`int?`, items to skip), `Limit` (`int?`, page size), `Desc` (`bool?`,
-newest-first when `true`).
 
 ### Single version — `client.Actor(id).Version(versionNumber)` → `ActorVersionClient`
 

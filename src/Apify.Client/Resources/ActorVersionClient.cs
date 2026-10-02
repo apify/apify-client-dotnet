@@ -1,3 +1,4 @@
+using System;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Text.Json.Nodes;
@@ -44,8 +45,16 @@ public sealed class ActorVersionClient
     public Task DeleteAsync(CancellationToken cancellationToken = default) => _ctx.DeleteResourceAsync("", cancellationToken);
 
     /// <summary>A client for a specific environment variable of this version.</summary>
-    /// <param name="name">The environment variable name.</param>
-    public ActorEnvVarClient EnvVar(string name) => new(_http, _versionUrl, name);
+    /// <param name="name">The environment variable name. Must not be empty.</param>
+    public ActorEnvVarClient EnvVar(string name)
+    {
+        if (name.Length == 0)
+        {
+            throw new ArgumentException("name must not be empty", nameof(name));
+        }
+
+        return new ActorEnvVarClient(_http, _versionUrl, name);
+    }
 
     /// <summary>A client for this version's environment variable collection.</summary>
     public ActorEnvVarCollectionClient EnvVars() => new(_http, _versionUrl);

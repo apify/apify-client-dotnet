@@ -56,10 +56,9 @@ public sealed class TaskClient
     /// <remarks>
     /// The task's Actor must be public, <see cref="ActorTask.PublicConfig"/>'s <c>InputSchemaFields</c>
     /// and <c>DatasetView</c> must already be set, and the Actor must not already have 10 published
-    /// tasks (accounts are capped at 100 published tasks across all Actors; contact Apify support to
-    /// raise these limits). If any condition isn't met, the publish request fails and <c>isPublic</c>
-    /// is left unchanged. Requires write permission to the task's Actor. Publishing an already
-    /// published task does nothing.
+    /// tasks (accounts are capped at 100 published tasks across all Actors). If any condition isn't
+    /// met, the publish request fails and <c>isPublic</c> is left unchanged. Requires write permission
+    /// to the task's Actor. Publishing an already published task does nothing.
     /// </remarks>
     /// <param name="cancellationToken">A token to cancel the request.</param>
     public Task<ActorTask> PublishAsync(CancellationToken cancellationToken = default) =>
@@ -79,15 +78,18 @@ public sealed class TaskClient
         UpdateAsync(new { isPublic = false }, cancellationToken);
 
     /// <summary>Starts the task and returns immediately with the created run.</summary>
-    /// <param name="input">Optionally overrides the task's stored input (<c>null</c> to use it).</param>
+    /// <param name="input">
+    /// Optionally overrides the task's stored input: a plain object or array serialized to JSON, raw bytes
+    /// (<c>byte[]</c>) sent as-is, or <c>null</c> to use the task's stored input.
+    /// </param>
     /// <param name="options">Optional run-start options.</param>
     /// <param name="cancellationToken">A token to cancel the request.</param>
     public async Task<ActorRun> StartAsync(object? input = null, TaskStartOptions? options = null, CancellationToken cancellationToken = default)
     {
         var q = new QueryParams();
         (options ?? new TaskStartOptions()).AppendTo(q);
-        var body = input is null ? null : Json.Encode(input);
-        return new ActorRun(await _ctx.PostWithBodyAsync("runs", q, body, ResourceContext.ContentTypeJson, cancellationToken).ConfigureAwait(false));
+        ResourceContext.EncodeInputBody(input, out var body, out var bodyBytes);
+        return new ActorRun(await _ctx.PostWithBodyAsync("runs", q, body, ResourceContext.ContentTypeJson, cancellationToken, bodyBytes).ConfigureAwait(false));
     }
 
     /// <summary>Starts the task and waits (client-side polling) for it to finish.</summary>
@@ -111,12 +113,16 @@ public sealed class TaskClient
         return await _root.Run(run.Id ?? string.Empty).WaitForFinishWithLogAsync(waitSecs, log, cancellationToken).ConfigureAwait(false);
     }
 
-    /// <summary>Fetches the task's stored input, or <c>null</c> if none is set.</summary>
+    /// <summary>
+    /// Fetches the task's stored input. Throws if the task does not exist (no longer resolves to <c>null</c>
+    /// for that case): the input endpoint has no meaning apart from its parent task, matching the reference
+    /// client. Still returns a JSON <c>null</c> node if the task exists but has no stored input.
+    /// </summary>
     /// <param name="cancellationToken">A token to cancel the request.</param>
     public async Task<JsonNode?> GetInputAsync(CancellationToken cancellationToken = default)
     {
-        var body = await _ctx.GetRawAsync("input", new QueryParams(), cancellationToken).ConfigureAwait(false);
-        return body is null ? null : Json.Decode(body);
+        var body = await _ctx.GetRawRequiredAsync("input", new QueryParams(), cancellationToken).ConfigureAwait(false);
+        return Json.Decode(body);
     }
 
     /// <summary>Replaces the task's stored input and returns the updated input.</summary>

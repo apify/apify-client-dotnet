@@ -25,7 +25,7 @@ public sealed class KeyValueStoreClient
         => new(http, ResourceContext.Single(http, baseUrl, "key-value-stores", id));
 
     internal static KeyValueStoreClient Nested(HttpClientCore http, string baseUrl, string subPath, QueryParams? inheritedParams = null)
-        => new(http, ResourceContext.Collection(http, baseUrl, subPath, inheritedParams));
+        => new(http, ResourceContext.NestedSingleton(http, baseUrl, subPath, inheritedParams));
 
     internal KeyValueStoreClient WithPublicBase(string publicBaseUrl)
     {
@@ -102,7 +102,12 @@ public sealed class KeyValueStoreClient
     /// </summary>
     /// <param name="key">The record key.</param>
     /// <param name="value">The raw record bytes.</param>
-    /// <param name="contentType">The record's MIME type.</param>
+    /// <param name="contentType">
+    /// The record's MIME type. Worth setting precisely for media and archives: the client skips
+    /// compressing a body whose content type already carries its own compression (images, audio, video,
+    /// archives, office/ZIP formats, web fonts). <c>application/octet-stream</c> — the usual choice for
+    /// data of an unknown or mixed binary type — is treated as compressible, since it could hold anything.
+    /// </param>
     /// <param name="options">Optional write options.</param>
     /// <param name="cancellationToken">A token to cancel the request.</param>
     public Task SetRecordAsync(string key, byte[] value, string contentType, SetRecordOptions? options = null, CancellationToken cancellationToken = default)

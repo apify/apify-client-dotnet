@@ -1,5 +1,52 @@
 # Changelog
 
+## 0.4.0
+
+- Bumped `ApifyClientVersion.ApiSpecVersion` to the Apify OpenAPI spec `v2-2026-10-01T153946Z` and
+  the project version to `0.4.0`.
+- Added `Build.ImageDigest`, matching the build's new `imageDigest` field in the OpenAPI spec.
+- Dropped the now-removed "contact support" sentence from `TaskClient.PublishAsync`'s remarks and
+  `docs/tasks.md`, matching the corrected spec wording.
+- **Breaking:** added per-status `ApifyApiException` subclasses (`InvalidRequestException` 400,
+  `UnauthorizedException` 401, `ForbiddenException` 403, `NotFoundException` 404, `ConflictException`
+  409, `RateLimitException` 429, `ServerException` 5xx), matching the reference client's `ApifyApiError`
+  subclass hierarchy. Every subclass still satisfies `catch (ApifyApiException)`.
+- **Breaking:** a 404 on a resource addressed without its own id — `RunClient.Dataset()`,
+  `.KeyValueStore()`, `.RequestQueue()`, `.Log()`, and `BuildClient.Log()` — now throws instead of
+  resolving to `null`/no-op, since the ambiguity (the run/build itself, or the nested resource, could
+  be missing) made the old `null` misleading. A record/request/log looked up by its own key or id
+  (`GetRecordAsync`, `GetRequestAsync`, `client.Log(id)`) is unaffected and still resolves `null` for
+  a missing one. Matches the reference client's `catchNotFoundForResourceOrThrow()`.
+- **Breaking:** `DatasetClient.GetStatisticsAsync`, `ScheduleClient.GetLogAsync` and
+  `TaskClient.GetInputAsync` now throw instead of resolving `null` when their parent resource does not
+  exist (return types changed from `JsonObject?`/`string?` to `JsonObject`/`string`), matching the
+  reference client.
+- **Breaking:** `LogClient.StreamAsync` now returns `Stream?` (`null` for a missing log addressed by
+  its own id, matching `GetAsync`) instead of always throwing, and still throws for a run/build-nested
+  log client, matching the reference client's corrected behavior.
+- Fixed `DatasetClient.IterateItemsAsync` to paginate by the API-reported scanned row count
+  (`X-Apify-Pagination-Count`, falling back to the returned item count when the header is absent)
+  instead of the number of items a page returned, so a fully filtered page (`Clean`/`SkipEmpty`/
+  `SkipHidden`) no longer stalls or re-yields items, and `Unwind` returning more items than rows
+  scanned no longer skips rows. Matches a bug fix in the reference client.
+- Added a `format` parameter to `DatasetClient.CreateItemsPublicUrlAsync`, matching the reference
+  client.
+- Added request-body compression skip-list for already-compressed content types (images, audio,
+  video, archives, office/ZIP formats, web fonts), matching the reference client's
+  `isCompressibleContentType()`; a raw format under such a type (e.g. `image/bmp`) or a `+json`/`+xml`
+  suffix (e.g. `image/svg+xml`) still compresses.
+- `ApifyClient`'s `BaseUrl`/`PublicBaseUrl` now accept a URL that already ends with the `/v2` API
+  version path without doubling it into `.../v2/v2`, matching the reference client.
+- `ActorClient.StartAsync`/`ValidateInputAsync`, `TaskClient.StartAsync` and `RunClient.MetamorphAsync`
+  now accept a `byte[]` input, sent as raw bytes instead of being JSON-encoded, matching the reference
+  client's `ActorInput` (a plain object/array, or raw bytes).
+- **Breaking:** `ActorClient.Version`, `ActorVersionClient.EnvVar` and `ApifyClient.Build` now reject
+  an empty id/name/version number instead of silently addressing the collection endpoint, matching the
+  reference client.
+- **Breaking:** `ActorVersionCollectionClient.ListAsync`/`IterateAsync` no longer take a `ListOptions`
+  parameter: the endpoint returns every version in one response and never read `Offset`/`Limit`/`Desc`,
+  matching the reference client.
+
 ## 0.3.5
 
 - Bumped `ApifyClientVersion.ApiSpecVersion` to the Apify OpenAPI spec `v2-2026-09-28T115051Z` and
