@@ -172,6 +172,7 @@ public sealed class RunClient
             Json.Encode(body),
             ResourceContext.ContentTypeJson,
             extraHeaders: new Dictionary<string, string> { [ChargeIdempotencyHeader] = idempotencyKey },
+            tier: RequestTier.Short,
             cancellationToken: cancellationToken).ConfigureAwait(false);
     }
 
@@ -266,4 +267,16 @@ public sealed class RunClient
     /// </param>
     public StreamedLog GetStreamedLog(Action<string> toLog, bool fromStart = true)
         => new(Log(), toLog, fromStart);
+
+    /// <summary>
+    /// Returns this client with every subsequent call's timeout set to <paramref name="timeout"/>,
+    /// overriding the tier default (see the "Timeout tiers" section of the top-level README). Pass
+    /// <see cref="TimeSpan.Zero"/> for no timeout, matching the reference client's <c>'noTimeout'</c>.
+    /// </summary>
+    /// <param name="timeout">The timeout to use for every call made through this client.</param>
+    public RunClient WithTimeout(TimeSpan timeout)
+    {
+        _ctx.WithTimeout(timeout);
+        return this;
+    }
 }

@@ -199,6 +199,36 @@ public sealed class RequestShapeTests
     }
 
     [Fact]
+    public async Task WithTimeoutOverridesTheTierDefaultForEveryCallOnThatClient()
+    {
+        // WithTimeout is the client's general per-call(-instance) timeout override — the fluent equivalent
+        // of the reference client's per-call `timeoutSecs` option — and always wins over the tier default.
+        var transport = new MockTransport()
+            .QueueResponse(200, "{\"data\":{\"id\":\"x\"}}")
+            .QueueResponse(200, "{\"data\":{\"id\":\"x\"}}");
+        var actor = Client(transport).Actor("x").WithTimeout(TimeSpan.FromSeconds(99));
+
+        await actor.GetAsync();
+        await actor.UpdateAsync(new { title = "t" });
+
+        // ActorClient.GetAsync/UpdateAsync are both Short-tier (5s default) absent the override.
+        Assert.Equal(99.0, transport.Timeouts[0]);
+        Assert.Equal(99.0, transport.Timeouts[1]);
+    }
+
+    [Fact]
+    public async Task WithTimeoutZeroMeansNoTimeout()
+    {
+        // TimeSpan.Zero is the client's "no timeout" sentinel (HttpClientTransport skips CancelAfter for a
+        // non-positive duration), matching the reference client's 'noTimeout'.
+        var transport = new MockTransport().QueueResponse(200, "{\"data\":{\"id\":\"x\"}}");
+
+        await Client(transport).Actor("x").WithTimeout(TimeSpan.Zero).GetAsync();
+
+        Assert.Equal(0.0, transport.Timeouts[0]);
+    }
+
+    [Fact]
     public async Task UpdateLimitsPutsToMeLimits()
     {
         var transport = new MockTransport().QueueResponse(200, string.Empty);

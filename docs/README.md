@@ -132,11 +132,19 @@ Each method internally picks the timeout tier that fits the expected duration of
 for metadata reads and writes, `Medium` for listing/batch/trigger calls, `Long` for downloads, uploads
 and streaming — so the default wait before giving up is consistent across the client instead of a
 single one-size-fits-all budget. The three tiers' durations are configured once, on the options above
-(`TimeoutShortSecs`/`TimeoutMediumSecs`/`TimeoutSecs`); raising `TimeoutSecs` also raises the cap every
-attempt's growing per-retry timeout is clamped to, whichever tier it started from. A handful of
-resources additionally expose their own absolute per-call/per-client override that always wins over the
-tier default: `RequestQueueClientOptions.TimeoutSecs` (caps every call a request-queue client makes) and
-`SetRecordOptions.TimeoutSecs` (one `SetRecordAsync` call).
+(`TimeoutShortSecs`/`TimeoutMediumSecs`/`TimeoutSecs`).
+
+Every resource client (`client.Actor(id)`, `client.Dataset(id)`, `client.Actors()`, and so on — the
+return value of every accessor on `ApifyClient`) exposes `WithTimeout(TimeSpan timeout)`, a general
+per-call(-instance) override: call it right after the accessor to make every call made through that
+client instance use `timeout` instead of its tier default, for exactly one use of that client, e.g.
+`client.Dataset(id).WithTimeout(TimeSpan.FromMinutes(5)).DownloadItemsAsync(...)`. A longer override
+raises the cap the per-attempt timeout grows (and is clamped) to for that call, so asking for more time
+is honored rather than silently clamped back to the configured overall budget; a shorter override still
+narrows it, as before. Pass `TimeSpan.Zero` for no timeout at all, matching the reference client's
+`'noTimeout'`. `RequestQueueClient` (via `client.RequestQueue(id, new RequestQueueClientOptions {
+TimeoutSecs = ... })`) and `SetRecordAsync` (via `SetRecordOptions.TimeoutSecs`) already had their own
+equivalent, narrower overrides before `WithTimeout` existed and keep them instead.
 
 Request bodies of at least 1024 bytes are compressed before sending. Brotli is used by default; set
 `RequestCompression = RequestCompression.Gzip` to send gzip-compressed bodies instead.

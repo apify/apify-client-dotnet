@@ -1,3 +1,4 @@
+using System;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Text.Json.Nodes;
@@ -39,7 +40,7 @@ public sealed class BuildClient
     /// <param name="cancellationToken">A token to cancel the request.</param>
     public async Task<Build> AbortAsync(CancellationToken cancellationToken = default)
     {
-        return new Build(await _ctx.PostWithBodyAsync("abort", new QueryParams(), null, "", RequestTier.Medium, cancellationToken).ConfigureAwait(false));
+        return new Build(await _ctx.PostWithBodyAsync("abort", new QueryParams(), null, "", RequestTier.Short, cancellationToken).ConfigureAwait(false));
     }
 
     /// <summary>Deletes the build.</summary>
@@ -62,10 +63,22 @@ public sealed class BuildClient
     /// <param name="cancellationToken">A token to cancel the request.</param>
     public async Task<JsonObject?> GetOpenApiDefinitionAsync(CancellationToken cancellationToken = default)
     {
-        var body = await _ctx.GetRawAsync("openapi.json", new QueryParams(), RequestTier.Short, cancellationToken).ConfigureAwait(false);
+        var body = await _ctx.GetRawAsync("openapi.json", new QueryParams(), RequestTier.Medium, cancellationToken).ConfigureAwait(false);
         return body is null ? null : Json.Decode(body) as JsonObject;
     }
 
     /// <summary>A client for accessing this build's log.</summary>
     public LogClient Log() => LogClient.Nested(_http, _ctx.SubUrl(""));
+
+    /// <summary>
+    /// Returns this client with every subsequent call's timeout set to <paramref name="timeout"/>,
+    /// overriding the tier default (see the "Timeout tiers" section of the top-level README). Pass
+    /// <see cref="TimeSpan.Zero"/> for no timeout, matching the reference client's <c>'noTimeout'</c>.
+    /// </summary>
+    /// <param name="timeout">The timeout to use for every call made through this client.</param>
+    public BuildClient WithTimeout(TimeSpan timeout)
+    {
+        _ctx.WithTimeout(timeout);
+        return this;
+    }
 }

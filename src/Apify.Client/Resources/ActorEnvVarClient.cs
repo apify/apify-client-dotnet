@@ -1,3 +1,4 @@
+using System;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Text.Json.Nodes;
@@ -39,4 +40,16 @@ public sealed class ActorEnvVarClient
     /// <summary>Deletes the environment variable.</summary>
     /// <param name="cancellationToken">A token to cancel the request.</param>
     public Task DeleteAsync(CancellationToken cancellationToken = default) => _ctx.DeleteResourceAsync("", RequestTier.Short, cancellationToken);
+
+    /// <summary>
+    /// Returns this client with every subsequent call's timeout set to <paramref name="timeout"/>,
+    /// overriding the tier default (see the "Timeout tiers" section of the top-level README). Pass
+    /// <see cref="TimeSpan.Zero"/> for no timeout, matching the reference client's <c>'noTimeout'</c>.
+    /// </summary>
+    /// <param name="timeout">The timeout to use for every call made through this client.</param>
+    public ActorEnvVarClient WithTimeout(TimeSpan timeout)
+    {
+        _ctx.WithTimeout(timeout);
+        return this;
+    }
 }

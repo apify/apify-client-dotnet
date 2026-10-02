@@ -162,4 +162,16 @@ public sealed class TaskClient
 
     /// <summary>A read-only client for this task's webhook collection (<c>GET /v2/actor-tasks/{id}/webhooks</c>).</summary>
     public NestedWebhookCollectionClient Webhooks() => new(_http, _ctx.SubUrl(""));
+
+    /// <summary>
+    /// Returns this client with every subsequent call's timeout set to <paramref name="timeout"/>,
+    /// overriding the tier default (see the "Timeout tiers" section of the top-level README). Pass
+    /// <see cref="TimeSpan.Zero"/> for no timeout, matching the reference client's <c>'noTimeout'</c>.
+    /// </summary>
+    /// <param name="timeout">The timeout to use for every call made through this client.</param>
+    public TaskClient WithTimeout(TimeSpan timeout)
+    {
+        _ctx.WithTimeout(timeout);
+        return this;
+    }
 }

@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
@@ -46,6 +47,18 @@ public sealed class ActorCollectionClient
     /// <param name="cancellationToken">A token to cancel the request.</param>
     public async Task<Actor> CreateAsync(object actor, CancellationToken cancellationToken = default)
     {
-        return new Actor(await _ctx.CreateResourceAsync(new QueryParams(), actor, RequestTier.Short, cancellationToken).ConfigureAwait(false));
+        return new Actor(await _ctx.CreateResourceAsync(new QueryParams(), actor, RequestTier.Medium, cancellationToken).ConfigureAwait(false));
+    }
+
+    /// <summary>
+    /// Returns this client with every subsequent call's timeout set to <paramref name="timeout"/>,
+    /// overriding the tier default (see the "Timeout tiers" section of the top-level README). Pass
+    /// <see cref="TimeSpan.Zero"/> for no timeout, matching the reference client's <c>'noTimeout'</c>.
+    /// </summary>
+    /// <param name="timeout">The timeout to use for every call made through this client.</param>
+    public ActorCollectionClient WithTimeout(TimeSpan timeout)
+    {
+        _ctx.WithTimeout(timeout);
+        return this;
     }
 }

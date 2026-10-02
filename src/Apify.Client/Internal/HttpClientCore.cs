@@ -140,9 +140,17 @@ internal sealed class HttpClientCore
         var delayMillis = _retry.MinDelayMillis;
         var maxAttempts = _retry.MaxRetries + 1;
         var path = ExtractPath(url);
-        // An explicit timeout (e.g. a per-queue or per-call override) always wins; otherwise the tier's
-        // configured duration is the base for the per-attempt doubling below.
+        // An explicit timeout (e.g. a per-queue or per-call override, including WithTimeout) always wins;
+        // otherwise the tier's configured duration is the base for the per-attempt doubling below.
         var baseTimeout = timeout ?? TimeSpan.FromSeconds(_retry.TierSecs(tier));
+        // The retry-growth cap is normally the configured overall budget, but an explicit override that asks
+        // for *more* than that budget must not be silently clamped back down to it — the whole point of
+        // overriding is to run one call with a longer timeout than the default. The cap only ever grows here;
+        // a smaller explicit override (e.g. a tight per-queue timeout) is still bounded by the overall budget,
+        // unchanged from before.
+        var overallCap = timeout is { } explicitTimeout && explicitTimeout > TimeSpan.FromSeconds(_retry.TimeoutSecs)
+            ? explicitTimeout
+            : TimeSpan.FromSeconds(_retry.TimeoutSecs);
         // Normalize (and, when large enough, compress) the body once up front so retries reuse the same
         // prepared payload instead of re-encoding and re-compressing on every attempt.
         var prepared = PrepareBody(body, bodyBytes, contentType);
@@ -155,7 +163,7 @@ internal sealed class HttpClientCore
             {
                 var response = await SendOnceAsync(
                     method, url, prepared, extraHeaders,
-                    AttemptTimeout(baseTimeout, attempt), cancellationToken).ConfigureAwait(false);
+                    AttemptTimeout(baseTimeout, overallCap, attempt), cancellationToken).ConfigureAwait(false);
 
                 var status = (int)response.StatusCode;
                 if (status < MaxSuccessStatus)
@@ -367,12 +375,12 @@ internal sealed class HttpClientCore
 
     /// <summary>
     /// Returns <c>min(overall, base * 2^(attempt-1))</c>: the first attempt uses the base timeout; each
-    /// retry doubles it (a slow-but-progressing connection gets more time) while never exceeding the
-    /// overall budget.
+    /// retry doubles it (a slow-but-progressing connection gets more time) while never exceeding
+    /// <paramref name="overall"/> (normally the configured budget, but raised by the caller to an explicit
+    /// per-call override that asks for more — see the comment at the <see cref="CallAsync"/> call site).
     /// </summary>
-    private TimeSpan AttemptTimeout(TimeSpan baseTimeout, int attempt)
+    private static TimeSpan AttemptTimeout(TimeSpan baseTimeout, TimeSpan overall, int attempt)
     {
-        var overall = TimeSpan.FromSeconds(_retry.TimeoutSecs);
         var scaled = baseTimeout;
         for (var i = 1; i < attempt; i++)
         {

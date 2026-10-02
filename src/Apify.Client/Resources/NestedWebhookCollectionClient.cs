@@ -1,3 +1,4 @@
+using System;
 using Apify.Client.Internal;
 
 namespace Apify.Client.Resources;
@@ -13,5 +14,17 @@ public sealed class NestedWebhookCollectionClient : AbstractWebhookCollectionCli
     internal NestedWebhookCollectionClient(HttpClientCore http, string baseUrl)
         : base(http, baseUrl)
     {
+    }
+
+    /// <summary>
+    /// Returns this client with every subsequent call's timeout set to <paramref name="timeout"/>,
+    /// overriding the tier default (see the "Timeout tiers" section of the top-level README). Pass
+    /// <see cref="TimeSpan.Zero"/> for no timeout, matching the reference client's <c>'noTimeout'</c>.
+    /// </summary>
+    /// <param name="timeout">The timeout to use for every call made through this client.</param>
+    public NestedWebhookCollectionClient WithTimeout(TimeSpan timeout)
+    {
+        Ctx.WithTimeout(timeout);
+        return this;
     }
 }

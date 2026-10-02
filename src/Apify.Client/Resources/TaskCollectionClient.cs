@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
@@ -32,7 +33,7 @@ public sealed class TaskCollectionClient
     /// <param name="cancellationToken">A token to cancel the request.</param>
     public async Task<ActorTask> CreateAsync(object task, CancellationToken cancellationToken = default)
     {
-        return new ActorTask(await _ctx.CreateResourceAsync(new QueryParams(), task, RequestTier.Short, cancellationToken).ConfigureAwait(false));
+        return new ActorTask(await _ctx.CreateResourceAsync(new QueryParams(), task, RequestTier.Medium, cancellationToken).ConfigureAwait(false));
     }
 
     /// <summary>Lazily iterates over all tasks across pages, fetching each page on demand.</summary>
@@ -47,4 +48,16 @@ public sealed class TaskCollectionClient
         return _ctx.IterateListAsync("", q, options.Offset ?? 0, options.Limit, static d => new ActorTask(d), RequestTier.Medium, cancellationToken);
     }
 
+
+    /// <summary>
+    /// Returns this client with every subsequent call's timeout set to <paramref name="timeout"/>,
+    /// overriding the tier default (see the "Timeout tiers" section of the top-level README). Pass
+    /// <see cref="TimeSpan.Zero"/> for no timeout, matching the reference client's <c>'noTimeout'</c>.
+    /// </summary>
+    /// <param name="timeout">The timeout to use for every call made through this client.</param>
+    public TaskCollectionClient WithTimeout(TimeSpan timeout)
+    {
+        _ctx.WithTimeout(timeout);
+        return this;
+    }
 }
