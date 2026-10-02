@@ -370,11 +370,12 @@ internal sealed class HttpClientCore
     private readonly record struct PreparedBody(byte[]? Bytes, string ContentType, string? ContentEncoding);
 
     /// <summary>
-    /// Returns <c>min(overall, base * 2^(attempt-1))</c>: the first attempt uses the base timeout; each
-    /// retry doubles it (a slow-but-progressing connection gets more time) while never exceeding
-    /// <paramref name="overall"/> — the configured overall budget (<c>ApifyClientOptions.TimeoutSecs</c>),
-    /// which an explicit per-call override above it is itself capped to by the caller before reaching here
-    /// (see the comment at the <see cref="CallAsync"/> call site), matching the reference client.
+    /// Returns <c>min(overall, base * 2^(attempt-1))</c>: the first attempt uses <paramref name="baseTimeout"/>
+    /// as given (it is not pre-capped by the caller — capping happens only here); each retry doubles it (a
+    /// slow-but-progressing connection gets more time), and every attempt, including the first, is capped at
+    /// <paramref name="overall"/> — the configured overall budget (<c>ApifyClientOptions.TimeoutSecs</c>).
+    /// This is what keeps an explicit <c>WithTimeout</c> override above that budget from exceeding it,
+    /// matching the reference client's <c>timeoutMaxSecs</c> cap.
     /// </summary>
     private static TimeSpan AttemptTimeout(TimeSpan baseTimeout, TimeSpan overall, int attempt)
     {
