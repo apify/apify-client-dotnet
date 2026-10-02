@@ -74,8 +74,11 @@ public sealed class TaskIntegrationTests : IntegrationTestBase
             Assert.True(unpublished.IsPublic != true);
 
             // Publishing requires write permission to the task's Actor (apify/hello-world), which the
-            // test account does not have, so this is expected to fail rather than succeed.
-            var ex = await Assert.ThrowsAsync<ApifyApiException>(() => tc.PublishAsync());
+            // test account does not have, so this is expected to fail rather than succeed. The status (and
+            // so the concrete ApifyApiException subclass, see ApifyApiException.Create) can be either 400
+            // or 403, so assert against the base type via ThrowsAnyAsync (exact-type ThrowsAsync would
+            // reject whichever subclass isn't thrown).
+            var ex = await Assert.ThrowsAnyAsync<ApifyApiException>(() => tc.PublishAsync());
             Assert.True(ex.StatusCode is 400 or 403);
         }
         finally

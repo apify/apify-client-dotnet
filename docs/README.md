@@ -111,18 +111,40 @@ var configured = new ApifyClient(new ApifyClientOptions
 | Option | Default | Meaning |
 |---|---|---|
 | `Token` | `null` | API token, sent as a Bearer token. |
-| `BaseUrl` | `https://api.apify.com` | API base URL; the `/v2` suffix is appended automatically. |
-| `PublicBaseUrl` | `BaseUrl` | Base URL used when building public, shareable resource URLs. |
+| `BaseUrl` | `https://api.apify.com` | API base URL, with or without the `/v2` version path — it's appended only when not already present. |
+| `PublicBaseUrl` | `BaseUrl` | Base URL used when building public, shareable resource URLs. Also accepted with or without `/v2`. |
 | `MaxRetries` | `8` | Maximum retries for failed requests. |
 | `MinDelayBetweenRetriesMillis` | `500` | Minimum delay between retries (exponential backoff). |
 | `MaxDelayBetweenRetriesMillis` | request timeout | Upper bound on the growing inter-retry delay. |
-| `TimeoutSecs` | `360` | Overall per-request timeout. |
+| `TimeoutSecs` | `360` | Base duration of the `Long` timeout tier (downloads, uploads, streaming); also the overall per-request cap every attempt's growing timeout is clamped to, regardless of tier. |
+| `TimeoutShortSecs` | `5` | Base duration of the `Short` timeout tier: simple metadata reads/writes (get/update/delete a resource). |
+| `TimeoutMediumSecs` | `30` | Base duration of the `Medium` timeout tier: listing, batch and trigger calls. |
 | `UserAgentSuffix` | `null` | Custom suffix appended to the `User-Agent` header. |
 | `RequestCompression` | `RequestCompression.Brotli` | Algorithm used to compress request bodies ≥ 1024 bytes: `Brotli` (`Content-Encoding: br`) or `Gzip` (`Content-Encoding: gzip`). |
 | `HttpTransport` | `HttpClientTransport` | The replaceable transport (`Apify.Client.Http.IHttpTransport`). |
 
 Requests are retried on network errors, HTTP 429 (rate limit) and 5xx responses, with exponential
 backoff and jitter. 4xx responses (other than 429) are thrown immediately as `ApifyApiException`.
+
+### Timeout tiers
+
+Each method internally picks the timeout tier that fits the expected duration of its request — `Short`
+for metadata reads and writes, `Medium` for listing/batch/trigger calls, `Long` for downloads, uploads
+and streaming — so the default wait before giving up is consistent across the client instead of a
+single one-size-fits-all budget. The three tiers' durations are configured once, on the options above
+(`TimeoutShortSecs`/`TimeoutMediumSecs`/`TimeoutSecs`).
+
+Every resource client (`client.Actor(id)`, `client.Dataset(id)`, `client.Actors()`, and so on — the
+return value of every accessor on `ApifyClient`) exposes `WithTimeout(TimeSpan timeout)`, a general
+per-call(-instance) override: call it right after the accessor to make every call made through that
+client instance use `timeout` instead of its tier default, for exactly one use of that client, e.g.
+`client.Dataset(id).WithTimeout(TimeSpan.FromMinutes(5)).DownloadItemsAsync(...)`. A value above
+`TimeoutSecs` (the overall budget) is capped at it, matching the reference client — raise `TimeoutSecs`
+itself for a longer per-call timeout; a shorter override still narrows the cap, as before. Pass
+`TimeSpan.Zero` for no timeout at all, matching the reference client's `'noTimeout'`. `RequestQueueClient`
+(via `client.RequestQueue(id, new RequestQueueClientOptions {
+TimeoutSecs = ... })`) and `SetRecordAsync` (via `SetRecordOptions.TimeoutSecs`) already had their own
+equivalent, narrower overrides before `WithTimeout` existed and keep them instead.
 
 Request bodies of at least 1024 bytes are compressed before sending. Brotli is used by default; set
 `RequestCompression = RequestCompression.Gzip` to send gzip-compressed bodies instead.

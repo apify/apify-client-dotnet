@@ -33,7 +33,7 @@ public sealed class TaskClient
     /// <param name="cancellationToken">A token to cancel the request.</param>
     public async Task<ActorTask?> GetAsync(CancellationToken cancellationToken = default)
     {
-        var data = await _ctx.GetResourceAsync("", new QueryParams(), cancellationToken).ConfigureAwait(false);
+        var data = await _ctx.GetResourceAsync("", new QueryParams(), RequestTier.Short, cancellationToken).ConfigureAwait(false);
         return data is JsonObject obj ? new ActorTask(obj) : null;
     }
 
@@ -42,12 +42,12 @@ public sealed class TaskClient
     /// <param name="cancellationToken">A token to cancel the request.</param>
     public async Task<ActorTask> UpdateAsync(object newFields, CancellationToken cancellationToken = default)
     {
-        return new ActorTask(await _ctx.UpdateResourceAsync("", newFields, cancellationToken).ConfigureAwait(false));
+        return new ActorTask(await _ctx.UpdateResourceAsync("", newFields, RequestTier.Short, cancellationToken).ConfigureAwait(false));
     }
 
     /// <summary>Deletes the task.</summary>
     /// <param name="cancellationToken">A token to cancel the request.</param>
-    public Task DeleteAsync(CancellationToken cancellationToken = default) => _ctx.DeleteResourceAsync("", cancellationToken);
+    public Task DeleteAsync(CancellationToken cancellationToken = default) => _ctx.DeleteResourceAsync("", RequestTier.Short, cancellationToken);
 
     /// <summary>
     /// Publishes the task on its public landing page in Apify Store, by setting <c>isPublic</c>
@@ -56,10 +56,9 @@ public sealed class TaskClient
     /// <remarks>
     /// The task's Actor must be public, <see cref="ActorTask.PublicConfig"/>'s <c>InputSchemaFields</c>
     /// and <c>DatasetView</c> must already be set, and the Actor must not already have 10 published
-    /// tasks (accounts are capped at 100 published tasks across all Actors; contact Apify support to
-    /// raise these limits). If any condition isn't met, the publish request fails and <c>isPublic</c>
-    /// is left unchanged. Requires write permission to the task's Actor. Publishing an already
-    /// published task does nothing.
+    /// tasks (accounts are capped at 100 published tasks across all Actors). If any condition isn't
+    /// met, the publish request fails and <c>isPublic</c> is left unchanged. Requires write permission
+    /// to the task's Actor. Publishing an already published task does nothing.
     /// </remarks>
     /// <param name="cancellationToken">A token to cancel the request.</param>
     public Task<ActorTask> PublishAsync(CancellationToken cancellationToken = default) =>
@@ -79,7 +78,16 @@ public sealed class TaskClient
         UpdateAsync(new { isPublic = false }, cancellationToken);
 
     /// <summary>Starts the task and returns immediately with the created run.</summary>
-    /// <param name="input">Optionally overrides the task's stored input (<c>null</c> to use it).</param>
+    /// <remarks>
+    /// Unlike <see cref="ActorClient.StartAsync"/>, <paramref name="input"/> does not accept raw bytes: a
+    /// task run's input always replaces the task's stored input as JSON, and the endpoint has no content
+    /// type to pair raw bytes with, matching the reference client's <c>TaskStartOptions</c> (which omits
+    /// <c>contentType</c> for the same reason).
+    /// </remarks>
+    /// <param name="input">
+    /// Optionally overrides the task's stored input: any JSON-serializable object or array, or <c>null</c>
+    /// to use the task's stored input.
+    /// </param>
     /// <param name="options">Optional run-start options.</param>
     /// <param name="cancellationToken">A token to cancel the request.</param>
     public async Task<ActorRun> StartAsync(object? input = null, TaskStartOptions? options = null, CancellationToken cancellationToken = default)
@@ -87,7 +95,9 @@ public sealed class TaskClient
         var q = new QueryParams();
         (options ?? new TaskStartOptions()).AppendTo(q);
         var body = input is null ? null : Json.Encode(input);
-        return new ActorRun(await _ctx.PostWithBodyAsync("runs", q, body, ResourceContext.ContentTypeJson, cancellationToken).ConfigureAwait(false));
+        // Long, not the reference's base "medium": options.WaitForFinish can ask the server to hold the
+        // connection open for up to 60s and this call does not clamp it, so the HTTP timeout must cover it.
+        return new ActorRun(await _ctx.PostWithBodyAsync("runs", q, body, ResourceContext.ContentTypeJson, RequestTier.Long, cancellationToken).ConfigureAwait(false));
     }
 
     /// <summary>Starts the task and waits (client-side polling) for it to finish.</summary>
@@ -111,12 +121,16 @@ public sealed class TaskClient
         return await _root.Run(run.Id ?? string.Empty).WaitForFinishWithLogAsync(waitSecs, log, cancellationToken).ConfigureAwait(false);
     }
 
-    /// <summary>Fetches the task's stored input, or <c>null</c> if none is set.</summary>
+    /// <summary>
+    /// Fetches the task's stored input. Throws if the task does not exist (no longer resolves to <c>null</c>
+    /// for that case): the input endpoint has no meaning apart from its parent task, matching the reference
+    /// client. Still returns a JSON <c>null</c> node if the task exists but has no stored input.
+    /// </summary>
     /// <param name="cancellationToken">A token to cancel the request.</param>
     public async Task<JsonNode?> GetInputAsync(CancellationToken cancellationToken = default)
     {
-        var body = await _ctx.GetRawAsync("input", new QueryParams(), cancellationToken).ConfigureAwait(false);
-        return body is null ? null : Json.Decode(body);
+        var body = await _ctx.GetRawRequiredAsync("input", new QueryParams(), RequestTier.Short, cancellationToken).ConfigureAwait(false);
+        return Json.Decode(body);
     }
 
     /// <summary>Replaces the task's stored input and returns the updated input.</summary>
@@ -129,6 +143,8 @@ public sealed class TaskClient
             _ctx.SubUrl("input"),
             Json.Encode(input),
             ResourceContext.ContentTypeJson,
+            timeout: _ctx.RequestTimeout,
+            tier: RequestTier.Short,
             cancellationToken: cancellationToken).ConfigureAwait(false);
         return Json.Decode(await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false));
     }
@@ -147,4 +163,18 @@ public sealed class TaskClient
 
     /// <summary>A read-only client for this task's webhook collection (<c>GET /v2/actor-tasks/{id}/webhooks</c>).</summary>
     public NestedWebhookCollectionClient Webhooks() => new(_http, _ctx.SubUrl(""));
+
+    /// <summary>
+    /// Returns this client with every subsequent call's timeout set to <paramref name="timeout"/>,
+    /// overriding the tier default (see the "Timeout tiers" section of the top-level README). Pass
+    /// <see cref="TimeSpan.Zero"/> for no timeout, matching the reference client's <c>'noTimeout'</c>. A
+    /// value above <see cref="ApifyClientOptions.TimeoutSecs"/> (the overall budget) is capped at it —
+    /// raise <see cref="ApifyClientOptions.TimeoutSecs"/> itself to allow a longer per-call timeout.
+    /// </summary>
+    /// <param name="timeout">The timeout to use for every call made through this client.</param>
+    public TaskClient WithTimeout(TimeSpan timeout)
+    {
+        _ctx.WithTimeout(timeout);
+        return this;
+    }
 }

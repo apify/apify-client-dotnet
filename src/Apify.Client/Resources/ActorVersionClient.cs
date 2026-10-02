@@ -1,3 +1,4 @@
+using System;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Text.Json.Nodes;
@@ -27,7 +28,7 @@ public sealed class ActorVersionClient
     /// <param name="cancellationToken">A token to cancel the request.</param>
     public async Task<ActorVersion?> GetAsync(CancellationToken cancellationToken = default)
     {
-        var data = await _ctx.GetResourceAsync("", new QueryParams(), cancellationToken).ConfigureAwait(false);
+        var data = await _ctx.GetResourceAsync("", new QueryParams(), RequestTier.Short, cancellationToken).ConfigureAwait(false);
         return data is JsonObject obj ? new ActorVersion(obj) : null;
     }
 
@@ -36,17 +37,39 @@ public sealed class ActorVersionClient
     /// <param name="cancellationToken">A token to cancel the request.</param>
     public async Task<ActorVersion> UpdateAsync(object newFields, CancellationToken cancellationToken = default)
     {
-        return new ActorVersion(await _ctx.UpdateResourceAsync("", newFields, cancellationToken).ConfigureAwait(false));
+        return new ActorVersion(await _ctx.UpdateResourceAsync("", newFields, RequestTier.Short, cancellationToken).ConfigureAwait(false));
     }
 
     /// <summary>Deletes the version.</summary>
     /// <param name="cancellationToken">A token to cancel the request.</param>
-    public Task DeleteAsync(CancellationToken cancellationToken = default) => _ctx.DeleteResourceAsync("", cancellationToken);
+    public Task DeleteAsync(CancellationToken cancellationToken = default) => _ctx.DeleteResourceAsync("", RequestTier.Short, cancellationToken);
 
     /// <summary>A client for a specific environment variable of this version.</summary>
-    /// <param name="name">The environment variable name.</param>
-    public ActorEnvVarClient EnvVar(string name) => new(_http, _versionUrl, name);
+    /// <param name="name">The environment variable name. Must not be empty.</param>
+    public ActorEnvVarClient EnvVar(string name)
+    {
+        if (name.Length == 0)
+        {
+            throw new ArgumentException("name must not be empty", nameof(name));
+        }
+
+        return new ActorEnvVarClient(_http, _versionUrl, name);
+    }
 
     /// <summary>A client for this version's environment variable collection.</summary>
     public ActorEnvVarCollectionClient EnvVars() => new(_http, _versionUrl);
+
+    /// <summary>
+    /// Returns this client with every subsequent call's timeout set to <paramref name="timeout"/>,
+    /// overriding the tier default (see the "Timeout tiers" section of the top-level README). Pass
+    /// <see cref="TimeSpan.Zero"/> for no timeout, matching the reference client's <c>'noTimeout'</c>. A
+    /// value above <see cref="ApifyClientOptions.TimeoutSecs"/> (the overall budget) is capped at it —
+    /// raise <see cref="ApifyClientOptions.TimeoutSecs"/> itself to allow a longer per-call timeout.
+    /// </summary>
+    /// <param name="timeout">The timeout to use for every call made through this client.</param>
+    public ActorVersionClient WithTimeout(TimeSpan timeout)
+    {
+        _ctx.WithTimeout(timeout);
+        return this;
+    }
 }

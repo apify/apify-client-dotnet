@@ -47,7 +47,7 @@ public sealed class ActorIntegrationTests : IntegrationTestBase
             var updated = await actor.UpdateAsync(new { title = "Updated Title" });
             Assert.Equal("Updated Title", updated.Title);
             await actor.Builds().ListAsync(new ListOptions());
-            await actor.Versions().ListAsync(new ListOptions());
+            await actor.Versions().ListAsync();
         }
         finally
         {
@@ -72,7 +72,7 @@ public sealed class ActorIntegrationTests : IntegrationTestBase
             });
             Assert.Equal("0.1", version.VersionNumber);
             Assert.NotNull(await actor.Version("0.1").GetAsync());
-            await actor.Versions().ListAsync(new ListOptions());
+            await actor.Versions().ListAsync();
             await actor.Version("0.1").UpdateAsync(new
             {
                 buildTag = "beta",

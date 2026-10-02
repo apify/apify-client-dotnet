@@ -38,7 +38,7 @@ public sealed class ActorClient
     /// <param name="cancellationToken">A token to cancel the request.</param>
     public async Task<Actor?> GetAsync(CancellationToken cancellationToken = default)
     {
-        var data = await _ctx.GetResourceAsync("", new QueryParams(), cancellationToken).ConfigureAwait(false);
+        var data = await _ctx.GetResourceAsync("", new QueryParams(), RequestTier.Short, cancellationToken).ConfigureAwait(false);
         return data is JsonObject obj ? new Actor(obj) : null;
     }
 
@@ -47,15 +47,18 @@ public sealed class ActorClient
     /// <param name="cancellationToken">A token to cancel the request.</param>
     public async Task<Actor> UpdateAsync(object newFields, CancellationToken cancellationToken = default)
     {
-        return new Actor(await _ctx.UpdateResourceAsync("", newFields, cancellationToken).ConfigureAwait(false));
+        return new Actor(await _ctx.UpdateResourceAsync("", newFields, RequestTier.Short, cancellationToken).ConfigureAwait(false));
     }
 
     /// <summary>Deletes the Actor.</summary>
     /// <param name="cancellationToken">A token to cancel the request.</param>
-    public Task DeleteAsync(CancellationToken cancellationToken = default) => _ctx.DeleteResourceAsync("", cancellationToken);
+    public Task DeleteAsync(CancellationToken cancellationToken = default) => _ctx.DeleteResourceAsync("", RequestTier.Short, cancellationToken);
 
     /// <summary>Starts the Actor and returns immediately with the created run.</summary>
-    /// <param name="input">Any JSON-serializable value (or <c>null</c> for no input).</param>
+    /// <param name="input">
+    /// A plain object or array serialized to JSON, raw bytes (<c>byte[]</c>) sent as-is (typically paired
+    /// with <see cref="ActorStartOptions.ContentType"/>), or <c>null</c> for no input.
+    /// </param>
     /// <param name="options">Optional run-start options.</param>
     /// <param name="cancellationToken">A token to cancel the request.</param>
     public async Task<ActorRun> StartAsync(object? input = null, ActorStartOptions? options = null, CancellationToken cancellationToken = default)
@@ -63,8 +66,11 @@ public sealed class ActorClient
         options ??= new ActorStartOptions();
         var q = new QueryParams();
         options.AppendTo(q);
-        var body = input is null ? null : Json.Encode(input);
-        return new ActorRun(await _ctx.PostWithBodyAsync("runs", q, body, options.ContentTypeOrDefault(), cancellationToken).ConfigureAwait(false));
+        ResourceContext.EncodeInputBody(input, out var body, out var bodyBytes);
+        // Long, not the reference's base "medium": options.WaitForFinish can ask the server to hold the
+        // connection open for up to 60s, and this call does not clamp it to a shorter budget the way
+        // RunClient.GetAsync/BuildClient.GetAsync do, so the HTTP timeout must cover the full wait.
+        return new ActorRun(await _ctx.PostWithBodyAsync("runs", q, body, options.ContentTypeOrDefault(), RequestTier.Long, cancellationToken, bodyBytes).ConfigureAwait(false));
     }
 
     /// <summary>Starts the Actor and waits (client-side polling) for it to finish.</summary>
@@ -89,7 +95,9 @@ public sealed class ActorClient
     }
 
     /// <summary>Validates <paramref name="input"/> against the Actor's input schema and returns whether it is valid.</summary>
-    /// <param name="input">Any JSON-serializable value (or <c>null</c>).</param>
+    /// <param name="input">
+    /// A plain object or array serialized to JSON, raw bytes (<c>byte[]</c>) sent as-is, or <c>null</c>.
+    /// </param>
     /// <param name="options">Optional validation options.</param>
     /// <param name="cancellationToken">A token to cancel the request.</param>
     public async Task<bool> ValidateInputAsync(object? input = null, ValidateInputOptions? options = null, CancellationToken cancellationToken = default)
@@ -97,10 +105,10 @@ public sealed class ActorClient
         options ??= new ValidateInputOptions();
         var q = new QueryParams();
         options.AppendTo(q);
-        var body = input is null ? null : Json.Encode(input);
+        ResourceContext.EncodeInputBody(input, out var body, out var bodyBytes);
         // The validate-input endpoint returns a bare {"valid": <bool>} object, not the standard
         // {"data": ...} envelope, so parse it without unwrapping.
-        var result = await _ctx.PostWithBodyNoEnvelopeAsync("validate-input", q, body, options.ContentTypeOrDefault(), cancellationToken).ConfigureAwait(false);
+        var result = await _ctx.PostWithBodyNoEnvelopeAsync("validate-input", q, body, options.ContentTypeOrDefault(), RequestTier.Short, cancellationToken, bodyBytes).ConfigureAwait(false);
         return result is JsonObject obj && obj.TryGetPropertyValue("valid", out var valid)
             && valid?.GetValueKind() == System.Text.Json.JsonValueKind.True;
     }
@@ -114,7 +122,7 @@ public sealed class ActorClient
         var q = new QueryParams();
         q.AddString("version", versionNumber);
         (options ?? new ActorBuildOptions()).AppendTo(q);
-        return new Build(await _ctx.PostWithBodyAsync("builds", q, null, ResourceContext.ContentTypeJson, cancellationToken).ConfigureAwait(false));
+        return new Build(await _ctx.PostWithBodyAsync("builds", q, null, ResourceContext.ContentTypeJson, RequestTier.Short, cancellationToken).ConfigureAwait(false));
     }
 
     /// <summary>
@@ -127,7 +135,8 @@ public sealed class ActorClient
     {
         var q = new QueryParams();
         q.AddInt("waitForFinish", waitForFinish);
-        var data = await _ctx.GetResourceRequiredAsync("builds/default", q, cancellationToken).ConfigureAwait(false);
+        // Long: waitForFinish is sent unclamped, so the HTTP timeout must cover whatever the caller asks for.
+        var data = await _ctx.GetResourceRequiredAsync("builds/default", q, RequestTier.Long, cancellationToken).ConfigureAwait(false);
         var build = new Build(data as JsonObject ?? new JsonObject());
         return new BuildClient(_http, _baseUrl, build.Id ?? string.Empty);
     }
@@ -148,12 +157,34 @@ public sealed class ActorClient
     public RunCollectionClient Runs() => new(_http, _ctx.SubUrl(""), "runs");
 
     /// <summary>A client for a specific version of this Actor.</summary>
-    /// <param name="versionNumber">The version identifier (e.g. <c>0.1</c>).</param>
-    public ActorVersionClient Version(string versionNumber) => new(_http, _ctx.SubUrl(""), versionNumber);
+    /// <param name="versionNumber">The version identifier (e.g. <c>0.1</c>). Must not be empty.</param>
+    public ActorVersionClient Version(string versionNumber)
+    {
+        if (versionNumber.Length == 0)
+        {
+            throw new ArgumentException("versionNumber must not be empty", nameof(versionNumber));
+        }
+
+        return new ActorVersionClient(_http, _ctx.SubUrl(""), versionNumber);
+    }
 
     /// <summary>A client for this Actor's version collection.</summary>
     public ActorVersionCollectionClient Versions() => new(_http, _ctx.SubUrl(""));
 
     /// <summary>A read-only client for this Actor's webhook collection (<c>GET /v2/actors/{id}/webhooks</c>).</summary>
     public NestedWebhookCollectionClient Webhooks() => new(_http, _ctx.SubUrl(""));
+
+    /// <summary>
+    /// Returns this client with every subsequent call's timeout set to <paramref name="timeout"/>,
+    /// overriding the tier default (see the "Timeout tiers" section of the top-level README). Pass
+    /// <see cref="TimeSpan.Zero"/> for no timeout, matching the reference client's <c>'noTimeout'</c>. A
+    /// value above <see cref="ApifyClientOptions.TimeoutSecs"/> (the overall budget) is capped at it —
+    /// raise <see cref="ApifyClientOptions.TimeoutSecs"/> itself to allow a longer per-call timeout.
+    /// </summary>
+    /// <param name="timeout">The timeout to use for every call made through this client.</param>
+    public ActorClient WithTimeout(TimeSpan timeout)
+    {
+        _ctx.WithTimeout(timeout);
+        return this;
+    }
 }

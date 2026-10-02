@@ -118,9 +118,66 @@ public sealed class ConfigTests
     }
 
     [Fact]
+    public void ApiBaseUrlAcceptsAlreadyPresentV2WithoutDoublingIt()
+    {
+        var client = new ApifyClient(new ApifyClientOptions { Token = "t", BaseUrl = "https://api.example.com/v2", HttpTransport = new MockTransport() });
+        Assert.Equal("https://api.example.com/v2", client.ApiBaseUrl);
+    }
+
+    [Fact]
+    public void ApiBaseUrlAcceptsAlreadyPresentV2WithTrailingSlashWithoutDoublingIt()
+    {
+        var client = new ApifyClient(new ApifyClientOptions { Token = "t", BaseUrl = "https://api.example.com/v2/", HttpTransport = new MockTransport() });
+        Assert.Equal("https://api.example.com/v2", client.ApiBaseUrl);
+    }
+
+    [Fact]
+    public void ApiBaseUrlTreatsOtherVersionSegmentAsHostPathAndStillAppendsV2()
+    {
+        var client = new ApifyClient(new ApifyClientOptions { Token = "t", BaseUrl = "https://api.example.com/v3", HttpTransport = new MockTransport() });
+        Assert.Equal("https://api.example.com/v3/v2", client.ApiBaseUrl);
+    }
+
+    [Fact]
     public void VersionConstants()
     {
         Assert.Matches(new Regex(@"^\d+\.\d+\.\d+$"), ApifyClientVersion.ClientVersion);
         Assert.StartsWith("v2-", ApifyClientVersion.ApiSpecVersion, System.StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Every id-addressed top-level accessor rejects an empty id, matching the reference client's uniform
+    /// <c>id.min(1)</c> validation: an empty id would otherwise flow into a collection-shaped URL (e.g.
+    /// <c>Run("")</c> addressing <c>.../actor-runs/</c>) and silently mis-address the wrong resource.
+    /// </summary>
+    public static TheoryData<string, Action<ApifyClient>> EmptyIdAccessors()
+    {
+        var data = new TheoryData<string, Action<ApifyClient>>
+        {
+            { "Actor", c => c.Actor("") },
+            { "Build", c => c.Build("") },
+            { "Run", c => c.Run("") },
+            { "Dataset", c => c.Dataset("") },
+            { "KeyValueStore", c => c.KeyValueStore("") },
+            { "RequestQueue", c => c.RequestQueue("") },
+            { "Task", c => c.Task("") },
+            { "Schedule", c => c.Schedule("") },
+            { "Webhook", c => c.Webhook("") },
+            { "WebhookDispatch", c => c.WebhookDispatch("") },
+            { "Log", c => c.Log("") },
+            { "User", c => c.User("") },
+        };
+        return data;
+    }
+
+    [Theory]
+    [MemberData(nameof(EmptyIdAccessors))]
+    public void AccessorRejectsEmptyId(string accessorName, Action<ApifyClient> callAccessor)
+    {
+        var client = new ApifyClient(new ApifyClientOptions { Token = "t", HttpTransport = new MockTransport() });
+
+        var ex = Record.Exception(() => callAccessor(client));
+
+        Assert.True(ex is ArgumentException, $"{accessorName}(\"\") should throw ArgumentException, threw: {ex?.GetType().Name ?? "nothing"}");
     }
 }

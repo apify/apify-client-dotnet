@@ -63,7 +63,9 @@ public sealed class RunClient
     {
         var q = new QueryParams();
         q.AddInt("waitForFinish", _ctx.ClampServerWait(waitForFinishSecs));
-        var data = await _ctx.GetResourceAsync("", q, cancellationToken).ConfigureAwait(false);
+        // Long: the clamped waitForFinish can hold the connection open close to the overall budget, so the
+        // HTTP timeout for this call must cover it (matches the reference's short-base-extended-for-wait).
+        var data = await _ctx.GetResourceAsync("", q, RequestTier.Long, cancellationToken).ConfigureAwait(false);
         return data is JsonObject obj ? new ActorRun(obj) : null;
     }
 
@@ -72,12 +74,12 @@ public sealed class RunClient
     /// <param name="cancellationToken">A token to cancel the request.</param>
     public async Task<ActorRun> UpdateAsync(object newFields, CancellationToken cancellationToken = default)
     {
-        return new ActorRun(await _ctx.UpdateResourceAsync("", newFields, cancellationToken).ConfigureAwait(false));
+        return new ActorRun(await _ctx.UpdateResourceAsync("", newFields, RequestTier.Short, cancellationToken).ConfigureAwait(false));
     }
 
     /// <summary>Deletes the run.</summary>
     /// <param name="cancellationToken">A token to cancel the request.</param>
-    public Task DeleteAsync(CancellationToken cancellationToken = default) => _ctx.DeleteResourceAsync("", cancellationToken);
+    public Task DeleteAsync(CancellationToken cancellationToken = default) => _ctx.DeleteResourceAsync("", RequestTier.Short, cancellationToken);
 
     /// <summary>
     /// Aborts the run. If <paramref name="gracefully"/> is <c>true</c>, the run is signalled so it can
@@ -90,12 +92,15 @@ public sealed class RunClient
     {
         var q = new QueryParams();
         q.AddBool("gracefully", gracefully);
-        return new ActorRun(await _ctx.PostWithBodyAsync("abort", q, null, "", cancellationToken).ConfigureAwait(false));
+        return new ActorRun(await _ctx.PostWithBodyAsync("abort", q, null, "", RequestTier.Medium, cancellationToken).ConfigureAwait(false));
     }
 
     /// <summary>Transforms the run into a run of another Actor with a new input.</summary>
     /// <param name="targetActorId">The Actor to metamorph into.</param>
-    /// <param name="input">The new input (<c>null</c> for none).</param>
+    /// <param name="input">
+    /// The new input: a plain object or array serialized to JSON, raw bytes (<c>byte[]</c>) sent as-is, or
+    /// <c>null</c> for none.
+    /// </param>
     /// <param name="options">Optional metamorph options.</param>
     /// <param name="cancellationToken">A token to cancel the request.</param>
     public async Task<ActorRun> MetamorphAsync(
@@ -112,15 +117,15 @@ public sealed class RunClient
             q.AddString("build", options.Build);
         }
 
-        var body = input is null ? null : Json.Encode(input);
-        return new ActorRun(await _ctx.PostWithBodyAsync("metamorph", q, body, options.ContentTypeOrDefault(), cancellationToken).ConfigureAwait(false));
+        ResourceContext.EncodeInputBody(input, out var body, out var bodyBytes);
+        return new ActorRun(await _ctx.PostWithBodyAsync("metamorph", q, body, options.ContentTypeOrDefault(), RequestTier.Medium, cancellationToken, bodyBytes).ConfigureAwait(false));
     }
 
     /// <summary>Reboots the run (restarts its container while keeping the same run).</summary>
     /// <param name="cancellationToken">A token to cancel the request.</param>
     public async Task<ActorRun> RebootAsync(CancellationToken cancellationToken = default)
     {
-        return new ActorRun(await _ctx.PostWithBodyAsync("reboot", new QueryParams(), null, "", cancellationToken).ConfigureAwait(false));
+        return new ActorRun(await _ctx.PostWithBodyAsync("reboot", new QueryParams(), null, "", RequestTier.Medium, cancellationToken).ConfigureAwait(false));
     }
 
     /// <summary>Resurrects a finished run, starting it again from the beginning.</summary>
@@ -130,7 +135,7 @@ public sealed class RunClient
     {
         var q = new QueryParams();
         (options ?? new RunResurrectOptions()).AppendTo(q);
-        return new ActorRun(await _ctx.PostWithBodyAsync("resurrect", q, null, "", cancellationToken).ConfigureAwait(false));
+        return new ActorRun(await _ctx.PostWithBodyAsync("resurrect", q, null, "", RequestTier.Medium, cancellationToken).ConfigureAwait(false));
     }
 
     /// <summary>
@@ -166,7 +171,9 @@ public sealed class RunClient
             _ctx.SubUrl("charge"),
             Json.Encode(body),
             ResourceContext.ContentTypeJson,
+            timeout: _ctx.RequestTimeout,
             extraHeaders: new Dictionary<string, string> { [ChargeIdempotencyHeader] = idempotencyKey },
+            tier: RequestTier.Short,
             cancellationToken: cancellationToken).ConfigureAwait(false);
     }
 
@@ -240,8 +247,13 @@ public sealed class RunClient
     /// stream. For automatic redirection into a sink, prefer <see cref="GetStreamedLog"/>.
     /// </summary>
     /// <param name="cancellationToken">A token to cancel the request.</param>
-    public Task<Stream> GetStreamedLogAsync(CancellationToken cancellationToken = default)
-        => Log().StreamAsync(new LogOptions { Raw = true }, cancellationToken);
+    public async Task<Stream> GetStreamedLogAsync(CancellationToken cancellationToken = default)
+    {
+        // Log() is this run's nested (ambiguous) log client, which never resolves a 404 to null — it throws
+        // instead, since the run itself could be what's missing — so the stream is always non-null here.
+        var stream = await Log().StreamAsync(new LogOptions { Raw = true }, cancellationToken).ConfigureAwait(false);
+        return stream!;
+    }
 
     /// <summary>
     /// Creates a <see cref="StreamedLog"/> that redirects this run's live log to <paramref name="toLog"/>,
@@ -256,4 +268,18 @@ public sealed class RunClient
     /// </param>
     public StreamedLog GetStreamedLog(Action<string> toLog, bool fromStart = true)
         => new(Log(), toLog, fromStart);
+
+    /// <summary>
+    /// Returns this client with every subsequent call's timeout set to <paramref name="timeout"/>,
+    /// overriding the tier default (see the "Timeout tiers" section of the top-level README). Pass
+    /// <see cref="TimeSpan.Zero"/> for no timeout, matching the reference client's <c>'noTimeout'</c>. A
+    /// value above <see cref="ApifyClientOptions.TimeoutSecs"/> (the overall budget) is capped at it —
+    /// raise <see cref="ApifyClientOptions.TimeoutSecs"/> itself to allow a longer per-call timeout.
+    /// </summary>
+    /// <param name="timeout">The timeout to use for every call made through this client.</param>
+    public RunClient WithTimeout(TimeSpan timeout)
+    {
+        _ctx.WithTimeout(timeout);
+        return this;
+    }
 }

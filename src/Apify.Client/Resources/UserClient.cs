@@ -1,3 +1,4 @@
+using System;
 using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
@@ -37,7 +38,7 @@ public sealed class UserClient
     /// <param name="cancellationToken">A token to cancel the request.</param>
     public async Task<User?> GetAsync(CancellationToken cancellationToken = default)
     {
-        var data = await _ctx.GetResourceAsync("", new QueryParams(), cancellationToken).ConfigureAwait(false);
+        var data = await _ctx.GetResourceAsync("", new QueryParams(), RequestTier.Short, cancellationToken).ConfigureAwait(false);
         return data is JsonObject obj ? new User(obj) : null;
     }
 
@@ -56,7 +57,7 @@ public sealed class UserClient
             q.AddString("date", date);
         }
 
-        var data = await _ctx.GetResourceRequiredAsync("usage/monthly", q, cancellationToken).ConfigureAwait(false);
+        var data = await _ctx.GetResourceRequiredAsync("usage/monthly", q, RequestTier.Short, cancellationToken).ConfigureAwait(false);
         return data as JsonObject ?? new JsonObject();
     }
 
@@ -65,7 +66,7 @@ public sealed class UserClient
     public async Task<JsonObject> LimitsAsync(CancellationToken cancellationToken = default)
     {
         RequireMe();
-        var data = await _ctx.GetResourceRequiredAsync("limits", new QueryParams(), cancellationToken).ConfigureAwait(false);
+        var data = await _ctx.GetResourceRequiredAsync("limits", new QueryParams(), RequestTier.Short, cancellationToken).ConfigureAwait(false);
         return data as JsonObject ?? new JsonObject();
     }
 
@@ -80,6 +81,8 @@ public sealed class UserClient
             _ctx.SubUrl("limits"),
             Json.Encode(newLimits),
             ResourceContext.ContentTypeJson,
+            timeout: _ctx.RequestTimeout,
+            tier: RequestTier.Short,
             cancellationToken: cancellationToken).ConfigureAwait(false);
     }
 
@@ -89,5 +92,19 @@ public sealed class UserClient
         {
             throw new System.InvalidOperationException("this operation is only available for the current user (use Me())");
         }
+    }
+
+    /// <summary>
+    /// Returns this client with every subsequent call's timeout set to <paramref name="timeout"/>,
+    /// overriding the tier default (see the "Timeout tiers" section of the top-level README). Pass
+    /// <see cref="TimeSpan.Zero"/> for no timeout, matching the reference client's <c>'noTimeout'</c>. A
+    /// value above <see cref="ApifyClientOptions.TimeoutSecs"/> (the overall budget) is capped at it —
+    /// raise <see cref="ApifyClientOptions.TimeoutSecs"/> itself to allow a longer per-call timeout.
+    /// </summary>
+    /// <param name="timeout">The timeout to use for every call made through this client.</param>
+    public UserClient WithTimeout(TimeSpan timeout)
+    {
+        _ctx.WithTimeout(timeout);
+        return this;
     }
 }

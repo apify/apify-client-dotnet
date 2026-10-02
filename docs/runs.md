@@ -25,8 +25,11 @@ collections).
 - `ResurrectAsync(RunResurrectOptions? options = null)` → `ActorRun`.
 - `ChargeAsync(RunChargeOptions options)` → `Task` — record pay-per-event charges (idempotent).
 - `WaitForFinishAsync(int? waitSecs = null)` → `ActorRun`.
-- `Dataset()`, `KeyValueStore()`, `RequestQueue()` — the run's default storages.
-- `Log()` → `LogClient` (its `GetAsync`/`StreamAsync` methods are documented under [Logs in misc.md](misc.md#logs--clientlogbuildorrunid)); `GetStreamedLogAsync()` → `Stream` (live raw log).
+- `Dataset()`, `KeyValueStore()`, `RequestQueue()` — the run's default storages. Their own
+  `GetAsync()`/`DeleteAsync()` throw on a 404 instead of resolving `null`/no-op, since the run itself
+  (not just the storage) could be what's missing; a record/request looked up by its own key or id
+  (e.g. `GetRecordAsync`, `GetRequestAsync`) is unaffected and still resolves `null` for a missing one.
+- `Log()` → `LogClient` (its `GetAsync`/`StreamAsync` methods are documented under [Logs in misc.md](misc.md#logs--clientlogbuildorrunid); on this run-nested client they throw rather than resolve `null`, for the same reason); `GetStreamedLogAsync()` → `Stream` (live raw log).
 - `GetStreamedLog(Action<string> toLog, bool fromStart = true)` → `StreamedLog` — redirects the run's live
   log to `toLog` one complete message at a time. Call `Start()` to begin and `StopAsync()` (or dispose) to
   end. `fromStart: false` skips messages older than the helper's creation.

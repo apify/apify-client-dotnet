@@ -62,7 +62,9 @@ public sealed class HttpClientTests
     {
         var transport = new MockTransport().QueueResponse(400, "{\"error\":{\"type\":\"bad-input\",\"message\":\"invalid\"}}");
 
-        var ex = await Assert.ThrowsAsync<ApifyApiException>(() => Client(transport).Actors().CreateAsync(new { name = "x" }));
+        // A 400 is thrown as the InvalidRequestException subclass (see ApifyApiException.Create), which still
+        // satisfies an `ApifyApiException ex` catch/assignment.
+        var ex = await Assert.ThrowsAsync<InvalidRequestException>(() => Client(transport).Actors().CreateAsync(new { name = "x" }));
         Assert.Equal(400, ex.StatusCode);
         Assert.Equal("bad-input", ex.Type);
         Assert.Contains("invalid", ex.ApiMessage, StringComparison.Ordinal);
@@ -184,7 +186,8 @@ public sealed class HttpClientTests
         };
         var transport = (MockTransport)options.HttpTransport;
 
-        var ex = await Assert.ThrowsAsync<ApifyApiException>(() => new ApifyClient(options).Actor("x").GetAsync());
+        // A 5xx is thrown as the ServerException subclass (see ApifyApiException.Create).
+        var ex = await Assert.ThrowsAsync<ServerException>(() => new ApifyClient(options).Actor("x").GetAsync());
         Assert.Equal(500, ex.StatusCode);
         Assert.Equal(3, ex.Attempt);
         Assert.Equal(3, transport.CallCount);
@@ -228,11 +231,80 @@ public sealed class HttpClientTests
             HttpTransport = transport,
         });
 
-        // A per-queue timeout of 5s becomes the base per-attempt timeout that then doubles.
-        await Assert.ThrowsAsync<ApifyApiException>(
+        // A per-queue timeout of 5s becomes the base per-attempt timeout that then doubles. A 5xx is thrown
+        // as the ServerException subclass (see ApifyApiException.Create).
+        await Assert.ThrowsAsync<ServerException>(
             () => client.RequestQueue("q1", new Options.RequestQueueClientOptions { TimeoutSecs = 5 }).ListHeadAsync(5));
 
         Assert.Equal(new[] { 5.0, 10.0, 20.0, 40.0, 80.0, 100.0 }, transport.Timeouts);
+    }
+
+    [Fact]
+    public async Task ShortTierCallUsesConfiguredShortTimeoutByDefault()
+    {
+        // ActorClient.GetAsync is a Short-tier call (simple metadata read). With no explicit per-call/
+        // per-context override, its attempt timeout is TimeoutShortSecs, not the overall TimeoutSecs.
+        var transport = new MockTransport().QueueResponse(200, "{\"data\":{\"id\":\"x\"}}");
+        var client = new ApifyClient(new ApifyClientOptions
+        {
+            Token = "t",
+            MinDelayBetweenRetriesMillis = 1,
+            TimeoutShortSecs = 7,
+            TimeoutMediumSecs = 40,
+            TimeoutSecs = 360,
+            HttpTransport = transport,
+        });
+
+        await client.Actor("x").GetAsync();
+
+        Assert.Equal(7.0, transport.Timeouts[0]);
+    }
+
+    [Fact]
+    public async Task MediumTierCallUsesConfiguredMediumTimeoutByDefault()
+    {
+        // ActorCollectionClient.ListAsync is a Medium-tier call (collection listing).
+        var transport = new MockTransport().QueueResponse(200, "{\"data\":{\"total\":0,\"items\":[]}}");
+        var client = new ApifyClient(new ApifyClientOptions
+        {
+            Token = "t",
+            MinDelayBetweenRetriesMillis = 1,
+            TimeoutShortSecs = 7,
+            TimeoutMediumSecs = 40,
+            TimeoutSecs = 360,
+            HttpTransport = transport,
+        });
+
+        await client.Actors().ListAsync();
+
+        Assert.Equal(40.0, transport.Timeouts[0]);
+    }
+
+    [Fact]
+    public async Task LongTierCallUsesOverallTimeoutByDefault()
+    {
+        // DatasetClient.ListItemsAsync is a Long-tier call (dataset item download). Long shares its
+        // duration with the overall per-request budget (TimeoutSecs), matching the reference client's
+        // timeoutLongSecs/timeoutMaxSecs defaulting to the same value for the same reason.
+        var transport = new MockTransport().QueueResponse(200, "[]", new System.Collections.Generic.Dictionary<string, string>
+        {
+            ["X-Apify-Pagination-Total"] = "0",
+            ["X-Apify-Pagination-Offset"] = "0",
+            ["X-Apify-Pagination-Limit"] = "0",
+        });
+        var client = new ApifyClient(new ApifyClientOptions
+        {
+            Token = "t",
+            MinDelayBetweenRetriesMillis = 1,
+            TimeoutShortSecs = 7,
+            TimeoutMediumSecs = 40,
+            TimeoutSecs = 111,
+            HttpTransport = transport,
+        });
+
+        await client.Dataset("ds1").ListItemsAsync();
+
+        Assert.Equal(111.0, transport.Timeouts[0]);
     }
 
     [Fact]
