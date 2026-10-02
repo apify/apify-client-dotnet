@@ -372,8 +372,9 @@ internal sealed class HttpClientCore
     /// <summary>
     /// Returns <c>min(overall, base * 2^(attempt-1))</c>: the first attempt uses the base timeout; each
     /// retry doubles it (a slow-but-progressing connection gets more time) while never exceeding
-    /// <paramref name="overall"/> (normally the configured budget, but raised by the caller to an explicit
-    /// per-call override that asks for more — see the comment at the <see cref="CallAsync"/> call site).
+    /// <paramref name="overall"/> — the configured overall budget (<c>ApifyClientOptions.TimeoutSecs</c>),
+    /// which an explicit per-call override above it is itself capped to by the caller before reaching here
+    /// (see the comment at the <see cref="CallAsync"/> call site), matching the reference client.
     /// </summary>
     private static TimeSpan AttemptTimeout(TimeSpan baseTimeout, TimeSpan overall, int attempt)
     {
