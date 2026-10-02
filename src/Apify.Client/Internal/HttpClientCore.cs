@@ -140,17 +140,13 @@ internal sealed class HttpClientCore
         var delayMillis = _retry.MinDelayMillis;
         var maxAttempts = _retry.MaxRetries + 1;
         var path = ExtractPath(url);
-        // An explicit timeout (e.g. a per-queue or per-call override, including WithTimeout) always wins;
-        // otherwise the tier's configured duration is the base for the per-attempt doubling below.
+        // An explicit timeout (e.g. a per-queue or per-call WithTimeout override) always wins as the base for
+        // the per-attempt doubling below; otherwise the tier's configured duration is the base. Either way,
+        // the retry-growth cap is always the configured overall budget (ApifyClientOptions.TimeoutSecs) —
+        // matching the reference client, an explicit override above that budget is capped back down to it
+        // rather than silently exceeding it. Raise TimeoutSecs itself to allow a longer per-call timeout.
         var baseTimeout = timeout ?? TimeSpan.FromSeconds(_retry.TierSecs(tier));
-        // The retry-growth cap is normally the configured overall budget, but an explicit override that asks
-        // for *more* than that budget must not be silently clamped back down to it — the whole point of
-        // overriding is to run one call with a longer timeout than the default. The cap only ever grows here;
-        // a smaller explicit override (e.g. a tight per-queue timeout) is still bounded by the overall budget,
-        // unchanged from before.
-        var overallCap = timeout is { } explicitTimeout && explicitTimeout > TimeSpan.FromSeconds(_retry.TimeoutSecs)
-            ? explicitTimeout
-            : TimeSpan.FromSeconds(_retry.TimeoutSecs);
+        var overallCap = TimeSpan.FromSeconds(_retry.TimeoutSecs);
         // Normalize (and, when large enough, compress) the body once up front so retries reuse the same
         // prepared payload instead of re-encoding and re-compressing on every attempt.
         var prepared = PrepareBody(body, bodyBytes, contentType);

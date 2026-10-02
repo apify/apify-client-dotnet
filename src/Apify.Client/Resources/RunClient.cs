@@ -171,6 +171,7 @@ public sealed class RunClient
             _ctx.SubUrl("charge"),
             Json.Encode(body),
             ResourceContext.ContentTypeJson,
+            timeout: _ctx.RequestTimeout,
             extraHeaders: new Dictionary<string, string> { [ChargeIdempotencyHeader] = idempotencyKey },
             tier: RequestTier.Short,
             cancellationToken: cancellationToken).ConfigureAwait(false);
@@ -271,7 +272,9 @@ public sealed class RunClient
     /// <summary>
     /// Returns this client with every subsequent call's timeout set to <paramref name="timeout"/>,
     /// overriding the tier default (see the "Timeout tiers" section of the top-level README). Pass
-    /// <see cref="TimeSpan.Zero"/> for no timeout, matching the reference client's <c>'noTimeout'</c>.
+    /// <see cref="TimeSpan.Zero"/> for no timeout, matching the reference client's <c>'noTimeout'</c>. A
+    /// value above <see cref="ApifyClientOptions.TimeoutSecs"/> (the overall budget) is capped at it —
+    /// raise <see cref="ApifyClientOptions.TimeoutSecs"/> itself to allow a longer per-call timeout.
     /// </summary>
     /// <param name="timeout">The timeout to use for every call made through this client.</param>
     public RunClient WithTimeout(TimeSpan timeout)

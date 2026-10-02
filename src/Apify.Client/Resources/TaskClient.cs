@@ -143,6 +143,7 @@ public sealed class TaskClient
             _ctx.SubUrl("input"),
             Json.Encode(input),
             ResourceContext.ContentTypeJson,
+            timeout: _ctx.RequestTimeout,
             tier: RequestTier.Short,
             cancellationToken: cancellationToken).ConfigureAwait(false);
         return Json.Decode(await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false));
@@ -166,7 +167,9 @@ public sealed class TaskClient
     /// <summary>
     /// Returns this client with every subsequent call's timeout set to <paramref name="timeout"/>,
     /// overriding the tier default (see the "Timeout tiers" section of the top-level README). Pass
-    /// <see cref="TimeSpan.Zero"/> for no timeout, matching the reference client's <c>'noTimeout'</c>.
+    /// <see cref="TimeSpan.Zero"/> for no timeout, matching the reference client's <c>'noTimeout'</c>. A
+    /// value above <see cref="ApifyClientOptions.TimeoutSecs"/> (the overall budget) is capped at it —
+    /// raise <see cref="ApifyClientOptions.TimeoutSecs"/> itself to allow a longer per-call timeout.
     /// </summary>
     /// <param name="timeout">The timeout to use for every call made through this client.</param>
     public TaskClient WithTimeout(TimeSpan timeout)

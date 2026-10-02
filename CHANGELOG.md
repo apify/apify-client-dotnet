@@ -59,13 +59,12 @@
 - Added `WithTimeout(TimeSpan)` to every resource client (every accessor on `ApifyClient` — `Actor()`,
   `Dataset()`, `Actors()`, and so on), the client's general per-call(-instance) timeout override
   matching the reference client's per-call `timeoutSecs` option: every call made through that client
-  instance uses the given timeout instead of its tier default. Pass `TimeSpan.Zero` for no timeout,
-  matching the reference's `'noTimeout'`. Fixed a latent bug this surfaced: an explicit timeout override
-  longer than `ApifyClientOptions.TimeoutSecs` (the overall budget) was silently clamped back down to it
-  on the very first attempt, so asking for *more* time than the default had no effect — the retry-growth
-  cap for a call now also rises to cover an explicit override that exceeds it. A shorter override (e.g.
-  `RequestQueueClientOptions.TimeoutSecs` set below the overall budget) is unaffected and still narrows
-  the cap as before.
+  instance uses the given timeout instead of its tier default. A value above
+  `ApifyClientOptions.TimeoutSecs` (the overall budget) is capped at it, matching the reference client
+  (raise `TimeoutSecs` itself for a longer per-call timeout); pass `TimeSpan.Zero` for no timeout at
+  all, matching the reference's `'noTimeout'`. `RunClient.ChargeAsync`, `TaskClient.UpdateInputAsync`
+  and `UserClient.UpdateLimitsAsync` now also honor a context timeout override (previously silently
+  ignored it, since each calls the HTTP client directly rather than through a shared CRUD primitive).
 - Response URL fields the OpenAPI specification marks `format: uri` (currently `ActorRun.ContainerUrl`,
   `Webhook.RequestUrl` — the client's only two typed properties among the reference client's 17
   normalized fields) are now normalized to their RFC 3986 absolute-URI form via `System.Uri`

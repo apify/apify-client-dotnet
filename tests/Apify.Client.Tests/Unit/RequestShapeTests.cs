@@ -202,30 +202,95 @@ public sealed class RequestShapeTests
     public async Task WithTimeoutOverridesTheTierDefaultForEveryCallOnThatClient()
     {
         // WithTimeout is the client's general per-call(-instance) timeout override — the fluent equivalent
-        // of the reference client's per-call `timeoutSecs` option — and always wins over the tier default.
+        // of the reference client's per-call `timeoutSecs` option — and always wins over the tier default,
+        // as long as it doesn't exceed the overall budget (ApifyClientOptions.TimeoutSecs — see the
+        // dedicated cap test below).
         var transport = new MockTransport()
             .QueueResponse(200, "{\"data\":{\"id\":\"x\"}}")
             .QueueResponse(200, "{\"data\":{\"id\":\"x\"}}");
-        var actor = Client(transport).Actor("x").WithTimeout(TimeSpan.FromSeconds(99));
+        var client = new ApifyClient(new ApifyClientOptions
+        {
+            Token = "t",
+            MinDelayBetweenRetriesMillis = 1,
+            TimeoutSecs = 100, // overall budget, comfortably above the override below
+            HttpTransport = transport,
+        });
+        var actor = client.Actor("x").WithTimeout(TimeSpan.FromSeconds(20));
 
         await actor.GetAsync();
         await actor.UpdateAsync(new { title = "t" });
 
         // ActorClient.GetAsync/UpdateAsync are both Short-tier (5s default) absent the override.
-        Assert.Equal(99.0, transport.Timeouts[0]);
-        Assert.Equal(99.0, transport.Timeouts[1]);
+        Assert.Equal(20.0, transport.Timeouts[0]);
+        Assert.Equal(20.0, transport.Timeouts[1]);
+    }
+
+    [Fact]
+    public async Task WithTimeoutAboveTheOverallBudgetIsCappedAtIt()
+    {
+        // Matches the reference client: a requested timeout above timeoutMaxSecs (here,
+        // ApifyClientOptions.TimeoutSecs) is capped at it rather than silently exceeding it — raising the
+        // overall budget itself is how a caller gets a longer per-call timeout.
+        var transport = new MockTransport().QueueResponse(200, "{\"data\":{\"id\":\"x\"}}");
+        var client = new ApifyClient(new ApifyClientOptions
+        {
+            Token = "t",
+            MinDelayBetweenRetriesMillis = 1,
+            TimeoutSecs = 100, // overall budget
+            HttpTransport = transport,
+        });
+
+        await client.Actor("x").WithTimeout(TimeSpan.FromSeconds(500)).GetAsync();
+
+        Assert.Equal(100.0, transport.Timeouts[0]);
     }
 
     [Fact]
     public async Task WithTimeoutZeroMeansNoTimeout()
     {
         // TimeSpan.Zero is the client's "no timeout" sentinel (HttpClientTransport skips CancelAfter for a
-        // non-positive duration), matching the reference client's 'noTimeout'.
+        // non-positive duration), matching the reference client's 'noTimeout' — which, like here, bypasses
+        // the overall-budget cap entirely rather than being clamped to it.
         var transport = new MockTransport().QueueResponse(200, "{\"data\":{\"id\":\"x\"}}");
 
         await Client(transport).Actor("x").WithTimeout(TimeSpan.Zero).GetAsync();
 
         Assert.Equal(0.0, transport.Timeouts[0]);
+    }
+
+    [Theory]
+    [InlineData("run")]
+    [InlineData("task")]
+    [InlineData("user")]
+    public async Task WithTimeoutIsHonoredByMethodsCallingHttpClientCoreDirectly(string which)
+    {
+        // Regression test: RunClient.ChargeAsync, TaskClient.UpdateInputAsync and
+        // UserClient.UpdateLimitsAsync call HttpClientCore directly rather than through a ResourceContext
+        // CRUD primitive, and each one previously forgot to pass the context's timeout override through,
+        // so WithTimeout silently had no effect on them.
+        var transport = new MockTransport().QueueResponse(200, "{\"data\":{}}");
+        var client = new ApifyClient(new ApifyClientOptions
+        {
+            Token = "t",
+            MinDelayBetweenRetriesMillis = 1,
+            TimeoutSecs = 100, // overall budget, comfortably above the override below
+            HttpTransport = transport,
+        });
+
+        switch (which)
+        {
+            case "run":
+                await client.Run("run1").WithTimeout(TimeSpan.FromSeconds(42)).ChargeAsync(new RunChargeOptions("eventA"));
+                break;
+            case "task":
+                await client.Task("task1").WithTimeout(TimeSpan.FromSeconds(42)).UpdateInputAsync(new { foo = "bar" });
+                break;
+            case "user":
+                await client.Me().WithTimeout(TimeSpan.FromSeconds(42)).UpdateLimitsAsync(new { maxMonthlyUsageUsd = 1 });
+                break;
+        }
+
+        Assert.Equal(42.0, transport.Timeouts[0]);
     }
 
     [Fact]
