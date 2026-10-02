@@ -29,7 +29,7 @@ public abstract class AbstractWebhookCollectionClient
     {
         var q = new QueryParams();
         (options ?? new ListOptions()).AppendTo(q);
-        return Ctx.ListResourceAsync("", q, static d => new Webhook(d), cancellationToken);
+        return Ctx.ListResourceAsync("", q, static d => new Webhook(d), RequestTier.Medium, cancellationToken);
     }
 
     /// <summary>Lazily iterates over all webhooks across pages, fetching each page on demand.</summary>
@@ -41,7 +41,7 @@ public abstract class AbstractWebhookCollectionClient
         options ??= new ListOptions();
         var q = new QueryParams();
         options.AppendTo(q);
-        return Ctx.IterateListAsync("", q, options.Offset ?? 0, options.Limit, static d => new Webhook(d), cancellationToken);
+        return Ctx.IterateListAsync("", q, options.Offset ?? 0, options.Limit, static d => new Webhook(d), RequestTier.Medium, cancellationToken);
     }
 
 }

@@ -32,7 +32,7 @@ public sealed class RunCollectionClient
         var q = new QueryParams();
         (options ?? new ListOptions()).AppendTo(q);
         (filter ?? new RunListOptions()).AppendTo(q);
-        return _ctx.ListResourceAsync("", q, static d => new ActorRun(d), cancellationToken);
+        return _ctx.ListResourceAsync("", q, static d => new ActorRun(d), RequestTier.Medium, cancellationToken);
     }
 
     /// <summary>Lazily iterates over all runs across pages, fetching each page on demand.</summary>
@@ -49,7 +49,7 @@ public sealed class RunCollectionClient
         var q = new QueryParams();
         options.AppendTo(q);
         (filter ?? new RunListOptions()).AppendTo(q);
-        return _ctx.IterateListAsync("", q, options.Offset ?? 0, options.Limit, static d => new ActorRun(d), cancellationToken);
+        return _ctx.IterateListAsync("", q, options.Offset ?? 0, options.Limit, static d => new ActorRun(d), RequestTier.Medium, cancellationToken);
     }
 
 }

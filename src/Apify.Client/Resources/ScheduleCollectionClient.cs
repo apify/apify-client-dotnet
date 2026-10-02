@@ -24,7 +24,7 @@ public sealed class ScheduleCollectionClient
     {
         var q = new QueryParams();
         (options ?? new ListOptions()).AppendTo(q);
-        return _ctx.ListResourceAsync("", q, static d => new Schedule(d), cancellationToken);
+        return _ctx.ListResourceAsync("", q, static d => new Schedule(d), RequestTier.Medium, cancellationToken);
     }
 
     /// <summary>Creates a new schedule.</summary>
@@ -32,7 +32,7 @@ public sealed class ScheduleCollectionClient
     /// <param name="cancellationToken">A token to cancel the request.</param>
     public async Task<Schedule> CreateAsync(object schedule, CancellationToken cancellationToken = default)
     {
-        return new Schedule(await _ctx.CreateResourceAsync(new QueryParams(), schedule, cancellationToken).ConfigureAwait(false));
+        return new Schedule(await _ctx.CreateResourceAsync(new QueryParams(), schedule, RequestTier.Short, cancellationToken).ConfigureAwait(false));
     }
 
     /// <summary>Lazily iterates over all schedules across pages, fetching each page on demand.</summary>
@@ -44,7 +44,7 @@ public sealed class ScheduleCollectionClient
         options ??= new ListOptions();
         var q = new QueryParams();
         options.AppendTo(q);
-        return _ctx.IterateListAsync("", q, options.Offset ?? 0, options.Limit, static d => new Schedule(d), cancellationToken);
+        return _ctx.IterateListAsync("", q, options.Offset ?? 0, options.Limit, static d => new Schedule(d), RequestTier.Medium, cancellationToken);
     }
 
 }

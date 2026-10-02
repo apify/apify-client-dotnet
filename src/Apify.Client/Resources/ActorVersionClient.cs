@@ -28,7 +28,7 @@ public sealed class ActorVersionClient
     /// <param name="cancellationToken">A token to cancel the request.</param>
     public async Task<ActorVersion?> GetAsync(CancellationToken cancellationToken = default)
     {
-        var data = await _ctx.GetResourceAsync("", new QueryParams(), cancellationToken).ConfigureAwait(false);
+        var data = await _ctx.GetResourceAsync("", new QueryParams(), RequestTier.Short, cancellationToken).ConfigureAwait(false);
         return data is JsonObject obj ? new ActorVersion(obj) : null;
     }
 
@@ -37,12 +37,12 @@ public sealed class ActorVersionClient
     /// <param name="cancellationToken">A token to cancel the request.</param>
     public async Task<ActorVersion> UpdateAsync(object newFields, CancellationToken cancellationToken = default)
     {
-        return new ActorVersion(await _ctx.UpdateResourceAsync("", newFields, cancellationToken).ConfigureAwait(false));
+        return new ActorVersion(await _ctx.UpdateResourceAsync("", newFields, RequestTier.Short, cancellationToken).ConfigureAwait(false));
     }
 
     /// <summary>Deletes the version.</summary>
     /// <param name="cancellationToken">A token to cancel the request.</param>
-    public Task DeleteAsync(CancellationToken cancellationToken = default) => _ctx.DeleteResourceAsync("", cancellationToken);
+    public Task DeleteAsync(CancellationToken cancellationToken = default) => _ctx.DeleteResourceAsync("", RequestTier.Short, cancellationToken);
 
     /// <summary>A client for a specific environment variable of this version.</summary>
     /// <param name="name">The environment variable name. Must not be empty.</param>

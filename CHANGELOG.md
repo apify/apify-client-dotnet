@@ -37,12 +37,31 @@
   suffix (e.g. `image/svg+xml`) still compresses.
 - `ApifyClient`'s `BaseUrl`/`PublicBaseUrl` now accept a URL that already ends with the `/v2` API
   version path without doubling it into `.../v2/v2`, matching the reference client.
-- `ActorClient.StartAsync`/`ValidateInputAsync`, `TaskClient.StartAsync` and `RunClient.MetamorphAsync`
-  now accept a `byte[]` input, sent as raw bytes instead of being JSON-encoded, matching the reference
-  client's `ActorInput` (a plain object/array, or raw bytes).
+- `ActorClient.StartAsync`/`ValidateInputAsync` and `RunClient.MetamorphAsync` now accept a `byte[]`
+  input, sent as raw bytes instead of being JSON-encoded, matching the reference client's `ActorInput`
+  (a plain object/array, or raw bytes). `TaskClient.StartAsync`'s input stays JSON-only, matching the
+  reference client's `TaskStartOptions` (which has no content type to pair raw bytes with).
 - **Breaking:** `ActorClient.Version`, `ActorVersionClient.EnvVar` and `ApifyClient.Build` now reject
   an empty id/name/version number instead of silently addressing the collection endpoint, matching the
   reference client.
+- **Breaking:** added timeout tiers, matching the reference client's `TimeoutTier`. Every method that
+  sends a request now internally picks `Short` (metadata reads/writes), `Medium` (listing/batch/trigger
+  calls) or `Long` (downloads/uploads/streaming) instead of a single overall budget for every call.
+  Added `ApifyClientOptions.TimeoutShortSecs` (default 5) and `TimeoutMediumSecs` (default 30);
+  `TimeoutSecs` (default 360, unchanged) is now also documented as the `Long` tier's duration and the
+  cap every attempt's growing timeout is clamped to regardless of tier. A method whose connection can be
+  held open server-side for a `waitForFinish`-style wait (`BuildClient.GetAsync`, `RunClient.GetAsync`,
+  `ActorClient.DefaultBuildAsync`/`StartAsync`, `TaskClient.StartAsync`) uses `Long` unconditionally so
+  the HTTP timeout always covers the requested wait, rather than the reference's dynamic
+  short-or-medium-extended-to-cover-the-wait. `RequestQueueClientOptions.TimeoutSecs` and
+  `SetRecordOptions.TimeoutSecs` are unaffected: both are absolute per-call/per-client overrides that
+  already took priority over any default and still do.
+- Response URL fields the OpenAPI specification marks `format: uri` (currently `ActorRun.ContainerUrl`,
+  `Webhook.RequestUrl` — the client's only two typed properties among the reference client's 17
+  normalized fields) are now normalized to their RFC 3986 absolute-URI form via `System.Uri`
+  (lowercased/punycoded host, default port dropped, empty path becomes `/`, unsafe characters
+  percent-encoded), matching the reference client's `z.url({ normalize: true })`. A present but
+  invalid absolute URL now throws `FormatException` from the property getter.
 - **Breaking:** `ActorVersionCollectionClient.ListAsync`/`IterateAsync` no longer take a `ListOptions`
   parameter: the endpoint returns every version in one response and never read `Offset`/`Limit`/`Desc`,
   matching the reference client.

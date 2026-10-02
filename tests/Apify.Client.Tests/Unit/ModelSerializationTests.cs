@@ -1,3 +1,4 @@
+using System;
 using System.Text.Json.Nodes;
 using Apify.Client.Models;
 using Xunit;
@@ -96,5 +97,50 @@ public sealed class ModelSerializationTests
         var build = new Build(new JsonObject { ["id"] = "build1" });
 
         Assert.Null(build.ImageDigest);
+    }
+
+    [Fact]
+    public void ActorRunContainerUrlIsNormalized()
+    {
+        // Matches the reference client's z.url({ normalize: true }): lowercased/punycoded host, default
+        // port dropped, empty path becomes "/".
+        var run = new ActorRun(new JsonObject { ["id"] = "r1", ["containerUrl"] = "HTTPS://Example.COM:443" });
+
+        Assert.Equal("https://example.com/", run.ContainerUrl);
+    }
+
+    [Fact]
+    public void WebhookRequestUrlIsNormalized()
+    {
+        var webhook = new Webhook(new JsonObject { ["id"] = "w1", ["requestUrl"] = "https://EXAMPLE.com/a b" });
+
+        // The space is percent-encoded, matching RFC 3986 normalization.
+        Assert.Equal("https://example.com/a%20b", webhook.RequestUrl);
+    }
+
+    [Fact]
+    public void ActorRunContainerUrlIsNullWhenAbsent()
+    {
+        var run = new ActorRun(new JsonObject { ["id"] = "r1" });
+
+        Assert.Null(run.ContainerUrl);
+    }
+
+    [Fact]
+    public void ActorRunContainerUrlThrowsOnAnInvalidAbsoluteUrl()
+    {
+        var run = new ActorRun(new JsonObject { ["id"] = "r1", ["containerUrl"] = "not a url" });
+
+        Assert.Throws<FormatException>(() => run.ContainerUrl);
+    }
+
+    [Fact]
+    public void RequestQueueRequestUrlIsNotNormalized()
+    {
+        // The reference client deliberately excludes request-queue requests from URL normalization, so the
+        // raw string round-trips unchanged (e.g. an uppercase host is preserved).
+        var request = new RequestQueueRequest("HTTPS://Example.COM/Path", "k");
+
+        Assert.Equal("HTTPS://Example.COM/Path", request.Url);
     }
 }

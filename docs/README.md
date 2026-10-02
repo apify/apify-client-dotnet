@@ -116,13 +116,27 @@ var configured = new ApifyClient(new ApifyClientOptions
 | `MaxRetries` | `8` | Maximum retries for failed requests. |
 | `MinDelayBetweenRetriesMillis` | `500` | Minimum delay between retries (exponential backoff). |
 | `MaxDelayBetweenRetriesMillis` | request timeout | Upper bound on the growing inter-retry delay. |
-| `TimeoutSecs` | `360` | Overall per-request timeout. |
+| `TimeoutSecs` | `360` | Base duration of the `Long` timeout tier (downloads, uploads, streaming); also the overall per-request cap every attempt's growing timeout is clamped to, regardless of tier. |
+| `TimeoutShortSecs` | `5` | Base duration of the `Short` timeout tier: simple metadata reads/writes (get/update/delete a resource). |
+| `TimeoutMediumSecs` | `30` | Base duration of the `Medium` timeout tier: listing, batch and trigger calls. |
 | `UserAgentSuffix` | `null` | Custom suffix appended to the `User-Agent` header. |
 | `RequestCompression` | `RequestCompression.Brotli` | Algorithm used to compress request bodies ≥ 1024 bytes: `Brotli` (`Content-Encoding: br`) or `Gzip` (`Content-Encoding: gzip`). |
 | `HttpTransport` | `HttpClientTransport` | The replaceable transport (`Apify.Client.Http.IHttpTransport`). |
 
 Requests are retried on network errors, HTTP 429 (rate limit) and 5xx responses, with exponential
 backoff and jitter. 4xx responses (other than 429) are thrown immediately as `ApifyApiException`.
+
+### Timeout tiers
+
+Each method internally picks the timeout tier that fits the expected duration of its request — `Short`
+for metadata reads and writes, `Medium` for listing/batch/trigger calls, `Long` for downloads, uploads
+and streaming — so the default wait before giving up is consistent across the client instead of a
+single one-size-fits-all budget. The three tiers' durations are configured once, on the options above
+(`TimeoutShortSecs`/`TimeoutMediumSecs`/`TimeoutSecs`); raising `TimeoutSecs` also raises the cap every
+attempt's growing per-retry timeout is clamped to, whichever tier it started from. A handful of
+resources additionally expose their own absolute per-call/per-client override that always wins over the
+tier default: `RequestQueueClientOptions.TimeoutSecs` (caps every call a request-queue client makes) and
+`SetRecordOptions.TimeoutSecs` (one `SetRecordAsync` call).
 
 Request bodies of at least 1024 bytes are compressed before sending. Brotli is used by default; set
 `RequestCompression = RequestCompression.Gzip` to send gzip-compressed bodies instead.

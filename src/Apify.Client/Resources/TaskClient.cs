@@ -33,7 +33,7 @@ public sealed class TaskClient
     /// <param name="cancellationToken">A token to cancel the request.</param>
     public async Task<ActorTask?> GetAsync(CancellationToken cancellationToken = default)
     {
-        var data = await _ctx.GetResourceAsync("", new QueryParams(), cancellationToken).ConfigureAwait(false);
+        var data = await _ctx.GetResourceAsync("", new QueryParams(), RequestTier.Short, cancellationToken).ConfigureAwait(false);
         return data is JsonObject obj ? new ActorTask(obj) : null;
     }
 
@@ -42,12 +42,12 @@ public sealed class TaskClient
     /// <param name="cancellationToken">A token to cancel the request.</param>
     public async Task<ActorTask> UpdateAsync(object newFields, CancellationToken cancellationToken = default)
     {
-        return new ActorTask(await _ctx.UpdateResourceAsync("", newFields, cancellationToken).ConfigureAwait(false));
+        return new ActorTask(await _ctx.UpdateResourceAsync("", newFields, RequestTier.Short, cancellationToken).ConfigureAwait(false));
     }
 
     /// <summary>Deletes the task.</summary>
     /// <param name="cancellationToken">A token to cancel the request.</param>
-    public Task DeleteAsync(CancellationToken cancellationToken = default) => _ctx.DeleteResourceAsync("", cancellationToken);
+    public Task DeleteAsync(CancellationToken cancellationToken = default) => _ctx.DeleteResourceAsync("", RequestTier.Short, cancellationToken);
 
     /// <summary>
     /// Publishes the task on its public landing page in Apify Store, by setting <c>isPublic</c>
@@ -78,9 +78,15 @@ public sealed class TaskClient
         UpdateAsync(new { isPublic = false }, cancellationToken);
 
     /// <summary>Starts the task and returns immediately with the created run.</summary>
+    /// <remarks>
+    /// Unlike <see cref="ActorClient.StartAsync"/>, <paramref name="input"/> does not accept raw bytes: a
+    /// task run's input always replaces the task's stored input as JSON, and the endpoint has no content
+    /// type to pair raw bytes with, matching the reference client's <c>TaskStartOptions</c> (which omits
+    /// <c>contentType</c> for the same reason).
+    /// </remarks>
     /// <param name="input">
-    /// Optionally overrides the task's stored input: a plain object or array serialized to JSON, raw bytes
-    /// (<c>byte[]</c>) sent as-is, or <c>null</c> to use the task's stored input.
+    /// Optionally overrides the task's stored input: any JSON-serializable object or array, or <c>null</c>
+    /// to use the task's stored input.
     /// </param>
     /// <param name="options">Optional run-start options.</param>
     /// <param name="cancellationToken">A token to cancel the request.</param>
@@ -88,8 +94,10 @@ public sealed class TaskClient
     {
         var q = new QueryParams();
         (options ?? new TaskStartOptions()).AppendTo(q);
-        ResourceContext.EncodeInputBody(input, out var body, out var bodyBytes);
-        return new ActorRun(await _ctx.PostWithBodyAsync("runs", q, body, ResourceContext.ContentTypeJson, cancellationToken, bodyBytes).ConfigureAwait(false));
+        var body = input is null ? null : Json.Encode(input);
+        // Long, not the reference's base "medium": options.WaitForFinish can ask the server to hold the
+        // connection open for up to 60s and this call does not clamp it, so the HTTP timeout must cover it.
+        return new ActorRun(await _ctx.PostWithBodyAsync("runs", q, body, ResourceContext.ContentTypeJson, RequestTier.Long, cancellationToken).ConfigureAwait(false));
     }
 
     /// <summary>Starts the task and waits (client-side polling) for it to finish.</summary>
@@ -121,7 +129,7 @@ public sealed class TaskClient
     /// <param name="cancellationToken">A token to cancel the request.</param>
     public async Task<JsonNode?> GetInputAsync(CancellationToken cancellationToken = default)
     {
-        var body = await _ctx.GetRawRequiredAsync("input", new QueryParams(), cancellationToken).ConfigureAwait(false);
+        var body = await _ctx.GetRawRequiredAsync("input", new QueryParams(), RequestTier.Short, cancellationToken).ConfigureAwait(false);
         return Json.Decode(body);
     }
 
@@ -135,6 +143,7 @@ public sealed class TaskClient
             _ctx.SubUrl("input"),
             Json.Encode(input),
             ResourceContext.ContentTypeJson,
+            tier: RequestTier.Short,
             cancellationToken: cancellationToken).ConfigureAwait(false);
         return Json.Decode(await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false));
     }

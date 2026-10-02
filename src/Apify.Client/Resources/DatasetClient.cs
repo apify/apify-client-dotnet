@@ -40,7 +40,7 @@ public sealed class DatasetClient
     /// <param name="cancellationToken">A token to cancel the request.</param>
     public async Task<Dataset?> GetAsync(CancellationToken cancellationToken = default)
     {
-        var data = await _ctx.GetResourceAsync("", new QueryParams(), cancellationToken).ConfigureAwait(false);
+        var data = await _ctx.GetResourceAsync("", new QueryParams(), RequestTier.Short, cancellationToken).ConfigureAwait(false);
         return data is JsonObject obj ? new Dataset(obj) : null;
     }
 
@@ -49,12 +49,12 @@ public sealed class DatasetClient
     /// <param name="cancellationToken">A token to cancel the request.</param>
     public async Task<Dataset> UpdateAsync(object newFields, CancellationToken cancellationToken = default)
     {
-        return new Dataset(await _ctx.UpdateResourceAsync("", newFields, cancellationToken).ConfigureAwait(false));
+        return new Dataset(await _ctx.UpdateResourceAsync("", newFields, RequestTier.Short, cancellationToken).ConfigureAwait(false));
     }
 
     /// <summary>Deletes the dataset.</summary>
     /// <param name="cancellationToken">A token to cancel the request.</param>
-    public Task DeleteAsync(CancellationToken cancellationToken = default) => _ctx.DeleteResourceAsync("", cancellationToken);
+    public Task DeleteAsync(CancellationToken cancellationToken = default) => _ctx.DeleteResourceAsync("", RequestTier.Short, cancellationToken);
 
     /// <summary>
     /// Lists items from the dataset, each decoded to a <see cref="JsonNode"/> (objects become
@@ -139,7 +139,7 @@ public sealed class DatasetClient
     private async Task<(PaginationList<JsonNode?> Page, long ScannedCount)> FetchItemsPageAsync(QueryParams q, bool desc, CancellationToken cancellationToken)
     {
         var url = _ctx.MergedParams(q).ApplyToUrl(_ctx.SubUrl("items"));
-        using var response = await _http.CallAsync(HttpMethod.Get, url, timeout: _ctx.RequestTimeout, cancellationToken: cancellationToken).ConfigureAwait(false);
+        using var response = await _http.CallAsync(HttpMethod.Get, url, timeout: _ctx.RequestTimeout, tier: RequestTier.Long, cancellationToken: cancellationToken).ConfigureAwait(false);
         var body = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
 
         var items = new List<JsonNode?>();
@@ -178,7 +178,7 @@ public sealed class DatasetClient
         q.AddString("format", format.ToWireValue());
         (options ?? new DatasetDownloadOptions()).AppendTo(q);
         var url = _ctx.MergedParams(q).ApplyToUrl(_ctx.SubUrl("items"));
-        using var response = await _http.CallAsync(HttpMethod.Get, url, timeout: _ctx.RequestTimeout, cancellationToken: cancellationToken).ConfigureAwait(false);
+        using var response = await _http.CallAsync(HttpMethod.Get, url, timeout: _ctx.RequestTimeout, tier: RequestTier.Long, cancellationToken: cancellationToken).ConfigureAwait(false);
         return await response.Content.ReadAsByteArrayAsync(cancellationToken).ConfigureAwait(false);
     }
 
@@ -194,6 +194,7 @@ public sealed class DatasetClient
             Json.Encode(items),
             ResourceContext.ContentTypeJsonCharset,
             timeout: _ctx.RequestTimeout,
+            tier: RequestTier.Medium,
             cancellationToken: cancellationToken).ConfigureAwait(false);
     }
 
@@ -206,7 +207,7 @@ public sealed class DatasetClient
     /// <param name="cancellationToken">A token to cancel the request.</param>
     public async Task<JsonObject> GetStatisticsAsync(CancellationToken cancellationToken = default)
     {
-        var body = await _ctx.GetRawRequiredAsync("statistics", new QueryParams(), cancellationToken).ConfigureAwait(false);
+        var body = await _ctx.GetRawRequiredAsync("statistics", new QueryParams(), RequestTier.Short, cancellationToken).ConfigureAwait(false);
         return Json.DecodeData(body) as JsonObject ?? new JsonObject();
     }
 

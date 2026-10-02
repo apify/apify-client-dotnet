@@ -24,7 +24,7 @@ public sealed class ActorEnvVarCollectionClient
     /// <param name="cancellationToken">A token to cancel the request.</param>
     public Task<PaginationList<ActorEnvVar>> ListAsync(CancellationToken cancellationToken = default)
     {
-        return _ctx.ListResourceAsync("", new QueryParams(), static d => ActorEnvVar.FromJsonObject(d), cancellationToken);
+        return _ctx.ListResourceAsync("", new QueryParams(), static d => ActorEnvVar.FromJsonObject(d), RequestTier.Short, cancellationToken);
     }
 
     /// <summary>Creates a new environment variable.</summary>
@@ -33,7 +33,7 @@ public sealed class ActorEnvVarCollectionClient
     public async Task<ActorEnvVar> CreateAsync(ActorEnvVar envVar, CancellationToken cancellationToken = default)
     {
         return ActorEnvVar.FromJsonObject(
-            await _ctx.CreateResourceAsync(new QueryParams(), envVar.ToJsonObject(), cancellationToken).ConfigureAwait(false));
+            await _ctx.CreateResourceAsync(new QueryParams(), envVar.ToJsonObject(), RequestTier.Short, cancellationToken).ConfigureAwait(false));
     }
 
     /// <summary>

@@ -24,7 +24,7 @@ public sealed class TaskCollectionClient
     {
         var q = new QueryParams();
         (options ?? new ListOptions()).AppendTo(q);
-        return _ctx.ListResourceAsync("", q, static d => new ActorTask(d), cancellationToken);
+        return _ctx.ListResourceAsync("", q, static d => new ActorTask(d), RequestTier.Medium, cancellationToken);
     }
 
     /// <summary>Creates a new task.</summary>
@@ -32,7 +32,7 @@ public sealed class TaskCollectionClient
     /// <param name="cancellationToken">A token to cancel the request.</param>
     public async Task<ActorTask> CreateAsync(object task, CancellationToken cancellationToken = default)
     {
-        return new ActorTask(await _ctx.CreateResourceAsync(new QueryParams(), task, cancellationToken).ConfigureAwait(false));
+        return new ActorTask(await _ctx.CreateResourceAsync(new QueryParams(), task, RequestTier.Short, cancellationToken).ConfigureAwait(false));
     }
 
     /// <summary>Lazily iterates over all tasks across pages, fetching each page on demand.</summary>
@@ -44,7 +44,7 @@ public sealed class TaskCollectionClient
         options ??= new ListOptions();
         var q = new QueryParams();
         options.AppendTo(q);
-        return _ctx.IterateListAsync("", q, options.Offset ?? 0, options.Limit, static d => new ActorTask(d), cancellationToken);
+        return _ctx.IterateListAsync("", q, options.Offset ?? 0, options.Limit, static d => new ActorTask(d), RequestTier.Medium, cancellationToken);
     }
 
 }

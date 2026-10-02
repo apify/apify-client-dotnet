@@ -42,8 +42,14 @@ public sealed class ApifyClient
     /// <summary>Default minimum delay between retries, in milliseconds.</summary>
     public const int DefaultMinDelayMillis = 500;
 
-    /// <summary>Default overall per-request timeout, in seconds.</summary>
+    /// <summary>Default overall per-request timeout, in seconds (also the default <c>Long</c> tier duration).</summary>
     public const int DefaultTimeoutSecs = 360;
+
+    /// <summary>Default duration of the <c>Short</c> timeout tier, in seconds.</summary>
+    public const int DefaultTimeoutShortSecs = 5;
+
+    /// <summary>Default duration of the <c>Medium</c> timeout tier, in seconds.</summary>
+    public const int DefaultTimeoutMediumSecs = 30;
 
     /// <summary>Environment variable that signals the client is running on the Apify platform.</summary>
     private const string EnvIsAtHome = "APIFY_IS_AT_HOME";
@@ -77,7 +83,9 @@ public sealed class ApifyClient
             options.MaxRetries,
             options.MinDelayBetweenRetriesMillis,
             maxDelayMillis,
-            options.TimeoutSecs);
+            options.TimeoutSecs,
+            options.TimeoutShortSecs,
+            options.TimeoutMediumSecs);
 
         var userAgent = BuildUserAgent(options.UserAgentSuffix, options.IsAtHome ?? DefaultIsAtHome);
         _http = new HttpClientCore(transport, options.Token, userAgent, retry, options.RequestCompression);

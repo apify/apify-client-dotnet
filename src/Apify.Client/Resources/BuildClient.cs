@@ -29,7 +29,9 @@ public sealed class BuildClient
         var q = new QueryParams();
         // Clamp to the client's per-request timeout so a short custom timeout doesn't abort the call.
         q.AddInt("waitForFinish", _ctx.ClampServerWait(waitForFinishSecs));
-        var data = await _ctx.GetResourceAsync("", q, cancellationToken).ConfigureAwait(false);
+        // Long: the clamped waitForFinish can hold the connection open close to the overall budget, so the
+        // HTTP timeout for this call must cover it (matches the reference's short-base-extended-for-wait).
+        var data = await _ctx.GetResourceAsync("", q, RequestTier.Long, cancellationToken).ConfigureAwait(false);
         return data is JsonObject obj ? new Build(obj) : null;
     }
 
@@ -37,12 +39,12 @@ public sealed class BuildClient
     /// <param name="cancellationToken">A token to cancel the request.</param>
     public async Task<Build> AbortAsync(CancellationToken cancellationToken = default)
     {
-        return new Build(await _ctx.PostWithBodyAsync("abort", new QueryParams(), null, "", cancellationToken).ConfigureAwait(false));
+        return new Build(await _ctx.PostWithBodyAsync("abort", new QueryParams(), null, "", RequestTier.Medium, cancellationToken).ConfigureAwait(false));
     }
 
     /// <summary>Deletes the build.</summary>
     /// <param name="cancellationToken">A token to cancel the request.</param>
-    public Task DeleteAsync(CancellationToken cancellationToken = default) => _ctx.DeleteResourceAsync("", cancellationToken);
+    public Task DeleteAsync(CancellationToken cancellationToken = default) => _ctx.DeleteResourceAsync("", RequestTier.Short, cancellationToken);
 
     /// <summary>
     /// Polls until the build reaches a terminal state or <paramref name="waitSecs"/> elapses (<c>null</c>
@@ -60,7 +62,7 @@ public sealed class BuildClient
     /// <param name="cancellationToken">A token to cancel the request.</param>
     public async Task<JsonObject?> GetOpenApiDefinitionAsync(CancellationToken cancellationToken = default)
     {
-        var body = await _ctx.GetRawAsync("openapi.json", new QueryParams(), cancellationToken).ConfigureAwait(false);
+        var body = await _ctx.GetRawAsync("openapi.json", new QueryParams(), RequestTier.Short, cancellationToken).ConfigureAwait(false);
         return body is null ? null : Json.Decode(body) as JsonObject;
     }
 

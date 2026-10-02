@@ -24,7 +24,7 @@ public sealed class ActorCollectionClient
     {
         var q = new QueryParams();
         (options ?? new ActorListOptions()).AppendTo(q);
-        return _ctx.ListResourceAsync("", q, static d => new Actor(d), cancellationToken);
+        return _ctx.ListResourceAsync("", q, static d => new Actor(d), RequestTier.Medium, cancellationToken);
     }
 
     /// <summary>
@@ -38,7 +38,7 @@ public sealed class ActorCollectionClient
         options ??= new ActorListOptions();
         var q = new QueryParams();
         options.AppendTo(q);
-        return _ctx.IterateListAsync("", q, options.Offset ?? 0, options.Limit, static d => new Actor(d), cancellationToken);
+        return _ctx.IterateListAsync("", q, options.Offset ?? 0, options.Limit, static d => new Actor(d), RequestTier.Medium, cancellationToken);
     }
 
     /// <summary>Creates a new Actor.</summary>
@@ -46,6 +46,6 @@ public sealed class ActorCollectionClient
     /// <param name="cancellationToken">A token to cancel the request.</param>
     public async Task<Actor> CreateAsync(object actor, CancellationToken cancellationToken = default)
     {
-        return new Actor(await _ctx.CreateResourceAsync(new QueryParams(), actor, cancellationToken).ConfigureAwait(false));
+        return new Actor(await _ctx.CreateResourceAsync(new QueryParams(), actor, RequestTier.Short, cancellationToken).ConfigureAwait(false));
     }
 }

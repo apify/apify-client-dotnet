@@ -25,7 +25,7 @@ public sealed class DatasetCollectionClient
     {
         var q = new QueryParams();
         (options ?? new StorageListOptions()).AppendTo(q);
-        return _ctx.ListResourceAsync("", q, static d => new Dataset(d), cancellationToken);
+        return _ctx.ListResourceAsync("", q, static d => new Dataset(d), RequestTier.Medium, cancellationToken);
     }
 
     /// <summary>
@@ -50,7 +50,7 @@ public sealed class DatasetCollectionClient
         options ??= new StorageListOptions();
         var q = new QueryParams();
         options.AppendTo(q);
-        return _ctx.IterateListAsync("", q, options.Offset ?? 0, options.Limit, static d => new Dataset(d), cancellationToken);
+        return _ctx.IterateListAsync("", q, options.Offset ?? 0, options.Limit, static d => new Dataset(d), RequestTier.Medium, cancellationToken);
     }
 
 }

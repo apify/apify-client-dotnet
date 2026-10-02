@@ -24,7 +24,7 @@ public sealed class ActorVersionCollectionClient
     /// <param name="cancellationToken">A token to cancel the request.</param>
     public Task<PaginationList<ActorVersion>> ListAsync(CancellationToken cancellationToken = default)
     {
-        return _ctx.ListResourceAsync("", new QueryParams(), static d => new ActorVersion(d), cancellationToken);
+        return _ctx.ListResourceAsync("", new QueryParams(), static d => new ActorVersion(d), RequestTier.Short, cancellationToken);
     }
 
     /// <summary>Creates a new Actor version.</summary>
@@ -32,7 +32,7 @@ public sealed class ActorVersionCollectionClient
     /// <param name="cancellationToken">A token to cancel the request.</param>
     public async Task<ActorVersion> CreateAsync(object version, CancellationToken cancellationToken = default)
     {
-        return new ActorVersion(await _ctx.CreateResourceAsync(new QueryParams(), version, cancellationToken).ConfigureAwait(false));
+        return new ActorVersion(await _ctx.CreateResourceAsync(new QueryParams(), version, RequestTier.Short, cancellationToken).ConfigureAwait(false));
     }
 
     /// <summary>

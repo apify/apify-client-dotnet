@@ -27,7 +27,7 @@ public sealed class BuildCollectionClient
     {
         var q = new QueryParams();
         (options ?? new ListOptions()).AppendTo(q);
-        return _ctx.ListResourceAsync("", q, static d => new Build(d), cancellationToken);
+        return _ctx.ListResourceAsync("", q, static d => new Build(d), RequestTier.Medium, cancellationToken);
     }
 
     /// <summary>Lazily iterates over all builds across pages, fetching each page on demand.</summary>
@@ -39,7 +39,7 @@ public sealed class BuildCollectionClient
         options ??= new ListOptions();
         var q = new QueryParams();
         options.AppendTo(q);
-        return _ctx.IterateListAsync("", q, options.Offset ?? 0, options.Limit, static d => new Build(d), cancellationToken);
+        return _ctx.IterateListAsync("", q, options.Offset ?? 0, options.Limit, static d => new Build(d), RequestTier.Medium, cancellationToken);
     }
 
 }

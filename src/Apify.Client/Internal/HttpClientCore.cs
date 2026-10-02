@@ -134,12 +134,15 @@ internal sealed class HttpClientCore
         bool doNotRetryTimeouts = false,
         byte[]? bodyBytes = null,
         IReadOnlyDictionary<string, string>? extraHeaders = null,
+        RequestTier tier = RequestTier.Long,
         CancellationToken cancellationToken = default)
     {
         var delayMillis = _retry.MinDelayMillis;
         var maxAttempts = _retry.MaxRetries + 1;
         var path = ExtractPath(url);
-        var baseTimeout = timeout ?? TimeSpan.FromSeconds(_retry.TimeoutSecs);
+        // An explicit timeout (e.g. a per-queue or per-call override) always wins; otherwise the tier's
+        // configured duration is the base for the per-attempt doubling below.
+        var baseTimeout = timeout ?? TimeSpan.FromSeconds(_retry.TierSecs(tier));
         // Normalize (and, when large enough, compress) the body once up front so retries reuse the same
         // prepared payload instead of re-encoding and re-compressing on every attempt.
         var prepared = PrepareBody(body, bodyBytes, contentType);

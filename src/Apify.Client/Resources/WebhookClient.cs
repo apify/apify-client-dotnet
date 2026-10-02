@@ -22,7 +22,7 @@ public sealed class WebhookClient
     /// <param name="cancellationToken">A token to cancel the request.</param>
     public async Task<Webhook?> GetAsync(CancellationToken cancellationToken = default)
     {
-        var data = await _ctx.GetResourceAsync("", new QueryParams(), cancellationToken).ConfigureAwait(false);
+        var data = await _ctx.GetResourceAsync("", new QueryParams(), RequestTier.Short, cancellationToken).ConfigureAwait(false);
         return data is JsonObject obj ? new Webhook(obj) : null;
     }
 
@@ -31,18 +31,18 @@ public sealed class WebhookClient
     /// <param name="cancellationToken">A token to cancel the request.</param>
     public async Task<Webhook> UpdateAsync(object newFields, CancellationToken cancellationToken = default)
     {
-        return new Webhook(await _ctx.UpdateResourceAsync("", newFields, cancellationToken).ConfigureAwait(false));
+        return new Webhook(await _ctx.UpdateResourceAsync("", newFields, RequestTier.Short, cancellationToken).ConfigureAwait(false));
     }
 
     /// <summary>Deletes the webhook.</summary>
     /// <param name="cancellationToken">A token to cancel the request.</param>
-    public Task DeleteAsync(CancellationToken cancellationToken = default) => _ctx.DeleteResourceAsync("", cancellationToken);
+    public Task DeleteAsync(CancellationToken cancellationToken = default) => _ctx.DeleteResourceAsync("", RequestTier.Short, cancellationToken);
 
     /// <summary>Dispatches the webhook immediately and returns the resulting dispatch.</summary>
     /// <param name="cancellationToken">A token to cancel the request.</param>
     public async Task<WebhookDispatch> TestAsync(CancellationToken cancellationToken = default)
     {
-        return new WebhookDispatch(await _ctx.PostWithBodyAsync("test", new QueryParams(), null, "", cancellationToken).ConfigureAwait(false));
+        return new WebhookDispatch(await _ctx.PostWithBodyAsync("test", new QueryParams(), null, "", RequestTier.Medium, cancellationToken).ConfigureAwait(false));
     }
 
     /// <summary>A client for this webhook's dispatch collection.</summary>

@@ -25,7 +25,7 @@ public sealed class KeyValueStoreCollectionClient
     {
         var q = new QueryParams();
         (options ?? new StorageListOptions()).AppendTo(q);
-        return _ctx.ListResourceAsync("", q, static d => new KeyValueStore(d), cancellationToken);
+        return _ctx.ListResourceAsync("", q, static d => new KeyValueStore(d), RequestTier.Medium, cancellationToken);
     }
 
     /// <summary>
@@ -49,7 +49,7 @@ public sealed class KeyValueStoreCollectionClient
         options ??= new StorageListOptions();
         var q = new QueryParams();
         options.AppendTo(q);
-        return _ctx.IterateListAsync("", q, options.Offset ?? 0, options.Limit, static d => new KeyValueStore(d), cancellationToken);
+        return _ctx.IterateListAsync("", q, options.Offset ?? 0, options.Limit, static d => new KeyValueStore(d), RequestTier.Medium, cancellationToken);
     }
 
 }

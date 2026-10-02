@@ -38,7 +38,7 @@ public sealed class ActorClient
     /// <param name="cancellationToken">A token to cancel the request.</param>
     public async Task<Actor?> GetAsync(CancellationToken cancellationToken = default)
     {
-        var data = await _ctx.GetResourceAsync("", new QueryParams(), cancellationToken).ConfigureAwait(false);
+        var data = await _ctx.GetResourceAsync("", new QueryParams(), RequestTier.Short, cancellationToken).ConfigureAwait(false);
         return data is JsonObject obj ? new Actor(obj) : null;
     }
 
@@ -47,12 +47,12 @@ public sealed class ActorClient
     /// <param name="cancellationToken">A token to cancel the request.</param>
     public async Task<Actor> UpdateAsync(object newFields, CancellationToken cancellationToken = default)
     {
-        return new Actor(await _ctx.UpdateResourceAsync("", newFields, cancellationToken).ConfigureAwait(false));
+        return new Actor(await _ctx.UpdateResourceAsync("", newFields, RequestTier.Short, cancellationToken).ConfigureAwait(false));
     }
 
     /// <summary>Deletes the Actor.</summary>
     /// <param name="cancellationToken">A token to cancel the request.</param>
-    public Task DeleteAsync(CancellationToken cancellationToken = default) => _ctx.DeleteResourceAsync("", cancellationToken);
+    public Task DeleteAsync(CancellationToken cancellationToken = default) => _ctx.DeleteResourceAsync("", RequestTier.Short, cancellationToken);
 
     /// <summary>Starts the Actor and returns immediately with the created run.</summary>
     /// <param name="input">
@@ -67,7 +67,10 @@ public sealed class ActorClient
         var q = new QueryParams();
         options.AppendTo(q);
         ResourceContext.EncodeInputBody(input, out var body, out var bodyBytes);
-        return new ActorRun(await _ctx.PostWithBodyAsync("runs", q, body, options.ContentTypeOrDefault(), cancellationToken, bodyBytes).ConfigureAwait(false));
+        // Long, not the reference's base "medium": options.WaitForFinish can ask the server to hold the
+        // connection open for up to 60s, and this call does not clamp it to a shorter budget the way
+        // RunClient.GetAsync/BuildClient.GetAsync do, so the HTTP timeout must cover the full wait.
+        return new ActorRun(await _ctx.PostWithBodyAsync("runs", q, body, options.ContentTypeOrDefault(), RequestTier.Long, cancellationToken, bodyBytes).ConfigureAwait(false));
     }
 
     /// <summary>Starts the Actor and waits (client-side polling) for it to finish.</summary>
@@ -105,7 +108,7 @@ public sealed class ActorClient
         ResourceContext.EncodeInputBody(input, out var body, out var bodyBytes);
         // The validate-input endpoint returns a bare {"valid": <bool>} object, not the standard
         // {"data": ...} envelope, so parse it without unwrapping.
-        var result = await _ctx.PostWithBodyNoEnvelopeAsync("validate-input", q, body, options.ContentTypeOrDefault(), cancellationToken, bodyBytes).ConfigureAwait(false);
+        var result = await _ctx.PostWithBodyNoEnvelopeAsync("validate-input", q, body, options.ContentTypeOrDefault(), RequestTier.Short, cancellationToken, bodyBytes).ConfigureAwait(false);
         return result is JsonObject obj && obj.TryGetPropertyValue("valid", out var valid)
             && valid?.GetValueKind() == System.Text.Json.JsonValueKind.True;
     }
@@ -119,7 +122,7 @@ public sealed class ActorClient
         var q = new QueryParams();
         q.AddString("version", versionNumber);
         (options ?? new ActorBuildOptions()).AppendTo(q);
-        return new Build(await _ctx.PostWithBodyAsync("builds", q, null, ResourceContext.ContentTypeJson, cancellationToken).ConfigureAwait(false));
+        return new Build(await _ctx.PostWithBodyAsync("builds", q, null, ResourceContext.ContentTypeJson, RequestTier.Short, cancellationToken).ConfigureAwait(false));
     }
 
     /// <summary>
@@ -132,7 +135,8 @@ public sealed class ActorClient
     {
         var q = new QueryParams();
         q.AddInt("waitForFinish", waitForFinish);
-        var data = await _ctx.GetResourceRequiredAsync("builds/default", q, cancellationToken).ConfigureAwait(false);
+        // Long: waitForFinish is sent unclamped, so the HTTP timeout must cover whatever the caller asks for.
+        var data = await _ctx.GetResourceRequiredAsync("builds/default", q, RequestTier.Long, cancellationToken).ConfigureAwait(false);
         var build = new Build(data as JsonObject ?? new JsonObject());
         return new BuildClient(_http, _baseUrl, build.Id ?? string.Empty);
     }

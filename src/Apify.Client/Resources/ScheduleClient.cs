@@ -20,7 +20,7 @@ public sealed class ScheduleClient
     /// <param name="cancellationToken">A token to cancel the request.</param>
     public async Task<Schedule?> GetAsync(CancellationToken cancellationToken = default)
     {
-        var data = await _ctx.GetResourceAsync("", new QueryParams(), cancellationToken).ConfigureAwait(false);
+        var data = await _ctx.GetResourceAsync("", new QueryParams(), RequestTier.Short, cancellationToken).ConfigureAwait(false);
         return data is JsonObject obj ? new Schedule(obj) : null;
     }
 
@@ -29,12 +29,12 @@ public sealed class ScheduleClient
     /// <param name="cancellationToken">A token to cancel the request.</param>
     public async Task<Schedule> UpdateAsync(object newFields, CancellationToken cancellationToken = default)
     {
-        return new Schedule(await _ctx.UpdateResourceAsync("", newFields, cancellationToken).ConfigureAwait(false));
+        return new Schedule(await _ctx.UpdateResourceAsync("", newFields, RequestTier.Short, cancellationToken).ConfigureAwait(false));
     }
 
     /// <summary>Deletes the schedule.</summary>
     /// <param name="cancellationToken">A token to cancel the request.</param>
-    public Task DeleteAsync(CancellationToken cancellationToken = default) => _ctx.DeleteResourceAsync("", cancellationToken);
+    public Task DeleteAsync(CancellationToken cancellationToken = default) => _ctx.DeleteResourceAsync("", RequestTier.Short, cancellationToken);
 
     /// <summary>
     /// Fetches the schedule's invocation log as text. Throws if the schedule does not exist (no longer
@@ -43,5 +43,5 @@ public sealed class ScheduleClient
     /// </summary>
     /// <param name="cancellationToken">A token to cancel the request.</param>
     public Task<string> GetLogAsync(CancellationToken cancellationToken = default)
-        => _ctx.GetRawRequiredAsync("log", new QueryParams(), cancellationToken);
+        => _ctx.GetRawRequiredAsync("log", new QueryParams(), RequestTier.Medium, cancellationToken);
 }

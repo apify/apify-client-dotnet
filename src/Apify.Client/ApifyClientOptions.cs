@@ -34,8 +34,25 @@ public sealed class ApifyClientOptions
     /// <summary>Upper bound for the growing inter-retry delay in ms (defaults to the request timeout).</summary>
     public int? MaxDelayBetweenRetriesMillis { get; set; }
 
-    /// <summary>Overall per-request timeout in seconds (default 360).</summary>
+    /// <summary>
+    /// Base duration of the <c>Long</c> timeout tier, in seconds (default 360): downloads, uploads and
+    /// streaming. Also the overall per-request cap every attempt's growing timeout is clamped to,
+    /// regardless of tier, matching the reference client's <c>timeoutLongSecs</c>/<c>timeoutMaxSecs</c>
+    /// (which share the same 360s default for the same reason).
+    /// </summary>
     public int TimeoutSecs { get; set; } = ApifyClient.DefaultTimeoutSecs;
+
+    /// <summary>
+    /// Base duration of the <c>Short</c> timeout tier, in seconds (default 5): simple metadata reads and
+    /// writes (get/update/delete a resource). Matches the reference client's <c>timeoutShortSecs</c>.
+    /// </summary>
+    public int TimeoutShortSecs { get; set; } = ApifyClient.DefaultTimeoutShortSecs;
+
+    /// <summary>
+    /// Base duration of the <c>Medium</c> timeout tier, in seconds (default 30): listing, batch and trigger
+    /// calls. Matches the reference client's <c>timeoutMediumSecs</c>.
+    /// </summary>
+    public int TimeoutMediumSecs { get; set; } = ApifyClient.DefaultTimeoutMediumSecs;
 
     /// <summary>Custom suffix appended to the <c>User-Agent</c> header.</summary>
     public string? UserAgentSuffix { get; set; }

@@ -64,7 +64,7 @@ public sealed class RequestQueueClient
     /// <param name="cancellationToken">A token to cancel the request.</param>
     public async Task<RequestQueue?> GetAsync(CancellationToken cancellationToken = default)
     {
-        var data = await _ctx.GetResourceAsync("", new QueryParams(), cancellationToken).ConfigureAwait(false);
+        var data = await _ctx.GetResourceAsync("", new QueryParams(), RequestTier.Short, cancellationToken).ConfigureAwait(false);
         return data is JsonObject obj ? new RequestQueue(obj) : null;
     }
 
@@ -73,12 +73,12 @@ public sealed class RequestQueueClient
     /// <param name="cancellationToken">A token to cancel the request.</param>
     public async Task<RequestQueue> UpdateAsync(object newFields, CancellationToken cancellationToken = default)
     {
-        return new RequestQueue(await _ctx.UpdateResourceAsync("", newFields, cancellationToken).ConfigureAwait(false));
+        return new RequestQueue(await _ctx.UpdateResourceAsync("", newFields, RequestTier.Short, cancellationToken).ConfigureAwait(false));
     }
 
     /// <summary>Deletes the queue.</summary>
     /// <param name="cancellationToken">A token to cancel the request.</param>
-    public Task DeleteAsync(CancellationToken cancellationToken = default) => _ctx.DeleteResourceAsync("", cancellationToken);
+    public Task DeleteAsync(CancellationToken cancellationToken = default) => _ctx.DeleteResourceAsync("", RequestTier.Short, cancellationToken);
 
     /// <summary>
     /// Returns the requests at the head (front) of the queue, up to <paramref name="limit"/> (<c>null</c>
@@ -91,7 +91,7 @@ public sealed class RequestQueueClient
         var q = new QueryParams();
         q.AddInt("limit", limit);
         ApplyClientKey(q);
-        return RequestQueueHead.FromData(await _ctx.GetResourceRequiredAsync("head", q, cancellationToken).ConfigureAwait(false));
+        return RequestQueueHead.FromData(await _ctx.GetResourceRequiredAsync("head", q, RequestTier.Short, cancellationToken).ConfigureAwait(false));
     }
 
     /// <summary>Adds a request to the queue. If <paramref name="forefront"/> is true, it is added to the front.</summary>
@@ -103,7 +103,7 @@ public sealed class RequestQueueClient
         var q = new QueryParams();
         q.AddBool("forefront", forefront);
         ApplyClientKey(q);
-        var data = await _ctx.PostWithBodyAsync("requests", q, Json.Encode(request.ToJsonObject()), ResourceContext.ContentTypeJson, cancellationToken).ConfigureAwait(false);
+        var data = await _ctx.PostWithBodyAsync("requests", q, Json.Encode(request.ToJsonObject()), ResourceContext.ContentTypeJson, RequestTier.Short, cancellationToken).ConfigureAwait(false);
         return new RequestQueueOperationInfo(data);
     }
 
@@ -112,7 +112,7 @@ public sealed class RequestQueueClient
     /// <param name="cancellationToken">A token to cancel the request.</param>
     public async Task<RequestQueueRequest?> GetRequestAsync(string id, CancellationToken cancellationToken = default)
     {
-        var data = await _ctx.GetResourceAsync("requests/" + ResourceContext.EncodePathSegment(id), new QueryParams(), cancellationToken).ConfigureAwait(false);
+        var data = await _ctx.GetResourceAsync("requests/" + ResourceContext.EncodePathSegment(id), new QueryParams(), RequestTier.Short, cancellationToken).ConfigureAwait(false);
         return data is JsonObject obj ? RequestQueueRequest.FromJsonObject(obj) : null;
     }
 
@@ -129,7 +129,7 @@ public sealed class RequestQueueClient
         q.AddBool("forefront", forefront);
         ApplyClientKey(q);
         var url = _ctx.MergedParams(q).ApplyToUrl(_ctx.SubUrl("requests/" + ResourceContext.EncodePathSegment(request.Id ?? string.Empty)));
-        using var response = await _http.CallAsync(HttpMethod.Put, url, Json.Encode(request.ToJsonObject()), ResourceContext.ContentTypeJson, _timeout, cancellationToken: cancellationToken).ConfigureAwait(false);
+        using var response = await _http.CallAsync(HttpMethod.Put, url, Json.Encode(request.ToJsonObject()), ResourceContext.ContentTypeJson, _timeout, tier: RequestTier.Medium, cancellationToken: cancellationToken).ConfigureAwait(false);
         var data = Json.DecodeData(await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false));
         return new RequestQueueOperationInfo(data as JsonObject ?? new JsonObject());
     }
@@ -144,7 +144,7 @@ public sealed class RequestQueueClient
         var url = _ctx.MergedParams(q).ApplyToUrl(_ctx.SubUrl("requests/" + ResourceContext.EncodePathSegment(id)));
         try
         {
-            using var response = await _http.CallAsync(HttpMethod.Delete, url, timeout: _timeout, cancellationToken: cancellationToken).ConfigureAwait(false);
+            using var response = await _http.CallAsync(HttpMethod.Delete, url, timeout: _timeout, tier: RequestTier.Short, cancellationToken: cancellationToken).ConfigureAwait(false);
         }
         catch (ApifyApiException e) when (HttpClientCore.IsNotFound(e))
         {
@@ -164,7 +164,7 @@ public sealed class RequestQueueClient
         var q = new QueryParams();
         q.AddInt("lockSecs", lockSecs).AddInt("limit", limit);
         ApplyClientKey(q);
-        var data = await _ctx.PostWithBodyAsync("head/lock", q, null, "", cancellationToken).ConfigureAwait(false);
+        var data = await _ctx.PostWithBodyAsync("head/lock", q, null, "", RequestTier.Medium, cancellationToken).ConfigureAwait(false);
         return LockedRequestQueueHead.FromData(data);
     }
 
@@ -368,7 +368,7 @@ public sealed class RequestQueueClient
         var q = new QueryParams();
         q.AddBool("forefront", forefront);
         ApplyClientKey(q);
-        var data = await _ctx.PostWithBodyAsync("requests/batch", q, Json.Encode(ToPayload(requests)), ResourceContext.ContentTypeJson, cancellationToken).ConfigureAwait(false);
+        var data = await _ctx.PostWithBodyAsync("requests/batch", q, Json.Encode(ToPayload(requests)), ResourceContext.ContentTypeJson, RequestTier.Medium, cancellationToken).ConfigureAwait(false);
 
         var processed = new List<RequestQueueOperationInfo>();
         if (data.TryGetPropertyValue("processedRequests", out var pNode) && pNode is JsonArray pArray)
@@ -438,7 +438,7 @@ public sealed class RequestQueueClient
     {
         var q = new QueryParams();
         ApplyClientKey(q);
-        var data = await _ctx.DeleteWithBodyAsync("requests/batch", q, ToPayload(requests), cancellationToken).ConfigureAwait(false);
+        var data = await _ctx.DeleteWithBodyAsync("requests/batch", q, ToPayload(requests), RequestTier.Short, cancellationToken).ConfigureAwait(false);
         return BatchDeleteResult.FromData(data);
     }
 
@@ -464,7 +464,7 @@ public sealed class RequestQueueClient
         var q = new QueryParams();
         options.AppendTo(q);
         ApplyClientKey(q);
-        var data = await _ctx.GetResourceRequiredAsync("requests", q, cancellationToken).ConfigureAwait(false);
+        var data = await _ctx.GetResourceRequiredAsync("requests", q, RequestTier.Medium, cancellationToken).ConfigureAwait(false);
         return RequestQueueRequestsPage.FromData(data);
     }
 
@@ -482,7 +482,7 @@ public sealed class RequestQueueClient
         q.AddInt("lockSecs", lockSecs).AddBool("forefront", forefront);
         ApplyClientKey(q);
         var url = _ctx.MergedParams(q).ApplyToUrl(_ctx.SubUrl("requests/" + ResourceContext.EncodePathSegment(id) + "/lock"));
-        using var response = await _http.CallAsync(HttpMethod.Put, url, null, "", _timeout, cancellationToken: cancellationToken).ConfigureAwait(false);
+        using var response = await _http.CallAsync(HttpMethod.Put, url, null, "", _timeout, tier: RequestTier.Medium, cancellationToken: cancellationToken).ConfigureAwait(false);
         var data = Json.DecodeData(await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false));
         return RequestLockInfo.FromData(data);
     }
@@ -502,7 +502,7 @@ public sealed class RequestQueueClient
         var url = _ctx.MergedParams(q).ApplyToUrl(_ctx.SubUrl("requests/" + ResourceContext.EncodePathSegment(id) + "/lock"));
         try
         {
-            using var response = await _http.CallAsync(HttpMethod.Delete, url, timeout: _timeout, cancellationToken: cancellationToken).ConfigureAwait(false);
+            using var response = await _http.CallAsync(HttpMethod.Delete, url, timeout: _timeout, tier: RequestTier.Short, cancellationToken: cancellationToken).ConfigureAwait(false);
         }
         catch (ApifyApiException e) when (HttpClientCore.IsNotFound(e))
         {
@@ -516,7 +516,7 @@ public sealed class RequestQueueClient
     {
         var q = new QueryParams();
         ApplyClientKey(q);
-        var data = await _ctx.PostWithBodyAsync("requests/unlock", q, null, "", cancellationToken).ConfigureAwait(false);
+        var data = await _ctx.PostWithBodyAsync("requests/unlock", q, null, "", RequestTier.Long, cancellationToken).ConfigureAwait(false);
         return UnlockRequestsResult.FromData(data);
     }
 

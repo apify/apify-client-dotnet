@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Text.Json;
@@ -41,6 +42,30 @@ public abstract class ApifyResource
             JsonValueKind.Number => node.ToJsonString(),
             _ => null,
         };
+    }
+
+    /// <summary>
+    /// Reads a field the OpenAPI specification marks <c>format: uri</c> and normalizes it to its RFC 3986
+    /// absolute-URI form, matching the reference client's <c>z.url({ normalize: true })</c>: the host is
+    /// lowercased and punycoded, a default port is dropped, an empty path becomes <c>/</c>, and unsafe
+    /// characters are percent-encoded. <c>null</c> if the field is absent.
+    /// </summary>
+    /// <exception cref="FormatException">The field is present but not a valid absolute URL.</exception>
+    protected string? GetUrlString(string key)
+    {
+        var raw = GetString(key);
+        if (raw is null)
+        {
+            return null;
+        }
+
+        if (!Uri.TryCreate(raw, UriKind.Absolute, out var uri))
+        {
+            throw new FormatException(
+                string.Format(CultureInfo.InvariantCulture, "field \"{0}\" is not a valid absolute URL: {1}", key, raw));
+        }
+
+        return uri.AbsoluteUri;
     }
 
     /// <summary>Reads an integer field, coercing numeric strings and fractional numbers; <c>null</c> if absent.</summary>

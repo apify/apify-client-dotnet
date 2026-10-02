@@ -51,11 +51,11 @@ public sealed class LogClient
         (options ?? new LogOptions()).AppendTo(q);
         return _ambiguousNotFound
             ? GetRequiredAsync(q, cancellationToken)
-            : _ctx.GetRawAsync("", q, cancellationToken);
+            : _ctx.GetRawAsync("", q, RequestTier.Long, cancellationToken);
     }
 
     private async Task<string?> GetRequiredAsync(QueryParams q, CancellationToken cancellationToken)
-        => await _ctx.GetRawRequiredAsync("", q, cancellationToken).ConfigureAwait(false);
+        => await _ctx.GetRawRequiredAsync("", q, RequestTier.Long, cancellationToken).ConfigureAwait(false);
 
     /// <summary>
     /// Opens a live, streaming connection to the log and returns a stream over the log bytes. For a log

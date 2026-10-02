@@ -22,6 +22,6 @@ public sealed class WebhookCollectionClient : AbstractWebhookCollectionClient
     /// <param name="cancellationToken">A token to cancel the request.</param>
     public async Task<Webhook> CreateAsync(object webhook, CancellationToken cancellationToken = default)
     {
-        return new Webhook(await Ctx.CreateResourceAsync(new QueryParams(), webhook, cancellationToken).ConfigureAwait(false));
+        return new Webhook(await Ctx.CreateResourceAsync(new QueryParams(), webhook, RequestTier.Short, cancellationToken).ConfigureAwait(false));
     }
 }

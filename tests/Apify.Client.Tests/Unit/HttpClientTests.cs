@@ -240,6 +240,74 @@ public sealed class HttpClientTests
     }
 
     [Fact]
+    public async Task ShortTierCallUsesConfiguredShortTimeoutByDefault()
+    {
+        // ActorClient.GetAsync is a Short-tier call (simple metadata read). With no explicit per-call/
+        // per-context override, its attempt timeout is TimeoutShortSecs, not the overall TimeoutSecs.
+        var transport = new MockTransport().QueueResponse(200, "{\"data\":{\"id\":\"x\"}}");
+        var client = new ApifyClient(new ApifyClientOptions
+        {
+            Token = "t",
+            MinDelayBetweenRetriesMillis = 1,
+            TimeoutShortSecs = 7,
+            TimeoutMediumSecs = 40,
+            TimeoutSecs = 360,
+            HttpTransport = transport,
+        });
+
+        await client.Actor("x").GetAsync();
+
+        Assert.Equal(7.0, transport.Timeouts[0]);
+    }
+
+    [Fact]
+    public async Task MediumTierCallUsesConfiguredMediumTimeoutByDefault()
+    {
+        // ActorCollectionClient.ListAsync is a Medium-tier call (collection listing).
+        var transport = new MockTransport().QueueResponse(200, "{\"data\":{\"total\":0,\"items\":[]}}");
+        var client = new ApifyClient(new ApifyClientOptions
+        {
+            Token = "t",
+            MinDelayBetweenRetriesMillis = 1,
+            TimeoutShortSecs = 7,
+            TimeoutMediumSecs = 40,
+            TimeoutSecs = 360,
+            HttpTransport = transport,
+        });
+
+        await client.Actors().ListAsync();
+
+        Assert.Equal(40.0, transport.Timeouts[0]);
+    }
+
+    [Fact]
+    public async Task LongTierCallUsesOverallTimeoutByDefault()
+    {
+        // DatasetClient.ListItemsAsync is a Long-tier call (dataset item download). Long shares its
+        // duration with the overall per-request budget (TimeoutSecs), matching the reference client's
+        // timeoutLongSecs/timeoutMaxSecs defaulting to the same value for the same reason.
+        var transport = new MockTransport().QueueResponse(200, "[]", new System.Collections.Generic.Dictionary<string, string>
+        {
+            ["X-Apify-Pagination-Total"] = "0",
+            ["X-Apify-Pagination-Offset"] = "0",
+            ["X-Apify-Pagination-Limit"] = "0",
+        });
+        var client = new ApifyClient(new ApifyClientOptions
+        {
+            Token = "t",
+            MinDelayBetweenRetriesMillis = 1,
+            TimeoutShortSecs = 7,
+            TimeoutMediumSecs = 40,
+            TimeoutSecs = 111,
+            HttpTransport = transport,
+        });
+
+        await client.Dataset("ds1").ListItemsAsync();
+
+        Assert.Equal(111.0, transport.Timeouts[0]);
+    }
+
+    [Fact]
     public async Task TimeoutIsNotRetriedWhenDoNotRetryTimeoutsIsSet()
     {
         // A single timeout, then a success that must never be reached because retrying is opted out.

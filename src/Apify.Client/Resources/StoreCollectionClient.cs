@@ -25,7 +25,7 @@ public sealed class StoreCollectionClient
     {
         var q = new QueryParams();
         (options ?? new StoreListOptions()).AppendTo(q);
-        return _ctx.ListResourceAsync("", q, static d => new ActorStoreListItem(d), cancellationToken);
+        return _ctx.ListResourceAsync("", q, static d => new ActorStoreListItem(d), RequestTier.Medium, cancellationToken);
     }
 
     /// <summary>
