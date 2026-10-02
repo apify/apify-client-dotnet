@@ -121,53 +121,45 @@ public sealed class ApifyClient
     /// <summary>A client for the Actor collection (list &amp; create Actors).</summary>
     public ActorCollectionClient Actors() => new(_http, _baseUrl);
 
-    /// <summary>A client for a specific Actor, addressed by ID or <c>username~name</c>.</summary>
+    /// <summary>A client for a specific Actor, addressed by ID or <c>username~name</c>. Must not be empty.</summary>
     /// <param name="id">The Actor ID or <c>username~name</c>.</param>
-    public ActorClient Actor(string id) => new(this, _http, _baseUrl, id);
+    public ActorClient Actor(string id) => new(this, _http, _baseUrl, RequireNonEmptyId(id, nameof(id)));
 
     // ----- Build accessors -----------------------------------------------------
 
     /// <summary>A client for the Actor build collection (list builds).</summary>
     public BuildCollectionClient Builds() => new(_http, _baseUrl, "actor-builds");
 
-    /// <summary>A client for a specific Actor build.</summary>
-    /// <param name="id">The build ID. Must not be empty.</param>
-    public BuildClient Build(string id)
-    {
-        if (id.Length == 0)
-        {
-            throw new ArgumentException("id must not be empty", nameof(id));
-        }
-
-        return new BuildClient(_http, _baseUrl, id);
-    }
+    /// <summary>A client for a specific Actor build. Must not be empty.</summary>
+    /// <param name="id">The build ID.</param>
+    public BuildClient Build(string id) => new(_http, _baseUrl, RequireNonEmptyId(id, nameof(id)));
 
     // ----- Run accessors -------------------------------------------------------
 
     /// <summary>A client for the Actor run collection (list runs).</summary>
     public RunCollectionClient Runs() => new(_http, _baseUrl, "actor-runs");
 
-    /// <summary>A client for a specific Actor run.</summary>
+    /// <summary>A client for a specific Actor run. Must not be empty.</summary>
     /// <param name="id">The run ID.</param>
-    public RunClient Run(string id) => new(_http, _baseUrl, "actor-runs", id);
+    public RunClient Run(string id) => new(_http, _baseUrl, "actor-runs", RequireNonEmptyId(id, nameof(id)));
 
     // ----- Dataset accessors ---------------------------------------------------
 
     /// <summary>A client for the dataset collection (list &amp; get-or-create datasets).</summary>
     public DatasetCollectionClient Datasets() => new(_http, _baseUrl);
 
-    /// <summary>A client for a specific dataset, addressed by ID or name.</summary>
+    /// <summary>A client for a specific dataset, addressed by ID or name. Must not be empty.</summary>
     /// <param name="id">The dataset ID or name.</param>
-    public DatasetClient Dataset(string id) => DatasetClient.ForId(_http, _baseUrl, id).WithPublicBase(_publicBaseUrl);
+    public DatasetClient Dataset(string id) => DatasetClient.ForId(_http, _baseUrl, RequireNonEmptyId(id, nameof(id))).WithPublicBase(_publicBaseUrl);
 
     // ----- Key-value store accessors -------------------------------------------
 
     /// <summary>A client for the key-value store collection.</summary>
     public KeyValueStoreCollectionClient KeyValueStores() => new(_http, _baseUrl);
 
-    /// <summary>A client for a specific key-value store, addressed by ID or name.</summary>
+    /// <summary>A client for a specific key-value store, addressed by ID or name. Must not be empty.</summary>
     /// <param name="id">The store ID or name.</param>
-    public KeyValueStoreClient KeyValueStore(string id) => KeyValueStoreClient.ForId(_http, _baseUrl, id).WithPublicBase(_publicBaseUrl);
+    public KeyValueStoreClient KeyValueStore(string id) => KeyValueStoreClient.ForId(_http, _baseUrl, RequireNonEmptyId(id, nameof(id))).WithPublicBase(_publicBaseUrl);
 
     // ----- Request queue accessors ---------------------------------------------
 
@@ -175,63 +167,64 @@ public sealed class ApifyClient
     public RequestQueueCollectionClient RequestQueues() => new(_http, _baseUrl);
 
     /// <summary>
-    /// A client for a specific request queue, addressed by ID or name. Optionally pass options to set a
-    /// stable <c>ClientKey</c> and/or a per-request <c>TimeoutSecs</c> for this queue's calls.
+    /// A client for a specific request queue, addressed by ID or name. Must not be empty. Optionally pass
+    /// options to set a stable <c>ClientKey</c> and/or a per-request <c>TimeoutSecs</c> for this queue's
+    /// calls.
     /// </summary>
     /// <param name="id">The queue ID or name.</param>
     /// <param name="options">Optional per-queue-client options.</param>
     public RequestQueueClient RequestQueue(string id, Options.RequestQueueClientOptions? options = null)
-        => RequestQueueClient.ForId(_http, _baseUrl, id, options);
+        => RequestQueueClient.ForId(_http, _baseUrl, RequireNonEmptyId(id, nameof(id)), options);
 
     // ----- Task accessors ------------------------------------------------------
 
     /// <summary>A client for the Actor task collection (list &amp; create tasks).</summary>
     public TaskCollectionClient Tasks() => new(_http, _baseUrl);
 
-    /// <summary>A client for a specific Actor task.</summary>
+    /// <summary>A client for a specific Actor task. Must not be empty.</summary>
     /// <param name="id">The task ID.</param>
-    public TaskClient Task(string id) => new(this, _http, _baseUrl, id);
+    public TaskClient Task(string id) => new(this, _http, _baseUrl, RequireNonEmptyId(id, nameof(id)));
 
     // ----- Schedule accessors --------------------------------------------------
 
     /// <summary>A client for the schedule collection (list &amp; create schedules).</summary>
     public ScheduleCollectionClient Schedules() => new(_http, _baseUrl);
 
-    /// <summary>A client for a specific schedule.</summary>
+    /// <summary>A client for a specific schedule. Must not be empty.</summary>
     /// <param name="id">The schedule ID.</param>
-    public ScheduleClient Schedule(string id) => new(_http, _baseUrl, id);
+    public ScheduleClient Schedule(string id) => new(_http, _baseUrl, RequireNonEmptyId(id, nameof(id)));
 
     // ----- Webhook accessors ---------------------------------------------------
 
     /// <summary>A client for the webhook collection (list &amp; create webhooks).</summary>
     public WebhookCollectionClient Webhooks() => new(_http, _baseUrl);
 
-    /// <summary>A client for a specific webhook.</summary>
+    /// <summary>A client for a specific webhook. Must not be empty.</summary>
     /// <param name="id">The webhook ID.</param>
-    public WebhookClient Webhook(string id) => new(_http, _baseUrl, id);
+    public WebhookClient Webhook(string id) => new(_http, _baseUrl, RequireNonEmptyId(id, nameof(id)));
 
     /// <summary>A client for the webhook dispatch collection.</summary>
     public WebhookDispatchCollectionClient WebhookDispatches() => new(_http, _baseUrl, "webhook-dispatches");
 
-    /// <summary>A client for a specific webhook dispatch.</summary>
+    /// <summary>A client for a specific webhook dispatch. Must not be empty.</summary>
     /// <param name="id">The dispatch ID.</param>
-    public WebhookDispatchClient WebhookDispatch(string id) => new(_http, _baseUrl, id);
+    public WebhookDispatchClient WebhookDispatch(string id) => new(_http, _baseUrl, RequireNonEmptyId(id, nameof(id)));
 
     // ----- Misc accessors ------------------------------------------------------
 
     /// <summary>A client for browsing the Apify Store.</summary>
     public StoreCollectionClient Store() => new(_http, _baseUrl);
 
-    /// <summary>A client for accessing a build's or run's log.</summary>
+    /// <summary>A client for accessing a build's or run's log. Must not be empty.</summary>
     /// <param name="buildOrRunId">The build or run ID.</param>
-    public LogClient Log(string buildOrRunId) => LogClient.ForId(_http, _baseUrl, buildOrRunId);
+    public LogClient Log(string buildOrRunId) => LogClient.ForId(_http, _baseUrl, RequireNonEmptyId(buildOrRunId, nameof(buildOrRunId)));
 
     /// <summary>A client for the current user (<c>/users/me</c>).</summary>
     public UserClient Me() => new(_http, _baseUrl, MeUserPlaceholder);
 
-    /// <summary>A client for a specific user by ID or username.</summary>
+    /// <summary>A client for a specific user by ID or username. Must not be empty.</summary>
     /// <param name="id">The user ID or username.</param>
-    public UserClient User(string id) => new(_http, _baseUrl, id);
+    public UserClient User(string id) => new(_http, _baseUrl, RequireNonEmptyId(id, nameof(id)));
 
     /// <summary>
     /// Sets the status message of the current Actor run.
@@ -262,6 +255,23 @@ public sealed class ApifyClient
     }
 
     private static string TrimTrailingSlash(string value) => value.TrimEnd('/');
+
+    /// <summary>
+    /// Validates that an id/name passed to a resource accessor is non-empty, returning it unchanged so it
+    /// can be used inline at the call site. An empty id would otherwise flow through
+    /// <see cref="Internal.ResourceContext.Single"/> into a collection-shaped URL (e.g. an empty run id
+    /// addressing <c>.../actor-runs/</c>) and silently mis-address the wrong resource instead of failing
+    /// loudly, matching the reference client's uniform <c>id.min(1)</c> validation on every accessor.
+    /// </summary>
+    private static string RequireNonEmptyId(string id, string paramName)
+    {
+        if (id.Length == 0)
+        {
+            throw new ArgumentException("id must not be empty", paramName);
+        }
+
+        return id;
+    }
 
     /// <summary>
     /// Reports whether the client is running on the Apify platform, by reading the <c>APIFY_IS_AT_HOME</c>

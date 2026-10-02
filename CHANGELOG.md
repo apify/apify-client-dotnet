@@ -41,9 +41,11 @@
   input, sent as raw bytes instead of being JSON-encoded, matching the reference client's `ActorInput`
   (a plain object/array, or raw bytes). `TaskClient.StartAsync`'s input stays JSON-only, matching the
   reference client's `TaskStartOptions` (which has no content type to pair raw bytes with).
-- **Breaking:** `ActorClient.Version`, `ActorVersionClient.EnvVar` and `ApifyClient.Build` now reject
-  an empty id/name/version number instead of silently addressing the collection endpoint, matching the
-  reference client.
+- **Breaking:** `ActorClient.Version`, `ActorVersionClient.EnvVar`, and every id-addressed accessor on
+  `ApifyClient` (`Actor`, `Build`, `Run`, `Dataset`, `KeyValueStore`, `RequestQueue`, `Task`, `Schedule`,
+  `Webhook`, `WebhookDispatch`, `Log`, `User`) now reject an empty id/name/version number instead of
+  silently addressing the collection endpoint, matching the reference client's uniform `id.min(1)`
+  validation.
 - **Breaking:** added timeout tiers, matching the reference client's `TimeoutTier`. Every method that
   sends a request now internally picks `Short` (metadata reads/writes), `Medium` (listing/batch/trigger
   calls) or `Long` (downloads/uploads/streaming) instead of a single overall budget for every call.

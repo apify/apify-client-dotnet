@@ -138,11 +138,11 @@ Every resource client (`client.Actor(id)`, `client.Dataset(id)`, `client.Actors(
 return value of every accessor on `ApifyClient`) exposes `WithTimeout(TimeSpan timeout)`, a general
 per-call(-instance) override: call it right after the accessor to make every call made through that
 client instance use `timeout` instead of its tier default, for exactly one use of that client, e.g.
-`client.Dataset(id).WithTimeout(TimeSpan.FromMinutes(5)).DownloadItemsAsync(...)`. A longer override
-raises the cap the per-attempt timeout grows (and is clamped) to for that call, so asking for more time
-is honored rather than silently clamped back to the configured overall budget; a shorter override still
-narrows it, as before. Pass `TimeSpan.Zero` for no timeout at all, matching the reference client's
-`'noTimeout'`. `RequestQueueClient` (via `client.RequestQueue(id, new RequestQueueClientOptions {
+`client.Dataset(id).WithTimeout(TimeSpan.FromMinutes(5)).DownloadItemsAsync(...)`. A value above
+`TimeoutSecs` (the overall budget) is capped at it, matching the reference client — raise `TimeoutSecs`
+itself for a longer per-call timeout; a shorter override still narrows the cap, as before. Pass
+`TimeSpan.Zero` for no timeout at all, matching the reference client's `'noTimeout'`. `RequestQueueClient`
+(via `client.RequestQueue(id, new RequestQueueClientOptions {
 TimeoutSecs = ... })`) and `SetRecordAsync` (via `SetRecordOptions.TimeoutSecs`) already had their own
 equivalent, narrower overrides before `WithTimeout` existed and keep them instead.
 
