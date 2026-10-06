@@ -25,7 +25,7 @@ public sealed class KeyValueStoreClient
         => new(http, ResourceContext.Single(http, baseUrl, "key-value-stores", id));
 
     internal static KeyValueStoreClient Nested(HttpClientCore http, string baseUrl, string subPath, QueryParams? inheritedParams = null)
-        => new(http, ResourceContext.Collection(http, baseUrl, subPath, inheritedParams));
+        => new(http, ResourceContext.NestedSingleton(http, baseUrl, subPath, inheritedParams));
 
     internal KeyValueStoreClient WithPublicBase(string publicBaseUrl)
     {
@@ -37,7 +37,7 @@ public sealed class KeyValueStoreClient
     /// <param name="cancellationToken">A token to cancel the request.</param>
     public async Task<KeyValueStore?> GetAsync(CancellationToken cancellationToken = default)
     {
-        var data = await _ctx.GetResourceAsync("", new QueryParams(), cancellationToken).ConfigureAwait(false);
+        var data = await _ctx.GetResourceAsync("", new QueryParams(), RequestTier.Short, cancellationToken).ConfigureAwait(false);
         return data is System.Text.Json.Nodes.JsonObject obj ? new KeyValueStore(obj) : null;
     }
 
@@ -46,12 +46,12 @@ public sealed class KeyValueStoreClient
     /// <param name="cancellationToken">A token to cancel the request.</param>
     public async Task<KeyValueStore> UpdateAsync(object newFields, CancellationToken cancellationToken = default)
     {
-        return new KeyValueStore(await _ctx.UpdateResourceAsync("", newFields, cancellationToken).ConfigureAwait(false));
+        return new KeyValueStore(await _ctx.UpdateResourceAsync("", newFields, RequestTier.Long, cancellationToken).ConfigureAwait(false));
     }
 
     /// <summary>Deletes the store.</summary>
     /// <param name="cancellationToken">A token to cancel the request.</param>
-    public Task DeleteAsync(CancellationToken cancellationToken = default) => _ctx.DeleteResourceAsync("", cancellationToken);
+    public Task DeleteAsync(CancellationToken cancellationToken = default) => _ctx.DeleteResourceAsync("", RequestTier.Short, cancellationToken);
 
     /// <summary>Lists the keys stored in this key-value store.</summary>
     /// <param name="options">Optional key-listing filters and pagination.</param>
@@ -60,14 +60,14 @@ public sealed class KeyValueStoreClient
     {
         var q = new QueryParams();
         (options ?? new ListKeysOptions()).AppendTo(q);
-        return KeyValueStoreKeysPage.FromData(await _ctx.GetResourceRequiredAsync("keys", q, cancellationToken).ConfigureAwait(false));
+        return KeyValueStoreKeysPage.FromData(await _ctx.GetResourceRequiredAsync("keys", q, RequestTier.Medium, cancellationToken).ConfigureAwait(false));
     }
 
     /// <summary>Reports whether a record with the given key exists.</summary>
     /// <param name="key">The record key.</param>
     /// <param name="cancellationToken">A token to cancel the request.</param>
     public Task<bool> RecordExistsAsync(string key, CancellationToken cancellationToken = default)
-        => _ctx.HeadExistsAsync("records/" + ResourceContext.EncodePathSegment(key), new QueryParams(), cancellationToken);
+        => _ctx.HeadExistsAsync("records/" + ResourceContext.EncodePathSegment(key), new QueryParams(), RequestTier.Long, cancellationToken);
 
     /// <summary>
     /// Fetches a record by key, or <c>null</c> if it does not exist. Like the reference client, it requests
@@ -84,7 +84,7 @@ public sealed class KeyValueStoreClient
         var url = _ctx.MergedParams(q).ApplyToUrl(_ctx.SubUrl("records/" + ResourceContext.EncodePathSegment(key)));
         try
         {
-            using var response = await _http.CallAsync(HttpMethod.Get, url, timeout: _ctx.RequestTimeout, cancellationToken: cancellationToken).ConfigureAwait(false);
+            using var response = await _http.CallAsync(HttpMethod.Get, url, timeout: _ctx.RequestTimeout, tier: RequestTier.Long, cancellationToken: cancellationToken).ConfigureAwait(false);
             // Read the raw bytes (not a decoded string) so binary records survive the round-trip intact.
             var body = await response.Content.ReadAsByteArrayAsync(cancellationToken).ConfigureAwait(false);
             var contentType = response.Content.Headers.ContentType?.ToString();
@@ -102,7 +102,12 @@ public sealed class KeyValueStoreClient
     /// </summary>
     /// <param name="key">The record key.</param>
     /// <param name="value">The raw record bytes.</param>
-    /// <param name="contentType">The record's MIME type.</param>
+    /// <param name="contentType">
+    /// The record's MIME type. Worth setting precisely for media and archives: the client skips
+    /// compressing a body whose content type already carries its own compression (images, audio, video,
+    /// archives, office/ZIP formats, web fonts). <c>application/octet-stream</c> — the usual choice for
+    /// data of an unknown or mixed binary type — is treated as compressible, since it could hold anything.
+    /// </param>
     /// <param name="options">Optional write options.</param>
     /// <param name="cancellationToken">A token to cancel the request.</param>
     public Task SetRecordAsync(string key, byte[] value, string contentType, SetRecordOptions? options = null, CancellationToken cancellationToken = default)
@@ -116,6 +121,7 @@ public sealed class KeyValueStoreClient
             contentType,
             timeout,
             options.DoNotRetryTimeouts,
+            RequestTier.Long,
             cancellationToken);
     }
 
@@ -130,7 +136,7 @@ public sealed class KeyValueStoreClient
     /// <param name="key">The record key.</param>
     /// <param name="cancellationToken">A token to cancel the request.</param>
     public Task DeleteRecordAsync(string key, CancellationToken cancellationToken = default)
-        => _ctx.DeleteResourceAsync("records/" + ResourceContext.EncodePathSegment(key), cancellationToken);
+        => _ctx.DeleteResourceAsync("records/" + ResourceContext.EncodePathSegment(key), RequestTier.Short, cancellationToken);
 
     /// <summary>
     /// Builds a public URL for fetching the given record. It fetches the store, and if the store exposes a
@@ -182,5 +188,19 @@ public sealed class KeyValueStoreClient
         }
 
         return q.ApplyToUrl(_ctx.PublicUrl("keys"));
+    }
+
+    /// <summary>
+    /// Returns this client with every subsequent call's timeout set to <paramref name="timeout"/>,
+    /// overriding the tier default (see the "Timeout tiers" section of the top-level README). Pass
+    /// <see cref="TimeSpan.Zero"/> for no timeout, matching the reference client's <c>'noTimeout'</c>. A
+    /// value above <see cref="ApifyClientOptions.TimeoutSecs"/> (the overall budget) is capped at it —
+    /// raise <see cref="ApifyClientOptions.TimeoutSecs"/> itself to allow a longer per-call timeout.
+    /// </summary>
+    /// <param name="timeout">The timeout to use for every call made through this client.</param>
+    public KeyValueStoreClient WithTimeout(TimeSpan timeout)
+    {
+        _ctx.WithTimeout(timeout);
+        return this;
     }
 }

@@ -12,10 +12,17 @@ public sealed class ApifyClientOptions
     /// <summary>API token, sent as a Bearer token.</summary>
     public string? Token { get; set; }
 
-    /// <summary>API base URL; the <c>/v2</c> suffix is appended automatically.</summary>
+    /// <summary>
+    /// API base URL, with or without the <c>/v2</c> API version path: the path is appended when not already
+    /// present, so <c>https://api.apify.com</c> and <c>https://api.apify.com/v2</c> are both accepted and
+    /// resolve to the same <see cref="ApifyClient.ApiBaseUrl"/>.
+    /// </summary>
     public string BaseUrl { get; set; } = ApifyClient.DefaultBaseUrl;
 
-    /// <summary>Base URL for building public, shareable resource URLs (defaults to <see cref="BaseUrl"/>).</summary>
+    /// <summary>
+    /// Base URL for building public, shareable resource URLs (defaults to <see cref="BaseUrl"/>). Like
+    /// <see cref="BaseUrl"/>, accepted with or without the <c>/v2</c> API version path.
+    /// </summary>
     public string? PublicBaseUrl { get; set; }
 
     /// <summary>Maximum retries for failed requests (default 8).</summary>
@@ -27,8 +34,25 @@ public sealed class ApifyClientOptions
     /// <summary>Upper bound for the growing inter-retry delay in ms (defaults to the request timeout).</summary>
     public int? MaxDelayBetweenRetriesMillis { get; set; }
 
-    /// <summary>Overall per-request timeout in seconds (default 360).</summary>
+    /// <summary>
+    /// Base duration of the <c>Long</c> timeout tier, in seconds (default 360): downloads, uploads and
+    /// streaming. Also the overall per-request cap every attempt's growing timeout is clamped to,
+    /// regardless of tier, matching the reference client's <c>timeoutLongSecs</c>/<c>timeoutMaxSecs</c>
+    /// (which share the same 360s default for the same reason).
+    /// </summary>
     public int TimeoutSecs { get; set; } = ApifyClient.DefaultTimeoutSecs;
+
+    /// <summary>
+    /// Base duration of the <c>Short</c> timeout tier, in seconds (default 5): simple metadata reads and
+    /// writes (get/update/delete a resource). Matches the reference client's <c>timeoutShortSecs</c>.
+    /// </summary>
+    public int TimeoutShortSecs { get; set; } = ApifyClient.DefaultTimeoutShortSecs;
+
+    /// <summary>
+    /// Base duration of the <c>Medium</c> timeout tier, in seconds (default 30): listing, batch and trigger
+    /// calls. Matches the reference client's <c>timeoutMediumSecs</c>.
+    /// </summary>
+    public int TimeoutMediumSecs { get; set; } = ApifyClient.DefaultTimeoutMediumSecs;
 
     /// <summary>Custom suffix appended to the <c>User-Agent</c> header.</summary>
     public string? UserAgentSuffix { get; set; }

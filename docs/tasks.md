@@ -15,17 +15,17 @@ a specific task with `client.Task(id)`.
 - `PublishAsync()` → `ActorTask` — publishes the task on its public landing page in Apify Store
   (sets `isPublic: true`). The task's Actor must be public, `PublicConfig.InputSchemaFields` and
   `PublicConfig.DatasetView` must already be set, and the Actor must not already have 10 published
-  tasks (accounts are capped at 100 published tasks across all Actors; contact Apify support to raise
-  these limits). If any condition isn't met, the publish request fails and `isPublic` is left
-  unchanged. Requires write permission to the task's Actor. Publishing an already published task does
-  nothing.
+  tasks (accounts are capped at 100 published tasks across all Actors). If any condition isn't met,
+  the publish request fails and `isPublic` is left unchanged. Requires write permission to the task's
+  Actor. Publishing an already published task does nothing.
 - `UnpublishAsync()` → `ActorTask` — unpublishes the task (sets `isPublic: false`); `PublicConfig` is
   preserved so the task can be published again without re-entering it. Requires write permission to
   the task's Actor. Unpublishing a task that is not published does nothing.
 - `StartAsync(object? input = null, TaskStartOptions? options = null)` → `ActorRun`.
 - `CallAsync(object? input = null, TaskStartOptions? options = null, int? waitSecs = null, Action<string>? log = null)`
   → `ActorRun` (`log`, if set, redirects the run's live log to that sink for the duration of the wait).
-- `GetInputAsync()` → `JsonNode?` / `UpdateInputAsync(object input)` → `JsonNode?`.
+- `GetInputAsync()` → `JsonNode?` (throws if the task does not exist; a JSON `null` means the task has
+  no stored input) / `UpdateInputAsync(object input)` → `JsonNode?`.
 - `LastRun(LastRunOptions? options = null)` → `RunClient`; `Runs()` → `RunCollectionClient`.
 - `Webhooks()` → read-only `NestedWebhookCollectionClient`.
 

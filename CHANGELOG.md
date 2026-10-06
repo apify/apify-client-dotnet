@@ -1,5 +1,82 @@
 # Changelog
 
+## 0.4.0
+
+- Bumped `ApifyClientVersion.ApiSpecVersion` to the Apify OpenAPI spec `v2-2026-10-01T153946Z` and
+  the project version to `0.4.0`.
+- Added `Build.ImageDigest`, matching the build's new `imageDigest` field in the OpenAPI spec.
+- Dropped the now-removed "contact support" sentence from `TaskClient.PublishAsync`'s remarks and
+  `docs/tasks.md`, matching the corrected spec wording.
+- **Breaking:** added per-status `ApifyApiException` subclasses (`InvalidRequestException` 400,
+  `UnauthorizedException` 401, `ForbiddenException` 403, `NotFoundException` 404, `ConflictException`
+  409, `RateLimitException` 429, `ServerException` 5xx), matching the reference client's `ApifyApiError`
+  subclass hierarchy. Every subclass still satisfies `catch (ApifyApiException)`.
+- **Breaking:** a 404 on a resource addressed without its own id — `RunClient.Dataset()`,
+  `.KeyValueStore()`, `.RequestQueue()`, `.Log()`, and `BuildClient.Log()` — now throws instead of
+  resolving to `null`/no-op, since the ambiguity (the run/build itself, or the nested resource, could
+  be missing) made the old `null` misleading. A record/request/log looked up by its own key or id
+  (`GetRecordAsync`, `GetRequestAsync`, `client.Log(id)`) is unaffected and still resolves `null` for
+  a missing one. Matches the reference client's `catchNotFoundForResourceOrThrow()`.
+- **Breaking:** `DatasetClient.GetStatisticsAsync`, `ScheduleClient.GetLogAsync` and
+  `TaskClient.GetInputAsync` now throw instead of resolving `null` when their parent resource does not
+  exist (return types changed from `JsonObject?`/`string?` to `JsonObject`/`string`), matching the
+  reference client.
+- **Breaking:** `LogClient.StreamAsync` now returns `Stream?` (`null` for a missing log addressed by
+  its own id, matching `GetAsync`) instead of always throwing, and still throws for a run/build-nested
+  log client, matching the reference client's corrected behavior.
+- Fixed `DatasetClient.IterateItemsAsync` to paginate by the API-reported scanned row count
+  (`X-Apify-Pagination-Count`, falling back to the returned item count when the header is absent)
+  instead of the number of items a page returned, so a fully filtered page (`Clean`/`SkipEmpty`/
+  `SkipHidden`) no longer stalls or re-yields items, and `Unwind` returning more items than rows
+  scanned no longer skips rows. Matches a bug fix in the reference client.
+- Added a `format` parameter to `DatasetClient.CreateItemsPublicUrlAsync`, matching the reference
+  client.
+- Added request-body compression skip-list for already-compressed content types (images, audio,
+  video, archives, office/ZIP formats, web fonts), matching the reference client's
+  `isCompressibleContentType()`; a raw format under such a type (e.g. `image/bmp`) or a `+json`/`+xml`
+  suffix (e.g. `image/svg+xml`) still compresses.
+- `ApifyClient`'s `BaseUrl`/`PublicBaseUrl` now accept a URL that already ends with the `/v2` API
+  version path without doubling it into `.../v2/v2`, matching the reference client.
+- `ActorClient.StartAsync`/`ValidateInputAsync` and `RunClient.MetamorphAsync` now accept a `byte[]`
+  input, sent as raw bytes instead of being JSON-encoded, matching the reference client's `ActorInput`
+  (a plain object/array, or raw bytes). `TaskClient.StartAsync`'s input stays JSON-only, matching the
+  reference client's `TaskStartOptions` (which has no content type to pair raw bytes with).
+- **Breaking:** `ActorClient.Version`, `ActorVersionClient.EnvVar`, and every id-addressed accessor on
+  `ApifyClient` (`Actor`, `Build`, `Run`, `Dataset`, `KeyValueStore`, `RequestQueue`, `Task`, `Schedule`,
+  `Webhook`, `WebhookDispatch`, `Log`, `User`) now reject an empty id/name/version number instead of
+  silently addressing the collection endpoint, matching the reference client's uniform `id.min(1)`
+  validation.
+- **Breaking:** added timeout tiers, matching the reference client's `TimeoutTier`. Every method that
+  sends a request now internally picks `Short` (metadata reads/writes), `Medium` (listing/batch/trigger
+  calls) or `Long` (downloads/uploads/streaming) instead of a single overall budget for every call.
+  Added `ApifyClientOptions.TimeoutShortSecs` (default 5) and `TimeoutMediumSecs` (default 30);
+  `TimeoutSecs` (default 360, unchanged) is now also documented as the `Long` tier's duration and the
+  cap every attempt's growing timeout is clamped to regardless of tier. A method whose connection can be
+  held open server-side for a `waitForFinish`-style wait (`BuildClient.GetAsync`, `RunClient.GetAsync`,
+  `ActorClient.DefaultBuildAsync`/`StartAsync`, `TaskClient.StartAsync`) uses `Long` unconditionally so
+  the HTTP timeout always covers the requested wait, rather than the reference's dynamic
+  short-or-medium-extended-to-cover-the-wait. `RequestQueueClientOptions.TimeoutSecs` and
+  `SetRecordOptions.TimeoutSecs` are unaffected: both are absolute per-call/per-client overrides that
+  already took priority over any default and still do.
+- Added `WithTimeout(TimeSpan)` to every resource client (every accessor on `ApifyClient` — `Actor()`,
+  `Dataset()`, `Actors()`, and so on), the client's general per-call(-instance) timeout override
+  matching the reference client's per-call `timeoutSecs` option: every call made through that client
+  instance uses the given timeout instead of its tier default. A value above
+  `ApifyClientOptions.TimeoutSecs` (the overall budget) is capped at it, matching the reference client
+  (raise `TimeoutSecs` itself for a longer per-call timeout); pass `TimeSpan.Zero` for no timeout at
+  all, matching the reference's `'noTimeout'`. `RunClient.ChargeAsync`, `TaskClient.UpdateInputAsync`
+  and `UserClient.UpdateLimitsAsync` now also honor a context timeout override (previously silently
+  ignored it, since each calls the HTTP client directly rather than through a shared CRUD primitive).
+- Response URL fields the OpenAPI specification marks `format: uri` (currently `ActorRun.ContainerUrl`,
+  `Webhook.RequestUrl` — the client's only two typed properties among the reference client's 17
+  normalized fields) are now normalized to their RFC 3986 absolute-URI form via `System.Uri`
+  (lowercased/punycoded host, default port dropped, empty path becomes `/`, unsafe characters
+  percent-encoded), matching the reference client's `z.url({ normalize: true })`. A present but
+  invalid absolute URL now throws `FormatException` from the property getter.
+- **Breaking:** `ActorVersionCollectionClient.ListAsync`/`IterateAsync` no longer take a `ListOptions`
+  parameter: the endpoint returns every version in one response and never read `Offset`/`Limit`/`Desc`,
+  matching the reference client.
+
 ## 0.3.5
 
 - Bumped `ApifyClientVersion.ApiSpecVersion` to the Apify OpenAPI spec `v2-2026-09-28T115051Z` and

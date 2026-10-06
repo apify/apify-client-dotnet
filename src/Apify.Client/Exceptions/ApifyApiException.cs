@@ -76,4 +76,55 @@ public class ApifyApiException : Exception
             errType,
             message);
     }
+
+    /// <summary>HTTP status marking a client-side bad request.</summary>
+    private const int StatusBadRequest = 400;
+
+    /// <summary>HTTP status marking a missing or invalid API token.</summary>
+    private const int StatusUnauthorized = 401;
+
+    /// <summary>HTTP status marking a request the token is not permitted to make.</summary>
+    private const int StatusForbidden = 403;
+
+    /// <summary>HTTP status marking a resource that does not exist.</summary>
+    private const int StatusNotFound = 404;
+
+    /// <summary>HTTP status marking a request that conflicts with the resource's current state.</summary>
+    private const int StatusConflict = 409;
+
+    /// <summary>HTTP status marking a rate-limited request.</summary>
+    private const int StatusTooManyRequests = 429;
+
+    /// <summary>Smallest HTTP status treated as a server-side error.</summary>
+    private const int StatusServerErrorFloor = 500;
+
+    /// <summary>
+    /// Creates the <see cref="ApifyApiException"/> subclass matching <paramref name="statusCode"/> (see the
+    /// per-status types in this namespace, e.g. <see cref="NotFoundException"/>), so callers can branch with
+    /// a type check instead of comparing status codes or error-type strings. Any other status falls back to
+    /// the base <see cref="ApifyApiException"/>; every subclass still satisfies an
+    /// <c>is ApifyApiException</c>/<c>catch (ApifyApiException)</c> check, matching the reference client's
+    /// <c>ApifyApiError</c> subclass hierarchy.
+    /// </summary>
+    internal static ApifyApiException Create(
+        int statusCode,
+        string? type,
+        string message,
+        int attempt,
+        string httpMethod,
+        string path,
+        System.Text.Json.Nodes.JsonObject? data = null)
+    {
+        return statusCode switch
+        {
+            StatusBadRequest => new InvalidRequestException(statusCode, type, message, attempt, httpMethod, path, data),
+            StatusUnauthorized => new UnauthorizedException(statusCode, type, message, attempt, httpMethod, path, data),
+            StatusForbidden => new ForbiddenException(statusCode, type, message, attempt, httpMethod, path, data),
+            StatusNotFound => new NotFoundException(statusCode, type, message, attempt, httpMethod, path, data),
+            StatusConflict => new ConflictException(statusCode, type, message, attempt, httpMethod, path, data),
+            StatusTooManyRequests => new RateLimitException(statusCode, type, message, attempt, httpMethod, path, data),
+            >= StatusServerErrorFloor => new ServerException(statusCode, type, message, attempt, httpMethod, path, data),
+            _ => new ApifyApiException(statusCode, type, message, attempt, httpMethod, path, data),
+        };
+    }
 }

@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 using System.Threading;
@@ -24,7 +25,7 @@ public sealed class ActorEnvVarCollectionClient
     /// <param name="cancellationToken">A token to cancel the request.</param>
     public Task<PaginationList<ActorEnvVar>> ListAsync(CancellationToken cancellationToken = default)
     {
-        return _ctx.ListResourceAsync("", new QueryParams(), static d => ActorEnvVar.FromJsonObject(d), cancellationToken);
+        return _ctx.ListResourceAsync("", new QueryParams(), static d => ActorEnvVar.FromJsonObject(d), RequestTier.Short, cancellationToken);
     }
 
     /// <summary>Creates a new environment variable.</summary>
@@ -33,7 +34,7 @@ public sealed class ActorEnvVarCollectionClient
     public async Task<ActorEnvVar> CreateAsync(ActorEnvVar envVar, CancellationToken cancellationToken = default)
     {
         return ActorEnvVar.FromJsonObject(
-            await _ctx.CreateResourceAsync(new QueryParams(), envVar.ToJsonObject(), cancellationToken).ConfigureAwait(false));
+            await _ctx.CreateResourceAsync(new QueryParams(), envVar.ToJsonObject(), RequestTier.Short, cancellationToken).ConfigureAwait(false));
     }
 
     /// <summary>
@@ -51,4 +52,18 @@ public sealed class ActorEnvVarCollectionClient
         }
     }
 
+
+    /// <summary>
+    /// Returns this client with every subsequent call's timeout set to <paramref name="timeout"/>,
+    /// overriding the tier default (see the "Timeout tiers" section of the top-level README). Pass
+    /// <see cref="TimeSpan.Zero"/> for no timeout, matching the reference client's <c>'noTimeout'</c>. A
+    /// value above <see cref="ApifyClientOptions.TimeoutSecs"/> (the overall budget) is capped at it —
+    /// raise <see cref="ApifyClientOptions.TimeoutSecs"/> itself to allow a longer per-call timeout.
+    /// </summary>
+    /// <param name="timeout">The timeout to use for every call made through this client.</param>
+    public ActorEnvVarCollectionClient WithTimeout(TimeSpan timeout)
+    {
+        _ctx.WithTimeout(timeout);
+        return this;
+    }
 }

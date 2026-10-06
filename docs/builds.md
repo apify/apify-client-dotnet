@@ -17,7 +17,7 @@ Access the account-wide build collection with `client.Builds()`, an Actor's buil
 - `WaitForFinishAsync(int? waitSecs = null)` → `Build` — client-side polling until terminal (`null`
   waits indefinitely).
 - `GetOpenApiDefinitionAsync()` → `JsonObject?`.
-- `Log()` → `LogClient` (its `GetAsync`/`StreamAsync` methods are documented under [Logs in misc.md](misc.md#logs--clientlogbuildorrunid)).
+- `Log()` → `LogClient` (its `GetAsync`/`StreamAsync` methods are documented under [Logs in misc.md](misc.md#logs--clientlogbuildorrunid); on this build-nested client they throw on a 404 rather than resolve `null`, since the build itself could be what's missing).
 
 Builds are created with `client.Actor(id).BuildAsync(string versionNumber, ActorBuildOptions? options = null)`.
 `ActorBuildOptions` fields:

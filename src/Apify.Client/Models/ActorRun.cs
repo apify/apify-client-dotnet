@@ -52,8 +52,11 @@ public sealed class ActorRun : ApifyResource
     /// <summary>The ID of the run's default request queue.</summary>
     public string? DefaultRequestQueueId => GetString("defaultRequestQueueId");
 
-    /// <summary>The URL of the run's container (for live access).</summary>
-    public string? ContainerUrl => GetString("containerUrl");
+    /// <summary>
+    /// The URL of the run's container (for live access). Normalized to its RFC 3986 absolute-URI form
+    /// (see <see cref="ApifyResource.GetUrlString"/>), matching the reference client.
+    /// </summary>
+    public string? ContainerUrl => GetUrlString("containerUrl");
 
     /// <summary>Whether the run has reached a terminal (finished) status.</summary>
     public bool IsTerminal => Statuses.IsTerminal(Status);

@@ -1,3 +1,4 @@
+using System;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Text.Json.Nodes;
@@ -20,7 +21,7 @@ public sealed class ScheduleClient
     /// <param name="cancellationToken">A token to cancel the request.</param>
     public async Task<Schedule?> GetAsync(CancellationToken cancellationToken = default)
     {
-        var data = await _ctx.GetResourceAsync("", new QueryParams(), cancellationToken).ConfigureAwait(false);
+        var data = await _ctx.GetResourceAsync("", new QueryParams(), RequestTier.Short, cancellationToken).ConfigureAwait(false);
         return data is JsonObject obj ? new Schedule(obj) : null;
     }
 
@@ -29,15 +30,33 @@ public sealed class ScheduleClient
     /// <param name="cancellationToken">A token to cancel the request.</param>
     public async Task<Schedule> UpdateAsync(object newFields, CancellationToken cancellationToken = default)
     {
-        return new Schedule(await _ctx.UpdateResourceAsync("", newFields, cancellationToken).ConfigureAwait(false));
+        return new Schedule(await _ctx.UpdateResourceAsync("", newFields, RequestTier.Short, cancellationToken).ConfigureAwait(false));
     }
 
     /// <summary>Deletes the schedule.</summary>
     /// <param name="cancellationToken">A token to cancel the request.</param>
-    public Task DeleteAsync(CancellationToken cancellationToken = default) => _ctx.DeleteResourceAsync("", cancellationToken);
+    public Task DeleteAsync(CancellationToken cancellationToken = default) => _ctx.DeleteResourceAsync("", RequestTier.Short, cancellationToken);
 
-    /// <summary>Fetches the schedule's invocation log as text, or <c>null</c> if absent.</summary>
+    /// <summary>
+    /// Fetches the schedule's invocation log as text. Throws if the schedule does not exist (no longer
+    /// resolves to <c>null</c>): the log endpoint has no meaning apart from its parent schedule, matching the
+    /// reference client.
+    /// </summary>
     /// <param name="cancellationToken">A token to cancel the request.</param>
-    public Task<string?> GetLogAsync(CancellationToken cancellationToken = default)
-        => _ctx.GetRawAsync("log", new QueryParams(), cancellationToken);
+    public Task<string> GetLogAsync(CancellationToken cancellationToken = default)
+        => _ctx.GetRawRequiredAsync("log", new QueryParams(), RequestTier.Medium, cancellationToken);
+
+    /// <summary>
+    /// Returns this client with every subsequent call's timeout set to <paramref name="timeout"/>,
+    /// overriding the tier default (see the "Timeout tiers" section of the top-level README). Pass
+    /// <see cref="TimeSpan.Zero"/> for no timeout, matching the reference client's <c>'noTimeout'</c>. A
+    /// value above <see cref="ApifyClientOptions.TimeoutSecs"/> (the overall budget) is capped at it —
+    /// raise <see cref="ApifyClientOptions.TimeoutSecs"/> itself to allow a longer per-call timeout.
+    /// </summary>
+    /// <param name="timeout">The timeout to use for every call made through this client.</param>
+    public ScheduleClient WithTimeout(TimeSpan timeout)
+    {
+        _ctx.WithTimeout(timeout);
+        return this;
+    }
 }
