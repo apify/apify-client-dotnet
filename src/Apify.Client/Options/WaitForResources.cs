@@ -30,7 +30,10 @@ public readonly struct WaitForResources : IEquatable<WaitForResources>
     /// Retries for up to <paramref name="maxWaitSecs"/> seconds, after which the last
     /// <c>actor-memory-limit-exceeded</c>/<c>concurrent-runs-limit-exceeded</c> error is thrown.
     /// </summary>
-    /// <param name="maxWaitSecs">The retry budget in seconds; must not be negative.</param>
+    /// <param name="maxWaitSecs">
+    /// The retry budget in seconds; must be finite and not negative (use <see cref="UntilAvailable"/>,
+    /// not <see cref="double.PositiveInfinity"/>, to retry forever).
+    /// </param>
     public static WaitForResources For(double maxWaitSecs)
     {
         if (maxWaitSecs < 0 || !double.IsFinite(maxWaitSecs))
