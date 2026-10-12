@@ -90,10 +90,19 @@ public sealed class TaskClient
     /// </param>
     /// <param name="options">Optional run-start options.</param>
     /// <param name="cancellationToken">A token to cancel the request.</param>
-    public async Task<ActorRun> StartAsync(object? input = null, TaskStartOptions? options = null, CancellationToken cancellationToken = default)
+    public Task<ActorRun> StartAsync(object? input = null, TaskStartOptions? options = null, CancellationToken cancellationToken = default)
+    {
+        options ??= new TaskStartOptions();
+        return ResourceLimitRetry.StartAsync(
+            () => StartOnceAsync(input, options, cancellationToken),
+            options.WaitForResources,
+            cancellationToken);
+    }
+
+    private async Task<ActorRun> StartOnceAsync(object? input, TaskStartOptions options, CancellationToken cancellationToken)
     {
         var q = new QueryParams();
-        (options ?? new TaskStartOptions()).AppendTo(q);
+        options.AppendTo(q);
         var body = input is null ? null : Json.Encode(input);
         // Long, not the reference's base "medium": options.WaitForFinish can ask the server to hold the
         // connection open for up to 60s and this call does not clamp it, so the HTTP timeout must cover it.
@@ -102,7 +111,10 @@ public sealed class TaskClient
 
     /// <summary>Starts the task and waits (client-side polling) for it to finish.</summary>
     /// <param name="input">Optionally overrides the task's stored input.</param>
-    /// <param name="options">Optional run-start options.</param>
+    /// <param name="options">
+    /// Optional run-start options. Time spent retrying <see cref="TaskStartOptions.WaitForResources"/> does
+    /// not count toward <paramref name="waitSecs"/>, which only bounds the wait once the run starts.
+    /// </param>
     /// <param name="waitSecs">Bounds the wait; <c>null</c> waits indefinitely.</param>
     /// <param name="log">
     /// If provided, the run's live log is redirected to this sink (one complete message per call) for the

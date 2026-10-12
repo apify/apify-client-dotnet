@@ -32,6 +32,13 @@ public sealed class ActorStartOptions
     public bool? RestartOnError { get; init; }
 
     /// <summary>
+    /// Retries the start while the account lacks the memory or a concurrent-run slot for the run (an
+    /// <c>actor-memory-limit-exceeded</c>/<c>concurrent-runs-limit-exceeded</c> error), instead of throwing
+    /// immediately. <c>null</c> (the default) disables retrying.
+    /// </summary>
+    public WaitForResources? WaitForResources { get; init; }
+
+    /// <summary>
     /// Override the Actor's permission level for this run (<c>LIMITED_PERMISSIONS</c>/<c>FULL_PERMISSIONS</c>).
     /// </summary>
     public string? ForcePermissionLevel { get; init; }

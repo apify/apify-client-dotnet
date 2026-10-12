@@ -24,7 +24,9 @@ collections).
 - `RebootAsync()` → `ActorRun`.
 - `ResurrectAsync(RunResurrectOptions? options = null)` → `ActorRun`.
 - `ChargeAsync(RunChargeOptions options)` → `Task` — record pay-per-event charges (idempotent).
-- `WaitForFinishAsync(int? waitSecs = null)` → `ActorRun`.
+- `WaitForFinishAsync(int? waitSecs = null)` → `ActorRun` — client-side polling until terminal (`null`
+  waits indefinitely). A run id that keeps answering 404 for 3 seconds straight (replica lag resolves
+  faster than that) throws `NotFoundException` instead of polling for the rest of `waitSecs`.
 - `Dataset()`, `KeyValueStore()`, `RequestQueue()` — the run's default storages. Their own
   `GetAsync()`/`DeleteAsync()` throw on a 404 instead of resolving `null`/no-op, since the run itself
   (not just the storage) could be what's missing; a record/request looked up by its own key or id

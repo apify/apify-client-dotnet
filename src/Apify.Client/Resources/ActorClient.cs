@@ -61,9 +61,17 @@ public sealed class ActorClient
     /// </param>
     /// <param name="options">Optional run-start options.</param>
     /// <param name="cancellationToken">A token to cancel the request.</param>
-    public async Task<ActorRun> StartAsync(object? input = null, ActorStartOptions? options = null, CancellationToken cancellationToken = default)
+    public Task<ActorRun> StartAsync(object? input = null, ActorStartOptions? options = null, CancellationToken cancellationToken = default)
     {
         options ??= new ActorStartOptions();
+        return ResourceLimitRetry.StartAsync(
+            () => StartOnceAsync(input, options, cancellationToken),
+            options.WaitForResources,
+            cancellationToken);
+    }
+
+    private async Task<ActorRun> StartOnceAsync(object? input, ActorStartOptions options, CancellationToken cancellationToken)
+    {
         var q = new QueryParams();
         options.AppendTo(q);
         ResourceContext.EncodeInputBody(input, out var body, out var bodyBytes);
@@ -75,7 +83,10 @@ public sealed class ActorClient
 
     /// <summary>Starts the Actor and waits (client-side polling) for it to finish.</summary>
     /// <param name="input">Any JSON-serializable value (or <c>null</c> for no input).</param>
-    /// <param name="options">Optional run-start options.</param>
+    /// <param name="options">
+    /// Optional run-start options. Time spent retrying <see cref="ActorStartOptions.WaitForResources"/>
+    /// does not count toward <paramref name="waitSecs"/>, which only bounds the wait once the run starts.
+    /// </param>
     /// <param name="waitSecs">Bounds the wait; <c>null</c> waits indefinitely.</param>
     /// <param name="log">
     /// If provided, the run's live log is redirected to this sink (one complete message per call) for the

@@ -31,8 +31,10 @@ a specific task with `client.Task(id)`.
 
 `TaskStartOptions` overrides the task's stored run settings for a single start: `Build`,
 `MemoryMbytes`, `TimeoutSecs`, `WaitForFinish` (server-side wait on the start call, max 60),
-`MaxItems`, `MaxTotalChargeUsd`, `RestartOnError`, and `Webhooks` (ad-hoc webhooks for this run). See
-[Actors](actors.md) for the meaning of each field.
+`MaxItems`, `MaxTotalChargeUsd`, `RestartOnError`, `WaitForResources` (retry the start while the
+account has no free memory or concurrent-run slot for it; time spent retrying does not count toward
+`CallAsync`'s `waitSecs`), and `Webhooks` (ad-hoc webhooks for this run). See [Actors](actors.md) for
+the meaning of each field.
 
 The model is named `ActorTask` (not `Task`) to avoid colliding with `System.Threading.Tasks.Task`.
 

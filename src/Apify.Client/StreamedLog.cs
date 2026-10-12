@@ -33,6 +33,16 @@ public sealed class StreamedLog : IAsyncDisposable
     /// <summary>Size of the read buffer used while draining the log stream.</summary>
     private const int ReadChunkChars = 4096;
 
+    /// <summary>
+    /// Pause before the first reopen of a log stream that ended before the run had logged anything. Each
+    /// further reopen doubles the pause up to <see cref="EmptyStreamMaxRetryMillis"/>, bounding the request
+    /// rate while a run waits a long time to start (e.g. for free memory).
+    /// </summary>
+    private const int EmptyStreamInitialRetryMillis = 500;
+
+    /// <summary>Upper bound on the pause between reopens of an empty log stream.</summary>
+    private const int EmptyStreamMaxRetryMillis = 5_000;
+
     private readonly LogClient _logClient;
     private readonly Action<string> _toLog;
     private readonly DateTimeOffset? _relevancyTimeLimit;
@@ -104,26 +114,62 @@ public sealed class StreamedLog : IAsyncDisposable
 
     private async Task StreamLogAsync(CancellationToken cancellationToken)
     {
-        // _logClient is always the run/build-nested (ambiguous) client (see the internal constructor's only
-        // caller, RunClient.GetStreamedLog), which never resolves a 404 to null — it throws instead.
-        using var stream = (await _logClient.StreamAsync(new LogOptions { Raw = true }, cancellationToken).ConfigureAwait(false))!;
-        using var reader = new StreamReader(stream, Encoding.UTF8);
-
         var buffer = new StringBuilder();
-        var chunk = new char[ReadChunkChars];
-        int read;
-        while ((read = await reader.ReadAsync(chunk.AsMemory(0, chunk.Length), cancellationToken).ConfigureAwait(false)) > 0)
+        var sawAnyBytes = false;
+        var retryMillis = EmptyStreamInitialRetryMillis;
+
+        try
         {
-            buffer.Append(chunk, 0, read);
-            FlushMessages(buffer, flushRemainder: false);
-            if (cancellationToken.IsCancellationRequested)
+            while (!sawAnyBytes)
             {
-                break;
+                // _logClient is always the run/build-nested (ambiguous) client (see the internal
+                // constructor's only caller, RunClient.GetStreamedLog), which never resolves a 404 to
+                // null — it throws instead.
+                using var stream = (await _logClient.StreamAsync(new LogOptions { Raw = true }, cancellationToken).ConfigureAwait(false))!;
+                using var reader = new StreamReader(stream, Encoding.UTF8);
+
+                var chunk = new char[ReadChunkChars];
+                int read;
+                while ((read = await reader.ReadAsync(chunk.AsMemory(0, chunk.Length), cancellationToken).ConfigureAwait(false)) > 0)
+                {
+                    sawAnyBytes = true;
+                    buffer.Append(chunk, 0, read);
+                    FlushMessages(buffer, flushRemainder: false);
+                }
+
+                if (sawAnyBytes)
+                {
+                    break;
+                }
+
+                // The API serves the log of a run that has not logged anything yet as an empty stream that
+                // closes at once, so reopen it with growing backoff until the first bytes arrive. Without
+                // this, a run that was still queued (no memory free yet) when streaming started would never
+                // have any of its log redirected, even once it did start producing output.
+                await Task.Delay(TimeSpan.FromMilliseconds(retryMillis), cancellationToken).ConfigureAwait(false);
+                retryMillis = Math.Min(retryMillis * 2, EmptyStreamMaxRetryMillis);
             }
         }
-
-        // Emit whatever is left when the stream ends or is stopped (possibly a message without a trailing newline).
-        FlushMessages(buffer, flushRemainder: true);
+        catch (OperationCanceledException) when (!sawAnyBytes)
+        {
+            // Stopped before the run had logged anything (e.g. it was still queued): fetch whatever log
+            // exists in one plain request instead of silently redirecting nothing. Best-effort — a failure
+            // here must not turn a clean stop into a thrown exception.
+            try
+            {
+                var content = await _logClient.GetAsync(new LogOptions { Raw = true }, CancellationToken.None).ConfigureAwait(false);
+                buffer.Append(content);
+            }
+            catch (Exception)
+            {
+                // Leave the buffer as-is; the run's log (if any) simply isn't redirected for this stop.
+            }
+        }
+        finally
+        {
+            // Emit whatever is left: a message without a trailing newline, or the fallback fetched above.
+            FlushMessages(buffer, flushRemainder: true);
+        }
     }
 
     /// <summary>

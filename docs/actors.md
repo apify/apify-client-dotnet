@@ -42,7 +42,8 @@ foreach (var actor in page.Items)
 - `StartAsync(object? input = null, ActorStartOptions? options = null)` → `ActorRun` (returns immediately).
 - `CallAsync(object? input = null, ActorStartOptions? options = null, int? waitSecs = null, Action<string>? log = null)`
   → `ActorRun` (starts then waits; `waitSecs` bounds the wait, `null` waits indefinitely; `log`, if set,
-  redirects the run's live log to that sink for the duration of the wait).
+  redirects the run's live log to that sink for the duration of the wait). Time spent retrying
+  `ActorStartOptions.WaitForResources` does not count toward `waitSecs`.
 - `ValidateInputAsync(object? input = null, ValidateInputOptions? options = null)` → `bool`.
 
 `input` on `StartAsync`/`CallAsync`/`ValidateInputAsync` (and `RunClient.MetamorphAsync`, see
@@ -68,6 +69,7 @@ without re-encoding it as JSON.
 | `MaxTotalChargeUsd` | `double?` | Maximum total USD the run is allowed to charge. |
 | `ContentType` | `string?` | Content type of the `input` body (defaults to `application/json`). |
 | `RestartOnError` | `bool?` | Automatically restart the run's container if it exits with an error. |
+| `WaitForResources` | `WaitForResources?` | Retry the start while the account has no free memory or concurrent-run slot for it, instead of throwing immediately. `WaitForResources.UntilAvailable` retries until the run starts; `WaitForResources.For(seconds)` bounds the retrying, after which the last error is thrown. `null` (the default) disables retrying. |
 | `ForcePermissionLevel` | `string?` | Override the Actor's permission level (`LIMITED_PERMISSIONS`/`FULL_PERMISSIONS`). |
 | `Webhooks` | `object?` | Ad-hoc webhooks (any JSON-serializable list) to attach to this run. |
 

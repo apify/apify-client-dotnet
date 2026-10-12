@@ -39,9 +39,14 @@ public sealed class AutoPagingTests
     [Fact]
     public async Task CollectionIterateWalksAllPagesByOffset()
     {
+        // The iterator pages until a page scans no rows, not until `offset` reaches an earlier page's
+        // `total` (that total can go stale if the collection grows mid-iteration — see
+        // CollectionIterateDoesNotStopAtAnEarlierPagesStaleTotal), so it always sends one more request
+        // after the last non-empty page to confirm nothing is left.
         var transport = new MockTransport()
             .QueueResponse(200, "{\"data\":{\"total\":3,\"items\":[{\"id\":\"a\"},{\"id\":\"b\"}]}}")
-            .QueueResponse(200, "{\"data\":{\"total\":3,\"items\":[{\"id\":\"c\"}]}}");
+            .QueueResponse(200, "{\"data\":{\"total\":3,\"items\":[{\"id\":\"c\"}]}}")
+            .QueueResponse(200, "{\"data\":{\"total\":3,\"items\":[]}}");
 
         var ids = new List<string?>();
         await foreach (var actor in Client(transport).Actors().IterateAsync())
@@ -50,9 +55,34 @@ public sealed class AutoPagingTests
         }
 
         Assert.Equal(new[] { "a", "b", "c" }, ids);
-        Assert.Equal(2, transport.CallCount);
+        Assert.Equal(3, transport.CallCount);
         Assert.Contains("offset=0", transport.Received[0].Uri, StringComparison.Ordinal);
         Assert.Contains("offset=2", transport.Received[1].Uri, StringComparison.Ordinal);
+        Assert.Contains("offset=3", transport.Received[2].Uri, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task CollectionIterateDoesNotStopAtAnEarlierPagesStaleTotal()
+    {
+        // Regression test (mirrors a reference-client bug fix): the API recomputes `total` fresh on every
+        // request, so it can grow between pages when something else pushes to the collection while the
+        // iteration runs. The iterator must keep paging past an earlier page's `total` and only stop once a
+        // page actually scans no rows.
+        var transport = new MockTransport()
+            .QueueResponse(200, "{\"data\":{\"total\":2,\"items\":[{\"id\":\"a\"},{\"id\":\"b\"}]}}")
+            // By the time this page is fetched, a third item was added: total is now 3, not the 2 the first
+            // page reported.
+            .QueueResponse(200, "{\"data\":{\"total\":3,\"items\":[{\"id\":\"c\"}]}}")
+            .QueueResponse(200, "{\"data\":{\"total\":3,\"items\":[]}}");
+
+        var ids = new List<string?>();
+        await foreach (var actor in Client(transport).Actors().IterateAsync())
+        {
+            ids.Add(actor.Id);
+        }
+
+        Assert.Equal(new[] { "a", "b", "c" }, ids);
+        Assert.Equal(3, transport.CallCount);
     }
 
     [Fact]
