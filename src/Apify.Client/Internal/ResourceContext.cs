@@ -38,6 +38,15 @@ internal sealed class ResourceContext
     /// </summary>
     private const int MaxWaitForFinishSecs = 999999;
 
+    /// <summary>
+    /// How long <see cref="WaitForFinishAsync"/> keeps polling a resource that keeps answering 404 (to ride
+    /// out database replica lag just after creation) before giving up and throwing, instead of running out
+    /// the full wait budget. Matches the reference client's <c>MAX_WAIT_WHEN_JOB_NOT_EXIST_MILLIS</c> — a
+    /// job that never existed (e.g. a typo'd run id) would otherwise hang for up to
+    /// <see cref="MaxWaitForFinishSecs"/> (~11.5 days) when <c>waitSecs</c> is left unset.
+    /// </summary>
+    private const int MaxWaitWhenJobNotExistMillis = 3000;
+
     private readonly string _apiOrigin;
     private string _publicOrigin;
     private TimeSpan? _requestTimeout;
@@ -211,6 +220,14 @@ internal sealed class ResourceContext
     /// if <paramref name="limit"/> is set, yields at most that many items in total. <paramref name="baseQuery"/>
     /// carries the caller's filters; its <c>offset</c>/<c>limit</c> are overwritten per page.
     /// </summary>
+    /// <remarks>
+    /// Paging stops once a page returns no items (or <paramref name="limit"/> is reached), never by
+    /// comparing the offset to a page's reported <c>total</c>: the listed resource can grow while the
+    /// iteration runs (e.g. a dataset collection a running Actor keeps adding to), and a reported total
+    /// only ever reflects the moment its own page was fetched. Stopping at an early page's total would cut
+    /// the iteration off before items added later, so — like the reference client — this always issues one
+    /// more request at the end to confirm there is nothing left, unless <paramref name="limit"/> is hit first.
+    /// </remarks>
     public async IAsyncEnumerable<T> IterateListAsync<T>(
         string subPath,
         QueryParams baseQuery,
@@ -238,7 +255,7 @@ internal sealed class ResourceContext
             }
 
             offset += (int)page.Count;
-            if (page.Count == 0 || offset >= page.Total || (limit is not null && yielded >= limit.Value))
+            if (page.Count == 0 || (limit is not null && yielded >= limit.Value))
             {
                 yield break;
             }
@@ -408,8 +425,10 @@ internal sealed class ResourceContext
     /// <summary>
     /// Polls a GET endpoint with <c>waitForFinish</c> until the resource reaches a terminal state or the
     /// wait budget elapses. <paramref name="waitSecs"/> == <c>null</c> means "wait indefinitely",
-    /// implemented as a finite but very large bound so the loop always terminates. A transient 404 (replica
-    /// lag) is treated as "not yet available".
+    /// implemented as a finite but very large bound so the loop always terminates. A 404 is treated as "not
+    /// yet available" (database replica lag just after creation) for up to
+    /// <see cref="MaxWaitWhenJobNotExistMillis"/> of continuous 404s, after which it is reported as a
+    /// genuine not-found rather than retried for the rest of the (possibly multi-day) wait budget.
     /// </summary>
     public async Task<JsonObject> WaitForFinishAsync(int? waitSecs, string resourceName, Func<JsonObject, bool> isTerminal, CancellationToken ct)
     {
@@ -421,6 +440,8 @@ internal sealed class ResourceContext
         var serverWaitCap = ServerWaitCapSecs();
 
         JsonObject? resource = null;
+        long? notFoundSinceMillis = null;
+        ApifyApiException? notFoundError = null;
 
         while (true)
         {
@@ -431,17 +452,34 @@ internal sealed class ResourceContext
             var p = new QueryParams();
             p.AddInt("waitForFinish", requestSecs);
 
-            // Long tier (the overall per-request budget): the server may hold the connection open for up to
-            // requestSecs (derived from that same budget via ServerWaitCapSecs), so the HTTP timeout for this
-            // call must cover the full budget, not a shorter tier.
-            var data = await GetResourceAsync(string.Empty, p, RequestTier.Long, ct).ConfigureAwait(false);
-            if (data is JsonObject obj)
+            var isNotFoundNow = false;
+            try
             {
-                resource = obj;
-                if (isTerminal(obj))
+                // Long tier (the overall per-request budget): the server may hold the connection open for
+                // up to requestSecs (derived from that same budget via ServerWaitCapSecs), so the HTTP
+                // timeout for this call must cover the full budget, not a shorter tier.
+                var data = await GetResourceRequiredAsync(string.Empty, p, RequestTier.Long, ct).ConfigureAwait(false);
+                if (data is JsonObject obj)
                 {
-                    return obj;
+                    resource = obj;
+                    notFoundSinceMillis = null;
+                    notFoundError = null;
+                    if (isTerminal(obj))
+                    {
+                        return obj;
+                    }
                 }
+            }
+            catch (ApifyApiException e) when (HttpClientCore.IsNotFound(e))
+            {
+                isNotFoundNow = true;
+                notFoundSinceMillis ??= stopwatch.ElapsedMilliseconds;
+                notFoundError = e;
+            }
+
+            if (isNotFoundNow && stopwatch.ElapsedMilliseconds - notFoundSinceMillis!.Value >= MaxWaitWhenJobNotExistMillis)
+            {
+                throw notFoundError!;
             }
 
             if (stopwatch.ElapsedMilliseconds >= budgetMillis)
@@ -455,6 +493,11 @@ internal sealed class ResourceContext
         if (resource is not null)
         {
             return resource;
+        }
+
+        if (notFoundError is not null)
+        {
+            throw notFoundError;
         }
 
         throw new InvalidOperationException(

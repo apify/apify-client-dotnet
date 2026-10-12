@@ -15,7 +15,8 @@ Access the account-wide build collection with `client.Builds()`, an Actor's buil
 - `AbortAsync()` → `Build`.
 - `DeleteAsync()`.
 - `WaitForFinishAsync(int? waitSecs = null)` → `Build` — client-side polling until terminal (`null`
-  waits indefinitely).
+  waits indefinitely). A build id that keeps answering 404 for 3 seconds straight (replica lag resolves
+  faster than that) throws `NotFoundException` instead of polling for the rest of `waitSecs`.
 - `GetOpenApiDefinitionAsync()` → `JsonObject?`.
 - `Log()` → `LogClient` (its `GetAsync`/`StreamAsync` methods are documented under [Logs in misc.md](misc.md#logs--clientlogbuildorrunid); on this build-nested client they throw on a 404 rather than resolve `null`, since the build itself could be what's missing).
 

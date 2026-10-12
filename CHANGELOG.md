@@ -1,5 +1,29 @@
 # Changelog
 
+## 0.5.0
+
+- Bumped `ApifyClientVersion.ApiSpecVersion` to the Apify OpenAPI spec `v2-2026-10-08T073338Z` and
+  the project version to `0.5.0`.
+- Added a `WaitForResources` option to `ActorStartOptions`/`TaskStartOptions`: `ActorClient.StartAsync`/
+  `CallAsync` and `TaskClient.StartAsync`/`CallAsync` retry a start rejected with
+  `actor-memory-limit-exceeded`/`concurrent-runs-limit-exceeded` every 10 seconds instead of throwing
+  immediately. `WaitForResources.UntilAvailable` retries until the run starts; `WaitForResources.For(seconds)`
+  bounds the retrying, after which the last error is thrown. Matches the reference client's
+  `waitForResources` start option.
+- Fixed the auto-paging collection iterators (`IterateAsync` on every collection client) to stop only once
+  a page returns no items, instead of once `offset` reached an earlier page's `total` — a stale bound that
+  cut the iteration short when the listed collection grew while it ran (e.g. a dataset collection while
+  another process created more datasets).
+- Fixed `RunClient.WaitForFinishAsync`/`BuildClient.WaitForFinishAsync` to throw `NotFoundException` after
+  3 seconds of a run/build id answering 404 continuously, instead of polling it as replica lag for the
+  entire (possibly multi-day) `waitSecs` budget.
+- Fixed `StreamedLog` (`RunClient.GetStreamedLog`) to reopen the log stream (with growing backoff up to 5s)
+  when it ends empty before the run has logged anything, instead of treating that empty stream as the
+  run's whole log. Stopping before any bytes have streamed now falls back to one plain log request instead
+  of redirecting nothing.
+- `WaitForResources.For` now rejects `NaN`/infinite budgets (use `WaitForResources.UntilAvailable` instead
+  of `For(double.PositiveInfinity)`).
+
 ## 0.4.0
 
 - Bumped `ApifyClientVersion.ApiSpecVersion` to the Apify OpenAPI spec `v2-2026-10-01T153946Z` and

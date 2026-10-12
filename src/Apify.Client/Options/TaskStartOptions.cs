@@ -32,6 +32,13 @@ public sealed class TaskStartOptions
     /// <summary>If <c>true</c>, restart the run if it fails.</summary>
     public bool? RestartOnError { get; init; }
 
+    /// <summary>
+    /// Retries the start while the account lacks the memory or a concurrent-run slot for the run (an
+    /// <c>actor-memory-limit-exceeded</c>/<c>concurrent-runs-limit-exceeded</c> error), instead of throwing
+    /// immediately. <c>null</c> (the default) disables retrying.
+    /// </summary>
+    public WaitForResources? WaitForResources { get; init; }
+
     /// <summary>Ad-hoc webhooks to attach (a JSON-serializable list serialized to base64-encoded JSON).</summary>
     public object? Webhooks { get; init; }
 

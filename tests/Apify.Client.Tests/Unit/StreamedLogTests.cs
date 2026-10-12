@@ -104,4 +104,73 @@ public sealed class StreamedLogTests
         Assert.Throws<InvalidOperationException>(() => streamedLog.Start());
         await streamedLog.StopAsync();
     }
+
+    [Fact]
+    public async Task ReopensStreamWhenTheFirstAttemptEndsEmptyBeforeTheRunHasLoggedAnything()
+    {
+        // Regression test (mirrors a reference-client bug fix): the API serves the log of a run that has
+        // not produced any output yet (e.g. still queued for free memory) as an empty stream that closes
+        // at once. Treating that as the whole log would silently drop everything the run logs afterwards,
+        // so StreamedLog must reopen the stream instead.
+        var transport = new MockTransport()
+            .QueueResponse(200, string.Empty)
+            .QueueResponse(200, LogBody);
+
+        var messages = new List<string>();
+        var streamedLog = Client(transport).Run("run1").GetStreamedLog(
+            m =>
+            {
+                lock (messages)
+                {
+                    messages.Add(m);
+                }
+            });
+
+        streamedLog.Start();
+        for (var i = 0; i < 200; i++)
+        {
+            await Task.Delay(25);
+            lock (messages)
+            {
+                if (messages.Count >= 3)
+                {
+                    break;
+                }
+            }
+        }
+
+        await streamedLog.StopAsync();
+
+        Assert.Equal(3, messages.Count);
+        Assert.Equal(2, transport.CallCount);
+    }
+
+    [Fact]
+    public async Task StoppingBeforeAnyBytesArriveFallsBackToAOneShotGet()
+    {
+        // Regression test: if stop() lands while still waiting out the empty-stream backoff above (the run
+        // never produced output before the caller gave up waiting), StreamedLog must still redirect
+        // whatever the log holds via one plain GET, instead of silently emitting nothing.
+        var transport = new MockTransport()
+            .QueueResponse(200, string.Empty) // first stream attempt: empty, closes at once
+            .QueueResponse(200, LogBody); // fallback plain GET once stopped
+
+        var messages = new List<string>();
+        var streamedLog = Client(transport).Run("run1").GetStreamedLog(
+            m =>
+            {
+                lock (messages)
+                {
+                    messages.Add(m);
+                }
+            });
+
+        streamedLog.Start();
+        // Give the first (empty) stream attempt time to complete and enter its backoff wait before stopping.
+        await Task.Delay(100);
+        await streamedLog.StopAsync();
+
+        Assert.Equal(3, messages.Count);
+        Assert.Equal(2, transport.CallCount);
+    }
 }
