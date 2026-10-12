@@ -109,6 +109,27 @@ public sealed class WaitForResourcesTests
     private static ApifyApiException MakeError(string type) =>
         new(402, type, "test error", attempt: 1, httpMethod: "POST", path: "/v2/acts/act/runs");
 
+    // ---- WaitForResources value type ---------------------------------------------------------------------
+
+    [Theory]
+    [InlineData(-1)]
+    [InlineData(double.NaN)]
+    [InlineData(double.PositiveInfinity)]
+    [InlineData(double.NegativeInfinity)]
+    public void ForRejectsNegativeNaNAndInfiniteBudgets(double invalidSecs)
+    {
+        // PositiveInfinity would silently behave like UntilAvailable; reject it so the two "retry
+        // forever" spellings stay distinct and deliberate.
+        Assert.Throws<ArgumentOutOfRangeException>(() => Options.WaitForResources.For(invalidSecs));
+    }
+
+    [Fact]
+    public void ForAcceptsZeroAndFiniteBudgets()
+    {
+        Assert.Equal(0, Options.WaitForResources.For(0).MaxWaitSecs);
+        Assert.Equal(30, Options.WaitForResources.For(30).MaxWaitSecs);
+    }
+
     // ---- ActorClient / TaskClient wiring ----------------------------------------------------------------
 
     [Fact]

@@ -463,6 +463,7 @@ internal sealed class ResourceContext
                 {
                     resource = obj;
                     notFoundSinceMillis = null;
+                    notFoundError = null;
                     if (isTerminal(obj))
                     {
                         return obj;

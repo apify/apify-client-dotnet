@@ -33,9 +33,10 @@ public readonly struct WaitForResources : IEquatable<WaitForResources>
     /// <param name="maxWaitSecs">The retry budget in seconds; must not be negative.</param>
     public static WaitForResources For(double maxWaitSecs)
     {
-        if (maxWaitSecs < 0 || double.IsNaN(maxWaitSecs))
+        if (maxWaitSecs < 0 || !double.IsFinite(maxWaitSecs))
         {
-            throw new ArgumentOutOfRangeException(nameof(maxWaitSecs), maxWaitSecs, "must not be negative");
+            throw new ArgumentOutOfRangeException(
+                nameof(maxWaitSecs), maxWaitSecs, "must be a non-negative, finite number of seconds; use UntilAvailable to retry forever");
         }
 
         return new WaitForResources(maxWaitSecs);

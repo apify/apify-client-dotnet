@@ -43,6 +43,26 @@ public sealed class WaitForFinishTests
     }
 
     [Fact]
+    public async Task WaitForFinishThrowsNotFoundWhenTheWaitBudgetElapsesBeforeTheNotFoundGraceWindow()
+    {
+        // Regression test: when `waitSecs` is small enough that the overall wait budget runs out before the
+        // 3-second not-found grace window does, the loop exits via the budget check rather than the grace-
+        // window check. It must still surface the persistent 404 as NotFoundException, not the generic
+        // "cannot fetch details from the server" fallback that only applies when nothing was ever fetched
+        // and no error was ever recorded (which cannot happen once a 404 has been seen).
+        var transport = new MockTransport();
+        for (var i = 0; i < 10; i++)
+        {
+            transport.QueueResponse(404, "{\"error\":{\"type\":\"record-not-found\",\"message\":\"Run was not found\"}}");
+        }
+
+        var error = await Assert.ThrowsAsync<NotFoundException>(
+            () => Client(transport).Run("does-not-exist").WaitForFinishAsync(waitSecs: 1));
+
+        Assert.Equal("record-not-found", error.Type);
+    }
+
+    [Fact]
     public async Task WaitForFinishToleratesABriefNotFoundThenSucceeds()
     {
         // A short run of 404s (shorter than the not-found grace window) is replica lag, not a missing run:

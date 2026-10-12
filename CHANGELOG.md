@@ -21,6 +21,8 @@
   when it ends empty before the run has logged anything, instead of treating that empty stream as the
   run's whole log. Stopping before any bytes have streamed now falls back to one plain log request instead
   of redirecting nothing.
+- `WaitForResources.For` now rejects `NaN`/infinite budgets (use `WaitForResources.UntilAvailable` instead
+  of `For(double.PositiveInfinity)`).
 
 ## 0.4.0
 
