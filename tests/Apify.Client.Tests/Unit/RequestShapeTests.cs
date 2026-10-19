@@ -1,5 +1,8 @@
 using System;
 using System.Globalization;
+using System.IO;
+using System.IO.Compression;
+using System.Text;
 using System.Threading.Tasks;
 using System.Text.Json.Nodes;
 using Apify.Client.Models;
@@ -686,5 +689,63 @@ public sealed class RequestShapeTests
 
         Assert.Equal("r1", Assert.Single(result.ProcessedRequests).Id);
         Assert.Equal("k2", Assert.Single(result.UnprocessedRequests).UniqueKey);
+    }
+
+    [Fact]
+    public async Task SetRecordWithContentEncodingSendsItVerbatimAndSkipsClientCompression()
+    {
+        // A value already gzip-compressed by the caller, well above the auto-compression threshold: if the
+        // client applied its own (brotli) compression on top, the bytes on the wire would no longer be
+        // valid single-pass gzip and the header would read "br", not "gzip".
+        var plaintext = Encoding.UTF8.GetBytes(new string('x', 2048));
+        var preCompressed = Gzip(plaintext);
+
+        var transport = new MockTransport().QueueResponse(200, string.Empty);
+        await Client(transport).KeyValueStore("s1").SetRecordAsync(
+            "report.json",
+            preCompressed,
+            "application/json",
+            new SetRecordOptions { ContentEncoding = "gzip" });
+
+        var request = transport.LastRequest;
+        Assert.Equal("gzip", request.Header("Content-Encoding"));
+        // Sent as-is (not re-compressed): the raw bytes on the wire are exactly the pre-compressed input.
+        Assert.Equal(preCompressed, request.BodyBytes);
+    }
+
+    [Fact]
+    public async Task SetRecordWithContentEncodingIsTrimmed()
+    {
+        var transport = new MockTransport().QueueResponse(200, string.Empty);
+        await Client(transport).KeyValueStore("s1").SetRecordAsync(
+            "k",
+            new byte[] { 1, 2, 3 },
+            "application/octet-stream",
+            new SetRecordOptions { ContentEncoding = "  identity  " });
+
+        Assert.Equal("identity", transport.LastRequest.Header("Content-Encoding"));
+    }
+
+    [Fact]
+    public async Task SetRecordWithWhitespaceOnlyContentEncodingThrowsWithoutSendingRequest()
+    {
+        var transport = new MockTransport();
+        await Assert.ThrowsAsync<ArgumentException>(() => Client(transport).KeyValueStore("s1").SetRecordAsync(
+            "k",
+            new byte[] { 1, 2, 3 },
+            "application/octet-stream",
+            new SetRecordOptions { ContentEncoding = "   " }));
+        Assert.Equal(0, transport.CallCount);
+    }
+
+    private static byte[] Gzip(byte[] data)
+    {
+        using var output = new MemoryStream();
+        using (var gzip = new GZipStream(output, CompressionMode.Compress))
+        {
+            gzip.Write(data, 0, data.Length);
+        }
+
+        return output.ToArray();
     }
 }

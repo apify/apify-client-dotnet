@@ -9,7 +9,7 @@ namespace Apify.Client.Exceptions;
 /// A custom <see cref="Apify.Client.Http.IHttpTransport"/> should throw this for connection, DNS and
 /// timeout failures; a non-2xx HTTP status must be returned as a normal response instead.
 /// </remarks>
-public sealed class ApifyTransportException : Exception
+public sealed class ApifyTransportException : ApifyClientException
 {
     /// <summary>Creates a transport exception.</summary>
     /// <param name="message">A description of the failure.</param>

@@ -13,7 +13,7 @@ namespace Apify.Client.Exceptions;
 /// <see cref="Type"/>, the human-readable <see cref="ApiMessage"/>, the HTTP <see cref="StatusCode"/>,
 /// the number of the final <see cref="Attempt"/>, and the request <see cref="HttpMethod"/>/<see cref="Path"/>.
 /// </remarks>
-public class ApifyApiException : Exception
+public class ApifyApiException : ApifyClientException
 {
     /// <summary>Creates an API exception with the parsed error details.</summary>
     /// <param name="statusCode">The HTTP status code of the error response.</param>

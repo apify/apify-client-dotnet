@@ -1,3 +1,4 @@
+using System.IO;
 using System.Threading.Tasks;
 using Apify.Client.Options;
 using Xunit;
@@ -59,6 +60,16 @@ public sealed class DatasetIntegrationTests : IntegrationTestBase
             var csvBytes = await dataset.DownloadItemsAsync(DownloadItemsFormat.Csv, new DatasetDownloadOptions { Bom = true });
             Assert.NotEmpty(csvBytes);
             Assert.Contains("url", System.Text.Encoding.UTF8.GetString(csvBytes), System.StringComparison.Ordinal);
+
+            // Streaming the same export must yield the same bytes as the buffered download. Compared as raw
+            // bytes (not decoded text) so a leading UTF-8 BOM — which StreamReader would silently strip —
+            // is still caught by a mismatch.
+            using (var stream = await dataset.StreamItemsAsync(DownloadItemsFormat.Csv, new DatasetDownloadOptions { Bom = true }))
+            using (var copy = new MemoryStream())
+            {
+                await stream.CopyToAsync(copy);
+                Assert.Equal(csvBytes, copy.ToArray());
+            }
 
             // XLSX is a binary (ZIP-based) export; verify the raw bytes are returned uncorrupted by checking
             // the ZIP local-file-header magic (PK\x03\x04). A string-based download would mangle these bytes.

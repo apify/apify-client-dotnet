@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.IO;
 using System.Net.Http;
 using System.Runtime.CompilerServices;
 using System.Threading;
@@ -180,6 +181,39 @@ public sealed class DatasetClient
         var url = _ctx.MergedParams(q).ApplyToUrl(_ctx.SubUrl("items"));
         using var response = await _http.CallAsync(HttpMethod.Get, url, timeout: _ctx.RequestTimeout, tier: RequestTier.Long, cancellationToken: cancellationToken).ConfigureAwait(false);
         return await response.Content.ReadAsByteArrayAsync(cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Downloads dataset items serialized in the given format as a stream, so a large export is processed
+    /// incrementally without holding it all in memory. Takes the same arguments as
+    /// <see cref="DownloadItemsAsync"/>; only how the response body is consumed differs.
+    /// </summary>
+    /// <remarks>
+    /// Unlike <see cref="DownloadItemsAsync"/>, this bypasses the buffered/retrying transport so the body
+    /// can be read incrementally as it arrives (a single attempt, not retried, matching
+    /// <see cref="LogClient.StreamAsync"/>). The caller must dispose the returned stream; disposing it also
+    /// releases the underlying HTTP response/connection.
+    /// </remarks>
+    /// <param name="format">The output format.</param>
+    /// <param name="options">Optional format-specific and filtering options.</param>
+    /// <param name="cancellationToken">A token to cancel the request.</param>
+    public async Task<Stream> StreamItemsAsync(DownloadItemsFormat format, DatasetDownloadOptions? options = null, CancellationToken cancellationToken = default)
+    {
+        var q = new QueryParams();
+        q.AddString("format", format.ToWireValue());
+        (options ?? new DatasetDownloadOptions()).AppendTo(q);
+        var url = _ctx.MergedParams(q).ApplyToUrl(_ctx.SubUrl("items"));
+
+        var response = await _http.StreamAsync(url, cancellationToken).ConfigureAwait(false);
+        var status = (int)response.StatusCode;
+        if (status >= HttpClientCore.MaxSuccessStatus)
+        {
+            var errorBody = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+            response.Dispose();
+            throw HttpClientCore.BuildApiError(status, errorBody, 1, "GET", HttpClientCore.ExtractPath(url));
+        }
+
+        return await ResponseOwningStream.CreateAsync(response, cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>Pushes one or more items to the dataset.</summary>

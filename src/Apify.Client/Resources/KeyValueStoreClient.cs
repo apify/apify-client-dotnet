@@ -98,15 +98,21 @@ public sealed class KeyValueStoreClient
 
     /// <summary>
     /// Stores a record with raw bytes and the given content type, honoring the given write options
-    /// (<c>TimeoutSecs</c>, <c>DoNotRetryTimeouts</c>).
+    /// (<c>TimeoutSecs</c>, <c>DoNotRetryTimeouts</c>, <c>ContentEncoding</c>).
     /// </summary>
     /// <param name="key">The record key.</param>
-    /// <param name="value">The raw record bytes.</param>
+    /// <param name="value">
+    /// The raw record bytes. With <see cref="SetRecordOptions.ContentEncoding"/> set, these must already be
+    /// encoded that way (e.g. already gzipped) — the client sends them as-is and does not compress them
+    /// again.
+    /// </param>
     /// <param name="contentType">
     /// The record's MIME type. Worth setting precisely for media and archives: the client skips
     /// compressing a body whose content type already carries its own compression (images, audio, video,
     /// archives, office/ZIP formats, web fonts). <c>application/octet-stream</c> — the usual choice for
     /// data of an unknown or mixed binary type — is treated as compressible, since it could hold anything.
+    /// This content-type-based skip does not apply when <see cref="SetRecordOptions.ContentEncoding"/> is
+    /// set: that always skips the client's own compression, regardless of content type.
     /// </param>
     /// <param name="options">Optional write options.</param>
     /// <param name="cancellationToken">A token to cancel the request.</param>
@@ -114,6 +120,16 @@ public sealed class KeyValueStoreClient
     {
         options ??= new SetRecordOptions();
         var timeout = options.TimeoutSecs is not null ? TimeSpan.FromSeconds(options.TimeoutSecs.Value) : (TimeSpan?)null;
+        string? contentEncoding = null;
+        if (options.ContentEncoding is not null)
+        {
+            contentEncoding = options.ContentEncoding.Trim();
+            if (contentEncoding.Length == 0)
+            {
+                throw new ArgumentException("ContentEncoding must not be empty or whitespace-only.", nameof(options));
+            }
+        }
+
         return _ctx.PutRawAsync(
             "records/" + ResourceContext.EncodePathSegment(key),
             new QueryParams(),
@@ -122,7 +138,8 @@ public sealed class KeyValueStoreClient
             timeout,
             options.DoNotRetryTimeouts,
             RequestTier.Long,
-            cancellationToken);
+            cancellationToken,
+            contentEncoding);
     }
 
     /// <summary>Stores a record holding the JSON serialization of <paramref name="value"/>.</summary>
