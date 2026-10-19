@@ -73,13 +73,16 @@ public sealed class KeyValueStoreClient
     /// With no options it fetches pages of up to <see cref="IterateKeysOptions.DefaultMaxPageLimit"/> keys
     /// until the store is exhausted. <c>Limit</c> caps the total number of keys yielded across all pages —
     /// <c>0</c> yields none, without issuing any request (the API itself reads a literal <c>limit=0</c> as
-    /// unbounded, not zero, so this is checked before building the request rather than left to the API).
-    /// <c>MaxPageLimit</c> caps the page size (never sent to the API itself) and must be positive, and
-    /// <c>ExclusiveStartKey</c> chooses the starting point (first page only).
+    /// unbounded, not zero, so this is checked before building the request rather than left to the API), and
+    /// must not be negative. <c>MaxPageLimit</c> caps the page size (never sent to the API itself) and must
+    /// be positive, and <c>ExclusiveStartKey</c> chooses the starting point (first page only).
     /// </remarks>
     /// <param name="options">Optional iteration options.</param>
     /// <param name="cancellationToken">A token to cancel the iteration.</param>
-    /// <exception cref="ArgumentException"><see cref="IterateKeysOptions.MaxPageLimit"/> is zero or negative.</exception>
+    /// <exception cref="ArgumentException">
+    /// <see cref="IterateKeysOptions.MaxPageLimit"/> is zero or negative, or <see cref="IterateKeysOptions.Limit"/>
+    /// is negative.
+    /// </exception>
     public async IAsyncEnumerable<KeyValueStoreKey> IterateKeysAsync(
         IterateKeysOptions? options = null,
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
@@ -88,6 +91,11 @@ public sealed class KeyValueStoreClient
         if (options.MaxPageLimit is <= 0)
         {
             throw new ArgumentException("IterateKeysOptions.MaxPageLimit must be positive.", nameof(options));
+        }
+
+        if (options.Limit is < 0)
+        {
+            throw new ArgumentException("IterateKeysOptions.Limit must not be negative.", nameof(options));
         }
 
         var maxPageLimit = options.MaxPageLimit ?? IterateKeysOptions.DefaultMaxPageLimit;
@@ -128,7 +136,15 @@ public sealed class KeyValueStoreClient
             }
 
             iterated += page.Items.Count;
-            if (!page.IsTruncated || (limit is not null && iterated >= limit.Value))
+
+            // Continue only while there is a next cursor to follow — mirrors the reference client
+            // (apify-client-js `key_value_store.ts` listKeys iteration), which continues on
+            // `nextExclusiveStartKey != null` rather than on `isTruncated` alone. The API answers with
+            // `null` on the last page and omits the field entirely for a listing that was not truncated,
+            // but `isTruncated` alone is not a safe continuation signal: if it were ever `true` alongside a
+            // null/absent cursor, looping on it would re-fetch the same first page forever (no
+            // `exclusiveStartKey` reaches the wire for a null cursor), yielding duplicate keys.
+            if (page.NextExclusiveStartKey is null || (limit is not null && iterated >= limit.Value))
             {
                 yield break;
             }

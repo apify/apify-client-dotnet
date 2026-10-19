@@ -18,7 +18,9 @@
 - Added `KeyValueStoreClient.IterateKeysAsync` (with a new `IterateKeysOptions`, whose `MaxPageLimit`
   caps the per-page size), an auto-paging iterator over a store's keys, matching the reference client's
   chunked `listKeys()` iteration. `Limit = 0` yields no keys without issuing any request (the API itself
-  reads a literal `limit=0` as unbounded, not zero), and `MaxPageLimit` must be positive.
+  reads a literal `limit=0` as unbounded, not zero); `Limit` must not be negative and `MaxPageLimit` must
+  be positive. Pages continue only while the API returns a non-null `nextExclusiveStartKey`, matching the
+  reference client, rather than on `isTruncated` alone.
 
 ## 0.5.0
 

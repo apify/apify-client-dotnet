@@ -276,4 +276,38 @@ public sealed class AutoPagingTests
         });
         Assert.Equal(0, transport.CallCount);
     }
+
+    [Fact]
+    public async Task KeyValueStoreIterateKeysRejectsNegativeLimit()
+    {
+        var transport = new MockTransport();
+
+        await Assert.ThrowsAsync<ArgumentException>(async () =>
+        {
+            await foreach (var _ in Client(transport).KeyValueStore("s1").IterateKeysAsync(new IterateKeysOptions { Limit = -1 }))
+            {
+            }
+        });
+        Assert.Equal(0, transport.CallCount);
+    }
+
+    [Fact]
+    public async Task KeyValueStoreIterateKeysStopsOnTruncatedPageWithNullCursor()
+    {
+        // Regression test: the continuation decision must follow `nextExclusiveStartKey`, not
+        // `isTruncated` alone (mirrors apify-client-js `key_value_store.ts` listKeys iteration). A page
+        // reporting `isTruncated=true` with a null/absent cursor must still stop iteration instead of
+        // looping back to the same first page forever and yielding duplicate keys.
+        var transport = new MockTransport()
+            .QueueResponse(200, "{\"data\":{\"items\":[{\"key\":\"a\"},{\"key\":\"b\"}],\"limit\":2,\"isTruncated\":true}}");
+
+        var keys = new List<string?>();
+        await foreach (var key in Client(transport).KeyValueStore("s1").IterateKeysAsync(new IterateKeysOptions { MaxPageLimit = 2 }))
+        {
+            keys.Add(key.Key);
+        }
+
+        Assert.Equal(new[] { "a", "b" }, keys);
+        Assert.Equal(1, transport.CallCount);
+    }
 }
