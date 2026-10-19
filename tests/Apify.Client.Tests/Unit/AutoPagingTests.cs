@@ -243,4 +243,37 @@ public sealed class AutoPagingTests
         Assert.Equal(new[] { "a", "b" }, keys);
         Assert.Equal(1, transport.CallCount);
     }
+
+    [Fact]
+    public async Task KeyValueStoreIterateKeysWithZeroLimitYieldsNoneAndMakesNoRequest()
+    {
+        // Regression test: the API reads a literal limit=0 as unbounded, not zero, so Limit=0 must stop
+        // before ever building a request rather than send 0 and yield whatever the API returns anyway.
+        var transport = new MockTransport();
+
+        var keys = new List<string?>();
+        await foreach (var key in Client(transport).KeyValueStore("s1").IterateKeysAsync(new IterateKeysOptions { Limit = 0 }))
+        {
+            keys.Add(key.Key);
+        }
+
+        Assert.Empty(keys);
+        Assert.Equal(0, transport.CallCount);
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-1)]
+    public async Task KeyValueStoreIterateKeysRejectsNonPositiveMaxPageLimit(int maxPageLimit)
+    {
+        var transport = new MockTransport();
+
+        await Assert.ThrowsAsync<ArgumentException>(async () =>
+        {
+            await foreach (var _ in Client(transport).KeyValueStore("s1").IterateKeysAsync(new IterateKeysOptions { MaxPageLimit = maxPageLimit }))
+            {
+            }
+        });
+        Assert.Equal(0, transport.CallCount);
+    }
 }

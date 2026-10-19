@@ -17,7 +17,8 @@
   matching the reference client's `log.get` `buffer` option.
 - Added `KeyValueStoreClient.IterateKeysAsync` (with a new `IterateKeysOptions`, whose `MaxPageLimit`
   caps the per-page size), an auto-paging iterator over a store's keys, matching the reference client's
-  chunked `listKeys()` iteration.
+  chunked `listKeys()` iteration. `Limit = 0` yields no keys without issuing any request (the API itself
+  reads a literal `limit=0` as unbounded, not zero), and `MaxPageLimit` must be positive.
 
 ## 0.5.0
 

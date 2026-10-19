@@ -71,17 +71,25 @@ public sealed class KeyValueStoreClient
     /// </summary>
     /// <remarks>
     /// With no options it fetches pages of up to <see cref="IterateKeysOptions.DefaultMaxPageLimit"/> keys
-    /// until the store is exhausted. <c>Limit</c> caps the total number of keys yielded across all pages,
-    /// <c>MaxPageLimit</c> caps the page size (never sent to the API itself), and
+    /// until the store is exhausted. <c>Limit</c> caps the total number of keys yielded across all pages —
+    /// <c>0</c> yields none, without issuing any request (the API itself reads a literal <c>limit=0</c> as
+    /// unbounded, not zero, so this is checked before building the request rather than left to the API).
+    /// <c>MaxPageLimit</c> caps the page size (never sent to the API itself) and must be positive, and
     /// <c>ExclusiveStartKey</c> chooses the starting point (first page only).
     /// </remarks>
     /// <param name="options">Optional iteration options.</param>
     /// <param name="cancellationToken">A token to cancel the iteration.</param>
+    /// <exception cref="ArgumentException"><see cref="IterateKeysOptions.MaxPageLimit"/> is zero or negative.</exception>
     public async IAsyncEnumerable<KeyValueStoreKey> IterateKeysAsync(
         IterateKeysOptions? options = null,
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
         options ??= new IterateKeysOptions();
+        if (options.MaxPageLimit is <= 0)
+        {
+            throw new ArgumentException("IterateKeysOptions.MaxPageLimit must be positive.", nameof(options));
+        }
+
         var maxPageLimit = options.MaxPageLimit ?? IterateKeysOptions.DefaultMaxPageLimit;
         var limit = options.Limit; // total across all pages; null = unbounded
         var nextExclusiveStartKey = options.ExclusiveStartKey;
@@ -89,6 +97,14 @@ public sealed class KeyValueStoreClient
 
         while (true)
         {
+            // Checked before building the request, not only after: the API reads a literal `limit=0` as
+            // unset (unbounded) rather than "zero", so a Limit of 0 (or one already exhausted by a prior
+            // page) must stop here instead of reaching the wire as 0 and fetching a full page regardless.
+            if (limit is not null && iterated >= limit.Value)
+            {
+                yield break;
+            }
+
             var pageLimit = limit is not null ? Math.Min(maxPageLimit, limit.Value - iterated) : maxPageLimit;
 
             var page = await ListKeysAsync(
