@@ -1,5 +1,7 @@
 using System;
+using System.Collections.Generic;
 using System.Net.Http;
+using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
 using Apify.Client.Exceptions;
@@ -61,6 +63,62 @@ public sealed class KeyValueStoreClient
         var q = new QueryParams();
         (options ?? new ListKeysOptions()).AppendTo(q);
         return KeyValueStoreKeysPage.FromData(await _ctx.GetResourceRequiredAsync("keys", q, RequestTier.Medium, cancellationToken).ConfigureAwait(false));
+    }
+
+    /// <summary>
+    /// Lazily iterates over the store's keys across pages, fetching each page on demand. Mirrors the
+    /// reference client's chunked <c>listKeys()</c> iteration.
+    /// </summary>
+    /// <remarks>
+    /// With no options it fetches pages of up to <see cref="IterateKeysOptions.DefaultMaxPageLimit"/> keys
+    /// until the store is exhausted. <c>Limit</c> caps the total number of keys yielded across all pages,
+    /// <c>MaxPageLimit</c> caps the page size (never sent to the API itself), and
+    /// <c>ExclusiveStartKey</c> chooses the starting point (first page only).
+    /// </remarks>
+    /// <param name="options">Optional iteration options.</param>
+    /// <param name="cancellationToken">A token to cancel the iteration.</param>
+    public async IAsyncEnumerable<KeyValueStoreKey> IterateKeysAsync(
+        IterateKeysOptions? options = null,
+        [EnumeratorCancellation] CancellationToken cancellationToken = default)
+    {
+        options ??= new IterateKeysOptions();
+        var maxPageLimit = options.MaxPageLimit ?? IterateKeysOptions.DefaultMaxPageLimit;
+        var limit = options.Limit; // total across all pages; null = unbounded
+        var nextExclusiveStartKey = options.ExclusiveStartKey;
+        var iterated = 0;
+
+        while (true)
+        {
+            var pageLimit = limit is not null ? Math.Min(maxPageLimit, limit.Value - iterated) : maxPageLimit;
+
+            var page = await ListKeysAsync(
+                new ListKeysOptions
+                {
+                    Limit = pageLimit,
+                    ExclusiveStartKey = nextExclusiveStartKey,
+                    Collection = options.Collection,
+                    Prefix = options.Prefix,
+                },
+                cancellationToken).ConfigureAwait(false);
+
+            if (page.Items.Count == 0)
+            {
+                yield break;
+            }
+
+            foreach (var item in page.Items)
+            {
+                yield return item;
+            }
+
+            iterated += page.Items.Count;
+            if (!page.IsTruncated || (limit is not null && iterated >= limit.Value))
+            {
+                yield break;
+            }
+
+            nextExclusiveStartKey = page.NextExclusiveStartKey;
+        }
     }
 
     /// <summary>Reports whether a record with the given key exists.</summary>

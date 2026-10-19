@@ -15,6 +15,9 @@
   of buffering it into a `byte[]`, matching the reference client's `downloadItems` `stream` option.
 - Added `LogClient.GetBytesAsync`, which fetches a log as raw bytes instead of a decoded string,
   matching the reference client's `log.get` `buffer` option.
+- Added `KeyValueStoreClient.IterateKeysAsync` (with a new `IterateKeysOptions`, whose `MaxPageLimit`
+  caps the per-page size), an auto-paging iterator over a store's keys, matching the reference client's
+  chunked `listKeys()` iteration.
 
 ## 0.5.0
 

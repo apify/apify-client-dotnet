@@ -203,4 +203,44 @@ public sealed class AutoPagingTests
         Assert.Contains("offset=0", transport.Received[0].Uri, StringComparison.Ordinal);
         Assert.Contains("offset=1", transport.Received[1].Uri, StringComparison.Ordinal);
     }
+
+    [Fact]
+    public async Task KeyValueStoreIterateKeysWalksAllPagesByExclusiveStartKey()
+    {
+        var transport = new MockTransport()
+            .QueueResponse(200, "{\"data\":{\"items\":[{\"key\":\"a\"},{\"key\":\"b\"}],\"limit\":2,\"isTruncated\":true,\"nextExclusiveStartKey\":\"b\"}}")
+            .QueueResponse(200, "{\"data\":{\"items\":[{\"key\":\"c\"}],\"limit\":2,\"isTruncated\":false}}");
+
+        var keys = new List<string?>();
+        await foreach (var key in Client(transport).KeyValueStore("s1").IterateKeysAsync(new IterateKeysOptions { MaxPageLimit = 2 }))
+        {
+            keys.Add(key.Key);
+        }
+
+        Assert.Equal(new[] { "a", "b", "c" }, keys);
+        Assert.Equal(2, transport.CallCount);
+        Assert.Contains("limit=2", transport.Received[0].Uri, StringComparison.Ordinal);
+        Assert.DoesNotContain("exclusiveStartKey=", transport.Received[0].Uri, StringComparison.Ordinal);
+        Assert.Contains("exclusiveStartKey=b", transport.Received[1].Uri, StringComparison.Ordinal);
+        // chunkSize/maxPageLimit is client-side only and must never reach the API query string.
+        Assert.DoesNotContain("maxPageLimit", transport.Received[1].Uri, StringComparison.Ordinal);
+        Assert.DoesNotContain("chunkSize", transport.Received[1].Uri, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task KeyValueStoreIterateKeysStopsAtLimit()
+    {
+        var transport = new MockTransport()
+            .QueueResponse(200, "{\"data\":{\"items\":[{\"key\":\"a\"},{\"key\":\"b\"}],\"limit\":2,\"isTruncated\":true,\"nextExclusiveStartKey\":\"b\"}}");
+
+        var keys = new List<string?>();
+        await foreach (var key in Client(transport).KeyValueStore("s1").IterateKeysAsync(new IterateKeysOptions { Limit = 2 }))
+        {
+            keys.Add(key.Key);
+        }
+
+        // Limit=2 is satisfied by the first page, so no second page is fetched even though isTruncated=true.
+        Assert.Equal(new[] { "a", "b" }, keys);
+        Assert.Equal(1, transport.CallCount);
+    }
 }

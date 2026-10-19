@@ -97,7 +97,9 @@ await csvStream.CopyToAsync(file);
 `client.KeyValueStores()` / `client.KeyValueStore(id)`.
 
 - `GetAsync()` → `KeyValueStore?`; `UpdateAsync(object newFields)` → `KeyValueStore`; `DeleteAsync()`.
-- `ListKeysAsync(ListKeysOptions? options = null)` → `KeyValueStoreKeysPage`.
+- `ListKeysAsync(ListKeysOptions? options = null)` → `KeyValueStoreKeysPage` (one page).
+- `IterateKeysAsync(IterateKeysOptions? options = null)` → `IAsyncEnumerable<KeyValueStoreKey>` — lazily
+  iterate every key across pages, fetching each page (sized by `MaxPageLimit`) on demand.
 - `RecordExistsAsync(string key)` → `bool`.
 - `GetRecordAsync(string key, GetRecordOptions? options = null)` → `KeyValueStoreRecord?`.
   `KeyValueStoreRecord.Value` is a `byte[]` of the record's raw bytes (so binary records survive intact);
@@ -111,9 +113,11 @@ await csvStream.CopyToAsync(file);
 
 `ListKeysOptions` fields: `Limit` (page size), `ExclusiveStartKey` (start after this key),
 `Prefix` (only keys with this prefix), `Collection` (a named record collection), and `Signature`
-(for signed public URLs). `GetRecordOptions` fields: `Attachment` (request a download disposition)
-and `Signature`. `SetRecordOptions` fields: `TimeoutSecs`, `DoNotRetryTimeouts`, and `ContentEncoding`
-(upload a value that is already compressed — see below).
+(for signed public URLs). `IterateKeysOptions` fields: `Limit` (total across all pages),
+`MaxPageLimit` (page size; client-side only, never sent to the API — defaults to 1000),
+`ExclusiveStartKey`, `Collection`, and `Prefix`. `GetRecordOptions` fields: `Attachment` (request a
+download disposition) and `Signature`. `SetRecordOptions` fields: `TimeoutSecs`, `DoNotRetryTimeouts`,
+and `ContentEncoding` (upload a value that is already compressed — see below).
 
 ```csharp
 using System;

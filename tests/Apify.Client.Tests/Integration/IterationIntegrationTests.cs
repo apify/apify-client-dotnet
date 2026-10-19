@@ -16,11 +16,12 @@ namespace Apify.Client.Tests.Integration;
 /// </summary>
 /// <remarks>
 /// This suite is about iterating a collection of resources (e.g. "every dataset"), not a resource's own
-/// contents: dataset item iteration (<c>DatasetClient.IterateItemsAsync</c>) is covered by a unit test
-/// (<c>AutoPagingTests</c>) against a mocked transport, since it needs to exercise multi-page paging logic
-/// deterministically; request-queue request iteration has its own integration test
-/// (<c>RequestQueueIntegrationTests.RequestQueuePaginateMultiplePages</c>). Key-value stores expose no item
-/// iterator (only <c>ListKeysAsync</c>), so there is nothing to cover there.
+/// contents: dataset item iteration (<c>DatasetClient.IterateItemsAsync</c>) and key-value-store key
+/// iteration (<c>KeyValueStoreClient.IterateKeysAsync</c>) are covered by unit tests (<c>AutoPagingTests</c>)
+/// against a mocked transport, since they need to exercise multi-page paging logic deterministically;
+/// <see cref="IterateKeyValueStoreKeysMultiplePages"/> below covers the same iterator against the real API.
+/// Request-queue request iteration has its own integration test
+/// (<c>RequestQueueIntegrationTests.RequestQueuePaginateMultiplePages</c>).
 ///
 /// Where creation is cheap, each test below creates a couple of uniquely-named resources and asserts that
 /// iterating the collection (newest-first) eventually surfaces every one of them — exercising the real
@@ -269,6 +270,39 @@ public sealed class IterationIntegrationTests : IntegrationTestBase
         finally
         {
             await client.Actor(actor.Id!).DeleteAsync();
+        }
+    }
+
+    [SkippableFact]
+    public async Task IterateKeyValueStoreKeysMultiplePages()
+    {
+        var client = RequireClient();
+        var store = await client.KeyValueStores().GetOrCreateAsync(UniqueName("it-kvs-keys"));
+        try
+        {
+            var kvs = client.KeyValueStore(store.Id!);
+            const int total = 5;
+            for (var i = 0; i < total; i++)
+            {
+                await kvs.SetRecordJsonAsync("it-key-" + i, new { n = i });
+            }
+
+            // MaxPageLimit forces several pages (5 keys, 2 per page) so the exclusiveStartKey-driven paging
+            // is actually exercised against the real API, not satisfied by a single response.
+            var seen = new HashSet<string>();
+            await foreach (var key in kvs.IterateKeysAsync(new IterateKeysOptions { MaxPageLimit = 2 }))
+            {
+                seen.Add(key.Key!);
+            }
+
+            for (var i = 0; i < total; i++)
+            {
+                Assert.Contains("it-key-" + i, seen);
+            }
+        }
+        finally
+        {
+            await client.KeyValueStore(store.Id!).DeleteAsync();
         }
     }
 
