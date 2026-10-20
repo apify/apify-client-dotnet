@@ -1,5 +1,27 @@
 # Changelog
 
+## 0.6.0
+
+- Bumped `ApifyClientVersion.ApiSpecVersion` to the Apify OpenAPI spec `v2-2026-10-19T133704Z` and
+  the project version to `0.6.0`.
+- Added `ApifyClientException`, a common base class that `ApifyApiException` (and its per-status
+  subclasses) and `ApifyTransportException` now extend, matching the reference client's
+  `ApifyClientError`. A single `catch (ApifyClientException)` now catches every error this client
+  raises for a failed call.
+- Added `ContentEncoding` to `SetRecordOptions`, for uploading a key-value-store record that is already
+  compressed (`gzip`, `br`, `deflate`): the client sends the bytes as-is and skips its own compression,
+  matching the reference client's `setRecord` `contentEncoding` option.
+- Added `DatasetClient.StreamItemsAsync`, which downloads a dataset item export as a `Stream` instead
+  of buffering it into a `byte[]`, matching the reference client's `downloadItems` `stream` option.
+- Added `LogClient.GetBytesAsync`, which fetches a log as raw bytes instead of a decoded string,
+  matching the reference client's `log.get` `buffer` option.
+- Added `KeyValueStoreClient.IterateKeysAsync` (with a new `IterateKeysOptions`, whose `MaxPageLimit`
+  caps the per-page size), an auto-paging iterator over a store's keys, matching the reference client's
+  chunked `listKeys()` iteration. `Limit = 0` yields no keys without issuing any request (the API itself
+  reads a literal `limit=0` as unbounded, not zero); `Limit` must not be negative and `MaxPageLimit` must
+  be positive. Pages continue only while the API returns a non-null `nextExclusiveStartKey`, matching the
+  reference client, rather than on `isTruncated` alone.
+
 ## 0.5.0
 
 - Bumped `ApifyClientVersion.ApiSpecVersion` to the Apify OpenAPI spec `v2-2026-10-08T073338Z` and

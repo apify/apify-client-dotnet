@@ -135,6 +135,7 @@ internal sealed class HttpClientCore
         byte[]? bodyBytes = null,
         IReadOnlyDictionary<string, string>? extraHeaders = null,
         RequestTier tier = RequestTier.Long,
+        string? explicitContentEncoding = null,
         CancellationToken cancellationToken = default)
     {
         var delayMillis = _retry.MinDelayMillis;
@@ -148,8 +149,12 @@ internal sealed class HttpClientCore
         var baseTimeout = timeout ?? TimeSpan.FromSeconds(_retry.TierSecs(tier));
         var overallCap = TimeSpan.FromSeconds(_retry.TimeoutSecs);
         // Normalize (and, when large enough, compress) the body once up front so retries reuse the same
-        // prepared payload instead of re-encoding and re-compressing on every attempt.
-        var prepared = PrepareBody(body, bodyBytes, contentType);
+        // prepared payload instead of re-encoding and re-compressing on every attempt. A caller-supplied
+        // explicitContentEncoding (e.g. SetRecordAsync's contentEncoding for an already-compressed value)
+        // skips this: the bytes are already in their final, encoded form and must reach the API unchanged.
+        var prepared = explicitContentEncoding is not null
+            ? new PreparedBody(bodyBytes ?? (body is not null ? Encoding.UTF8.GetBytes(body) : null), contentType, explicitContentEncoding)
+            : PrepareBody(body, bodyBytes, contentType);
         Exception? lastError = null;
 
         for (var attempt = 1; attempt <= maxAttempts; attempt++)

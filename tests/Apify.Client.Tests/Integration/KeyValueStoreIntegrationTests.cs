@@ -1,4 +1,5 @@
 using System;
+using System.IO.Compression;
 using System.Net.Http;
 using System.Threading.Tasks;
 using Apify.Client.Options;
@@ -100,6 +101,42 @@ public sealed class KeyValueStoreIntegrationTests : IntegrationTestBase
             Assert.Equal((byte)0xFF, record.Value[1]);
 
             await kvs.DeleteRecordAsync("binary");
+        }
+        finally
+        {
+            await client.KeyValueStore(store.Id!).DeleteAsync();
+        }
+    }
+
+    [SkippableFact]
+    public async Task PreCompressedRecordRoundTrips()
+    {
+        var client = RequireClient();
+        var store = await client.KeyValueStores().GetOrCreateAsync(UniqueName("kvs-gzip"));
+        try
+        {
+            var kvs = client.KeyValueStore(store.Id!);
+            var plaintext = System.Text.Encoding.UTF8.GetBytes("{\"hello\":\"pre-compressed world\"}");
+            byte[] gzipped;
+            using (var output = new System.IO.MemoryStream())
+            {
+                using (var gzip = new GZipStream(output, CompressionMode.Compress))
+                {
+                    gzip.Write(plaintext, 0, plaintext.Length);
+                }
+
+                gzipped = output.ToArray();
+            }
+
+            await kvs.SetRecordAsync("pre-compressed", gzipped, "application/json", new SetRecordOptions { ContentEncoding = "gzip" });
+
+            // The default transport auto-decompresses the response body per its own Content-Encoding, so
+            // the record reads back as the original plaintext regardless of how it was uploaded.
+            var record = await kvs.GetRecordAsync("pre-compressed");
+            Assert.NotNull(record);
+            Assert.Equal(plaintext, record!.Value);
+
+            await kvs.DeleteRecordAsync("pre-compressed");
         }
         finally
         {

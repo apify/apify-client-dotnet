@@ -59,6 +59,26 @@ public sealed class LogClient
         => await _ctx.GetRawRequiredAsync("", q, RequestTier.Long, cancellationToken).ConfigureAwait(false);
 
     /// <summary>
+    /// Fetches the log as raw bytes instead of a decoded string — the counterpart of <see cref="GetAsync"/>
+    /// for a log that is not (or might not be) valid UTF-8 text. It does not change how the log is fetched,
+    /// only how the body is returned; the whole log is downloaded in one response either way. To read it
+    /// incrementally, use <see cref="StreamAsync"/>.
+    /// </summary>
+    /// <param name="options">Optional log-content options.</param>
+    /// <param name="cancellationToken">A token to cancel the request.</param>
+    public Task<byte[]?> GetBytesAsync(LogOptions? options = null, CancellationToken cancellationToken = default)
+    {
+        var q = new QueryParams();
+        (options ?? new LogOptions()).AppendTo(q);
+        return _ambiguousNotFound
+            ? GetRequiredBytesAsync(q, cancellationToken)
+            : _ctx.GetRawBytesAsync("", q, RequestTier.Long, cancellationToken);
+    }
+
+    private async Task<byte[]?> GetRequiredBytesAsync(QueryParams q, CancellationToken cancellationToken)
+        => await _ctx.GetRawBytesRequiredAsync("", q, RequestTier.Long, cancellationToken).ConfigureAwait(false);
+
+    /// <summary>
     /// Opens a live, streaming connection to the log and returns a stream over the log bytes. For a log
     /// addressed by its own id, a 404 resolves to <c>null</c> (matching <see cref="GetAsync"/>); for a log
     /// nested under a run/build with no id of its own, a 404 is ambiguous and throws instead.

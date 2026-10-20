@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using System.Threading.Tasks;
+using Apify.Client.Exceptions;
 using Apify.Client.Options;
 using Xunit;
 
@@ -33,6 +34,33 @@ public sealed class LogClientTests
     {
         var transport = new MockTransport().QueueResponse(404, "{\"error\":{\"type\":\"record-not-found\",\"message\":\"no log\"}}");
         Assert.Null(await Client(transport).Log("missing").GetAsync());
+    }
+
+    [Fact]
+    public async Task GetBytesByIdReturnsRawBytes()
+    {
+        var transport = new MockTransport().QueueResponse(200, "line1\nline2\n");
+        var bytes = await Client(transport).Log("run1").GetBytesAsync();
+
+        Assert.NotNull(bytes);
+        Assert.Equal("line1\nline2\n", System.Text.Encoding.UTF8.GetString(bytes!));
+        Assert.Equal("GET", transport.LastRequest.Method);
+        Assert.Contains("/logs/run1", transport.LastRequest.Uri, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task MissingLogGetBytesReturnsNull()
+    {
+        var transport = new MockTransport().QueueResponse(404, "{\"error\":{\"type\":\"record-not-found\",\"message\":\"no log\"}}");
+        Assert.Null(await Client(transport).Log("missing").GetBytesAsync());
+    }
+
+    [Fact]
+    public async Task RunNestedLogGetBytesThrowsOnAmbiguousNotFound()
+    {
+        var transport = new MockTransport().QueueResponse(404, "{\"error\":{\"type\":\"record-not-found\",\"message\":\"no run\"}}");
+        await Assert.ThrowsAsync<NotFoundException>(
+            () => Client(transport).Run("run1").Log().GetBytesAsync());
     }
 
     [Fact]

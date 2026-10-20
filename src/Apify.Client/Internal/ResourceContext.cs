@@ -373,6 +373,36 @@ internal sealed class ResourceContext
         return await response.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
     }
 
+    /// <summary>
+    /// GET returning the raw response body as bytes (no data envelope, no UTF-8 decoding — useful when the
+    /// body is not necessarily text). Returns <c>null</c> on not-found.
+    /// </summary>
+    public async Task<byte[]?> GetRawBytesAsync(string subPath, QueryParams p, RequestTier tier, CancellationToken ct)
+    {
+        var url = MergedParams(p).ApplyToUrl(SubUrl(subPath));
+        try
+        {
+            using var response = await Http.CallAsync(HttpMethod.Get, url, timeout: _requestTimeout, tier: tier, cancellationToken: ct).ConfigureAwait(false);
+            return await response.Content.ReadAsByteArrayAsync(ct).ConfigureAwait(false);
+        }
+        catch (ApifyApiException e) when (HttpClientCore.IsNotFound(e))
+        {
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// GET returning the raw response body as bytes; propagates a 404 instead of swallowing it. The byte
+    /// counterpart of <see cref="GetRawRequiredAsync"/> (see its remarks on when a missing parent should
+    /// surface as an error rather than an ambiguous empty result).
+    /// </summary>
+    public async Task<byte[]> GetRawBytesRequiredAsync(string subPath, QueryParams p, RequestTier tier, CancellationToken ct)
+    {
+        var url = MergedParams(p).ApplyToUrl(SubUrl(subPath));
+        using var response = await Http.CallAsync(HttpMethod.Get, url, timeout: _requestTimeout, tier: tier, cancellationToken: ct).ConfigureAwait(false);
+        return await response.Content.ReadAsByteArrayAsync(ct).ConfigureAwait(false);
+    }
+
     /// <summary>HEAD request; returns whether the resource exists.</summary>
     public async Task<bool> HeadExistsAsync(string subPath, QueryParams p, RequestTier tier, CancellationToken ct)
     {
@@ -388,11 +418,15 @@ internal sealed class ResourceContext
         }
     }
 
-    /// <summary>PUT with raw bytes and a content type, with an explicit per-request timeout and retry control.</summary>
-    public async Task PutRawAsync(string subPath, QueryParams p, byte[] body, string contentType, TimeSpan? timeout, bool doNotRetryTimeouts, RequestTier tier, CancellationToken ct)
+    /// <summary>
+    /// PUT with raw bytes and a content type, with an explicit per-request timeout and retry control.
+    /// <paramref name="contentEncoding"/>, when given, is sent verbatim as the <c>Content-Encoding</c>
+    /// header and skips the client's own compression — used for a value that is already compressed.
+    /// </summary>
+    public async Task PutRawAsync(string subPath, QueryParams p, byte[] body, string contentType, TimeSpan? timeout, bool doNotRetryTimeouts, RequestTier tier, CancellationToken ct, string? contentEncoding = null)
     {
         var url = MergedParams(p).ApplyToUrl(SubUrl(subPath));
-        using var response = await Http.CallAsync(HttpMethod.Put, url, null, contentType, timeout ?? _requestTimeout, doNotRetryTimeouts, bodyBytes: body, tier: tier, cancellationToken: ct).ConfigureAwait(false);
+        using var response = await Http.CallAsync(HttpMethod.Put, url, null, contentType, timeout ?? _requestTimeout, doNotRetryTimeouts, bodyBytes: body, tier: tier, explicitContentEncoding: contentEncoding, cancellationToken: ct).ConfigureAwait(false);
     }
 
     // ---- Wait-for-finish ------------------------------------------------------

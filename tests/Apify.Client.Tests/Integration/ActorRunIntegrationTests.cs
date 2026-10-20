@@ -30,6 +30,10 @@ public sealed class ActorRunIntegrationTests : IntegrationTestBase
         Assert.NotNull(log);
         Assert.NotEqual(string.Empty, log);
 
+        var logBytes = await client.Run(run.Id!).Log().GetBytesAsync();
+        Assert.NotNull(logBytes);
+        Assert.Equal(log, System.Text.Encoding.UTF8.GetString(logBytes!));
+
         await client.Run(run.Id!).Dataset().ListItemsAsync(new DatasetListItemsOptions());
         await client.Run(run.Id!).KeyValueStore().GetRecordAsync("OUTPUT");
     }

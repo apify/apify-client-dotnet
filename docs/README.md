@@ -73,8 +73,8 @@ the `using` directives for whichever ones a file references:
 | `Apify.Client` | The entry point (`ApifyClient`), `ApifyClientOptions`, `ApifyClientVersion`, and the log-redirection helper `StreamedLog`. |
 | `Apify.Client.Resources` | Every resource client the entry point returns — `ActorClient`, `RunClient`, `BuildClient`, `DatasetClient`, `KeyValueStoreClient`, `RequestQueueClient`, `TaskClient`, `ScheduleClient`, `LogClient`, `UserClient`, `ActorVersionClient`, `ActorEnvVarClient`, the `…CollectionClient` types (including `ActorVersionCollectionClient`, `ActorEnvVarCollectionClient`, `NestedWebhookCollectionClient`, and `WebhookDispatchCollectionClient`), etc. |
 | `Apify.Client.Models` | Data models returned by the clients — `Actor`, `ActorRun`, `Build`, `Dataset`, `RequestQueueRequest`, `ActorEnvVar`, `PaginationList<T>`, and so on. |
-| `Apify.Client.Options` | The option/request objects passed into methods — `ActorStartOptions`, `ActorBuildOptions`, `ActorListOptions`, `RunListOptions`, `RunResurrectOptions`, `RunChargeOptions`, `MetamorphOptions`, `LastRunOptions`, `DatasetListItemsOptions`, `DatasetDownloadOptions`, `DownloadItemsFormat`, `GetRecordOptions`, `SetRecordOptions`, `ListKeysOptions`, `ListRequestsOptions`, `PaginateRequestsOptions`, `BatchAddRequestsOptions`, `RequestQueueClientOptions`, `TaskStartOptions`, `ValidateInputOptions`, `LogOptions`, `ListOptions`, `StorageListOptions`, `StoreListOptions`. |
-| `Apify.Client.Exceptions` | `ApifyApiException` and `ApifyTransportException`. |
+| `Apify.Client.Options` | The option/request objects passed into methods — `ActorStartOptions`, `ActorBuildOptions`, `ActorListOptions`, `RunListOptions`, `RunResurrectOptions`, `RunChargeOptions`, `MetamorphOptions`, `LastRunOptions`, `DatasetListItemsOptions`, `DatasetDownloadOptions`, `DownloadItemsFormat`, `GetRecordOptions`, `SetRecordOptions`, `ListKeysOptions`, `IterateKeysOptions`, `ListRequestsOptions`, `PaginateRequestsOptions`, `BatchAddRequestsOptions`, `RequestQueueClientOptions`, `TaskStartOptions`, `ValidateInputOptions`, `LogOptions`, `ListOptions`, `StorageListOptions`, `StoreListOptions`. |
+| `Apify.Client.Exceptions` | `ApifyClientException` (common base), `ApifyApiException` (and its per-status subclasses) and `ApifyTransportException`. |
 | `Apify.Client.Http` | The replaceable transport: `IHttpTransport` and the default `HttpClientTransport`. |
 | `System.Text.Json.Nodes` (BCL) | Not an Apify namespace, but required whenever you name the JSON escape-hatch types the client returns/accepts — `JsonObject`/`JsonNode` (e.g. dataset items, `GetInputAsync`/`UpdateInputAsync`, `GetStatisticsAsync`, `GetOpenApiDefinitionAsync`, `MonthlyUsageAsync`/`LimitsAsync`, `RequestQueueRequest.UserData`). Add `using System.Text.Json.Nodes;`. |
 
@@ -204,6 +204,17 @@ catch (ApifyApiException e)
 
 `ApifyTransportException` is thrown instead when the request never reaches the API (network failure,
 timeout, or DNS error) after all retries are exhausted.
+
+Both `ApifyApiException` and `ApifyTransportException` extend the common `ApifyClientException`, so
+`catch (ApifyClientException)` catches every error this client raises for a failed call without naming
+either concrete type:
+
+```csharp
+catch (ApifyClientException e)
+{
+    Console.WriteLine("client call failed: " + e.Message);
+}
+```
 
 ## Versioning
 

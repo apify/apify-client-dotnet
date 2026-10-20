@@ -31,6 +31,10 @@ reached from a run (`client.Run(id).Dataset()`, `.KeyValueStore()`, `.RequestQue
   item across pages, fetching each page on demand.
 - `DownloadItemsAsync(DownloadItemsFormat format, DatasetDownloadOptions? options = null)` → serialized items as
   `byte[]` (raw bytes, so binary formats like `Xlsx` are not corrupted; decode text formats yourself).
+- `StreamItemsAsync(DownloadItemsFormat format, DatasetDownloadOptions? options = null)` → the same export as a
+  `Stream`, so a large export is processed incrementally instead of buffered into memory. Unlike
+  `DownloadItemsAsync`, this is a single attempt (not retried); dispose the stream when done, which also
+  releases the underlying connection.
 - `PushItemsAsync(object items)` — push one object or an array of objects.
 - `GetStatisticsAsync()` → `JsonObject` (throws if the dataset does not exist).
 - `CreateItemsPublicUrlAsync(DatasetListItemsOptions? options = null, int? expiresInSecs = null, DownloadItemsFormat? format = null)` → `string` (a signed public URL; `format` defaults to `Json`).
@@ -69,6 +73,7 @@ API's export formats:
 
 ```csharp
 using System;
+using System.IO;
 using System.Text;
 using Apify.Client;
 using Apify.Client.Options;
@@ -80,6 +85,11 @@ var page = await client.Dataset(dataset.Id!).ListItemsAsync(new DatasetListItems
 Console.WriteLine(page.Count); // items in this page; page.Total is the count across all pages
 var csvBytes = await client.Dataset(dataset.Id!).DownloadItemsAsync(DownloadItemsFormat.Csv);
 Console.WriteLine(Encoding.UTF8.GetString(csvBytes)); // CSV is text; decode the raw bytes
+
+// Stream a large export to a file instead of buffering it all in memory.
+await using var csvStream = await client.Dataset(dataset.Id!).StreamItemsAsync(DownloadItemsFormat.Csv);
+await using var file = File.Create("items.csv");
+await csvStream.CopyToAsync(file);
 ```
 
 ## Key-value stores
@@ -87,7 +97,9 @@ Console.WriteLine(Encoding.UTF8.GetString(csvBytes)); // CSV is text; decode the
 `client.KeyValueStores()` / `client.KeyValueStore(id)`.
 
 - `GetAsync()` → `KeyValueStore?`; `UpdateAsync(object newFields)` → `KeyValueStore`; `DeleteAsync()`.
-- `ListKeysAsync(ListKeysOptions? options = null)` → `KeyValueStoreKeysPage`.
+- `ListKeysAsync(ListKeysOptions? options = null)` → `KeyValueStoreKeysPage` (one page).
+- `IterateKeysAsync(IterateKeysOptions? options = null)` → `IAsyncEnumerable<KeyValueStoreKey>` — lazily
+  iterate every key across pages, fetching each page (sized by `MaxPageLimit`) on demand.
 - `RecordExistsAsync(string key)` → `bool`.
 - `GetRecordAsync(string key, GetRecordOptions? options = null)` → `KeyValueStoreRecord?`.
   `KeyValueStoreRecord.Value` is a `byte[]` of the record's raw bytes (so binary records survive intact);
@@ -101,8 +113,11 @@ Console.WriteLine(Encoding.UTF8.GetString(csvBytes)); // CSV is text; decode the
 
 `ListKeysOptions` fields: `Limit` (page size), `ExclusiveStartKey` (start after this key),
 `Prefix` (only keys with this prefix), `Collection` (a named record collection), and `Signature`
-(for signed public URLs). `GetRecordOptions` fields: `Attachment` (request a download disposition)
-and `Signature`. `SetRecordOptions` fields: `TimeoutSecs` and `DoNotRetryTimeouts`.
+(for signed public URLs). `IterateKeysOptions` fields: `Limit` (total across all pages),
+`MaxPageLimit` (page size; client-side only, never sent to the API — defaults to 1000),
+`ExclusiveStartKey`, `Collection`, and `Prefix`. `GetRecordOptions` fields: `Attachment` (request a
+download disposition) and `Signature`. `SetRecordOptions` fields: `TimeoutSecs`, `DoNotRetryTimeouts`,
+and `ContentEncoding` (upload a value that is already compressed — see below).
 
 ```csharp
 using System;
@@ -126,6 +141,40 @@ if (record is not null)
 
 // Write raw bytes directly (binary-safe).
 await client.KeyValueStore(store.Id!).SetRecordAsync("blob", new byte[] { 0x00, 0xFF }, "application/octet-stream");
+```
+
+### Uploading a pre-compressed record
+
+`SetRecordOptions.ContentEncoding` uploads a value you already compressed yourself (`gzip`, `br`,
+`deflate`, or `identity`), sent verbatim as the `Content-Encoding` header: the client sends the bytes
+as-is and skips its own compression, so they are never compressed twice.
+
+```csharp
+using System.IO;
+using System.IO.Compression;
+using Apify.Client;
+using Apify.Client.Options;
+
+var client = new ApifyClient("my-api-token");
+var store = await client.KeyValueStores().GetOrCreateAsync("my-store");
+
+byte[] Gzip(byte[] data)
+{
+    using var output = new MemoryStream();
+    using (var gzip = new GZipStream(output, CompressionMode.Compress))
+    {
+        gzip.Write(data, 0, data.Length);
+    }
+
+    return output.ToArray();
+}
+
+var gzippedReport = Gzip(System.Text.Encoding.UTF8.GetBytes("{\"rows\":1000000}"));
+await client.KeyValueStore(store.Id!).SetRecordAsync(
+    "report.json",
+    gzippedReport,
+    "application/json",
+    new SetRecordOptions { ContentEncoding = "gzip" });
 ```
 
 ## Request queues

@@ -15,4 +15,12 @@ public sealed class SetRecordOptions
 
     /// <summary>If <c>true</c>, do not retry the upload when it fails with a request timeout.</summary>
     public bool DoNotRetryTimeouts { get; init; }
+
+    /// <summary>
+    /// Encoding already applied to the record value, sent verbatim as the <c>Content-Encoding</c> header.
+    /// Set it to upload a pre-compressed value (<c>gzip</c>, <c>br</c>, <c>deflate</c>, or <c>identity</c>):
+    /// the client then sends the bytes as they are and skips its own compression, so they are never
+    /// compressed twice. Must not be empty or whitespace-only.
+    /// </summary>
+    public string? ContentEncoding { get; init; }
 }

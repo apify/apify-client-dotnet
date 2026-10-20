@@ -203,4 +203,111 @@ public sealed class AutoPagingTests
         Assert.Contains("offset=0", transport.Received[0].Uri, StringComparison.Ordinal);
         Assert.Contains("offset=1", transport.Received[1].Uri, StringComparison.Ordinal);
     }
+
+    [Fact]
+    public async Task KeyValueStoreIterateKeysWalksAllPagesByExclusiveStartKey()
+    {
+        var transport = new MockTransport()
+            .QueueResponse(200, "{\"data\":{\"items\":[{\"key\":\"a\"},{\"key\":\"b\"}],\"limit\":2,\"isTruncated\":true,\"nextExclusiveStartKey\":\"b\"}}")
+            .QueueResponse(200, "{\"data\":{\"items\":[{\"key\":\"c\"}],\"limit\":2,\"isTruncated\":false}}");
+
+        var keys = new List<string?>();
+        await foreach (var key in Client(transport).KeyValueStore("s1").IterateKeysAsync(new IterateKeysOptions { MaxPageLimit = 2 }))
+        {
+            keys.Add(key.Key);
+        }
+
+        Assert.Equal(new[] { "a", "b", "c" }, keys);
+        Assert.Equal(2, transport.CallCount);
+        Assert.Contains("limit=2", transport.Received[0].Uri, StringComparison.Ordinal);
+        Assert.DoesNotContain("exclusiveStartKey=", transport.Received[0].Uri, StringComparison.Ordinal);
+        Assert.Contains("exclusiveStartKey=b", transport.Received[1].Uri, StringComparison.Ordinal);
+        // chunkSize/maxPageLimit is client-side only and must never reach the API query string.
+        Assert.DoesNotContain("maxPageLimit", transport.Received[1].Uri, StringComparison.Ordinal);
+        Assert.DoesNotContain("chunkSize", transport.Received[1].Uri, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task KeyValueStoreIterateKeysStopsAtLimit()
+    {
+        var transport = new MockTransport()
+            .QueueResponse(200, "{\"data\":{\"items\":[{\"key\":\"a\"},{\"key\":\"b\"}],\"limit\":2,\"isTruncated\":true,\"nextExclusiveStartKey\":\"b\"}}");
+
+        var keys = new List<string?>();
+        await foreach (var key in Client(transport).KeyValueStore("s1").IterateKeysAsync(new IterateKeysOptions { Limit = 2 }))
+        {
+            keys.Add(key.Key);
+        }
+
+        // Limit=2 is satisfied by the first page, so no second page is fetched even though isTruncated=true.
+        Assert.Equal(new[] { "a", "b" }, keys);
+        Assert.Equal(1, transport.CallCount);
+    }
+
+    [Fact]
+    public async Task KeyValueStoreIterateKeysWithZeroLimitYieldsNoneAndMakesNoRequest()
+    {
+        // Regression test: the API reads a literal limit=0 as unbounded, not zero, so Limit=0 must stop
+        // before ever building a request rather than send 0 and yield whatever the API returns anyway.
+        var transport = new MockTransport();
+
+        var keys = new List<string?>();
+        await foreach (var key in Client(transport).KeyValueStore("s1").IterateKeysAsync(new IterateKeysOptions { Limit = 0 }))
+        {
+            keys.Add(key.Key);
+        }
+
+        Assert.Empty(keys);
+        Assert.Equal(0, transport.CallCount);
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-1)]
+    public async Task KeyValueStoreIterateKeysRejectsNonPositiveMaxPageLimit(int maxPageLimit)
+    {
+        var transport = new MockTransport();
+
+        await Assert.ThrowsAsync<ArgumentException>(async () =>
+        {
+            await foreach (var _ in Client(transport).KeyValueStore("s1").IterateKeysAsync(new IterateKeysOptions { MaxPageLimit = maxPageLimit }))
+            {
+            }
+        });
+        Assert.Equal(0, transport.CallCount);
+    }
+
+    [Fact]
+    public async Task KeyValueStoreIterateKeysRejectsNegativeLimit()
+    {
+        var transport = new MockTransport();
+
+        await Assert.ThrowsAsync<ArgumentException>(async () =>
+        {
+            await foreach (var _ in Client(transport).KeyValueStore("s1").IterateKeysAsync(new IterateKeysOptions { Limit = -1 }))
+            {
+            }
+        });
+        Assert.Equal(0, transport.CallCount);
+    }
+
+    [Fact]
+    public async Task KeyValueStoreIterateKeysStopsOnTruncatedPageWithNullCursor()
+    {
+        // Regression test: the continuation decision must follow `nextExclusiveStartKey`, not
+        // `isTruncated` alone (mirrors apify-client-js `key_value_store.ts` listKeys iteration). A page
+        // reporting `isTruncated=true` with a null/absent cursor must still stop iteration instead of
+        // looping back to the same first page forever and yielding duplicate keys.
+        var transport = new MockTransport()
+            .QueueResponse(200, "{\"data\":{\"items\":[{\"key\":\"a\"},{\"key\":\"b\"}],\"limit\":2,\"isTruncated\":true}}");
+
+        var keys = new List<string?>();
+        await foreach (var key in Client(transport).KeyValueStore("s1").IterateKeysAsync(new IterateKeysOptions { MaxPageLimit = 2 }))
+        {
+            keys.Add(key.Key);
+        }
+
+        Assert.Equal(new[] { "a", "b" }, keys);
+        Assert.Equal(1, transport.CallCount);
+    }
 }

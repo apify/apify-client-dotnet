@@ -1,5 +1,7 @@
 using System;
+using System.Collections.Generic;
 using System.Net.Http;
+using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
 using Apify.Client.Exceptions;
@@ -63,6 +65,94 @@ public sealed class KeyValueStoreClient
         return KeyValueStoreKeysPage.FromData(await _ctx.GetResourceRequiredAsync("keys", q, RequestTier.Medium, cancellationToken).ConfigureAwait(false));
     }
 
+    /// <summary>
+    /// Lazily iterates over the store's keys across pages, fetching each page on demand. Mirrors the
+    /// reference client's chunked <c>listKeys()</c> iteration.
+    /// </summary>
+    /// <remarks>
+    /// With no options it fetches pages of up to <see cref="IterateKeysOptions.DefaultMaxPageLimit"/> keys
+    /// until the store is exhausted. <c>Limit</c> caps the total number of keys yielded across all pages —
+    /// <c>0</c> yields none, without issuing any request (the API itself reads a literal <c>limit=0</c> as
+    /// unbounded, not zero, so this is checked before building the request rather than left to the API), and
+    /// must not be negative. <c>MaxPageLimit</c> caps the page size (never sent to the API itself) and must
+    /// be positive, and <c>ExclusiveStartKey</c> chooses the starting point (first page only).
+    /// </remarks>
+    /// <param name="options">Optional iteration options.</param>
+    /// <param name="cancellationToken">A token to cancel the iteration.</param>
+    /// <exception cref="ArgumentException">
+    /// <see cref="IterateKeysOptions.MaxPageLimit"/> is zero or negative, or <see cref="IterateKeysOptions.Limit"/>
+    /// is negative.
+    /// </exception>
+    public async IAsyncEnumerable<KeyValueStoreKey> IterateKeysAsync(
+        IterateKeysOptions? options = null,
+        [EnumeratorCancellation] CancellationToken cancellationToken = default)
+    {
+        options ??= new IterateKeysOptions();
+        if (options.MaxPageLimit is <= 0)
+        {
+            throw new ArgumentException("IterateKeysOptions.MaxPageLimit must be positive.", nameof(options));
+        }
+
+        if (options.Limit is < 0)
+        {
+            throw new ArgumentException("IterateKeysOptions.Limit must not be negative.", nameof(options));
+        }
+
+        var maxPageLimit = options.MaxPageLimit ?? IterateKeysOptions.DefaultMaxPageLimit;
+        var limit = options.Limit; // total across all pages; null = unbounded
+        var nextExclusiveStartKey = options.ExclusiveStartKey;
+        var iterated = 0;
+
+        while (true)
+        {
+            // Checked before building the request, not only after: the API reads a literal `limit=0` as
+            // unset (unbounded) rather than "zero", so a Limit of 0 (or one already exhausted by a prior
+            // page) must stop here instead of reaching the wire as 0 and fetching a full page regardless.
+            if (limit is not null && iterated >= limit.Value)
+            {
+                yield break;
+            }
+
+            var pageLimit = limit is not null ? Math.Min(maxPageLimit, limit.Value - iterated) : maxPageLimit;
+
+            var page = await ListKeysAsync(
+                new ListKeysOptions
+                {
+                    Limit = pageLimit,
+                    ExclusiveStartKey = nextExclusiveStartKey,
+                    Collection = options.Collection,
+                    Prefix = options.Prefix,
+                },
+                cancellationToken).ConfigureAwait(false);
+
+            if (page.Items.Count == 0)
+            {
+                yield break;
+            }
+
+            foreach (var item in page.Items)
+            {
+                yield return item;
+            }
+
+            iterated += page.Items.Count;
+
+            // Continue only while there is a next cursor to follow — mirrors the reference client
+            // (apify-client-js `key_value_store.ts` listKeys iteration), which continues on
+            // `nextExclusiveStartKey != null` rather than on `isTruncated` alone. The API answers with
+            // `null` on the last page and omits the field entirely for a listing that was not truncated,
+            // but `isTruncated` alone is not a safe continuation signal: if it were ever `true` alongside a
+            // null/absent cursor, looping on it would re-fetch the same first page forever (no
+            // `exclusiveStartKey` reaches the wire for a null cursor), yielding duplicate keys.
+            if (page.NextExclusiveStartKey is null || (limit is not null && iterated >= limit.Value))
+            {
+                yield break;
+            }
+
+            nextExclusiveStartKey = page.NextExclusiveStartKey;
+        }
+    }
+
     /// <summary>Reports whether a record with the given key exists.</summary>
     /// <param name="key">The record key.</param>
     /// <param name="cancellationToken">A token to cancel the request.</param>
@@ -98,15 +188,21 @@ public sealed class KeyValueStoreClient
 
     /// <summary>
     /// Stores a record with raw bytes and the given content type, honoring the given write options
-    /// (<c>TimeoutSecs</c>, <c>DoNotRetryTimeouts</c>).
+    /// (<c>TimeoutSecs</c>, <c>DoNotRetryTimeouts</c>, <c>ContentEncoding</c>).
     /// </summary>
     /// <param name="key">The record key.</param>
-    /// <param name="value">The raw record bytes.</param>
+    /// <param name="value">
+    /// The raw record bytes. With <see cref="SetRecordOptions.ContentEncoding"/> set, these must already be
+    /// encoded that way (e.g. already gzipped) — the client sends them as-is and does not compress them
+    /// again.
+    /// </param>
     /// <param name="contentType">
     /// The record's MIME type. Worth setting precisely for media and archives: the client skips
     /// compressing a body whose content type already carries its own compression (images, audio, video,
     /// archives, office/ZIP formats, web fonts). <c>application/octet-stream</c> — the usual choice for
     /// data of an unknown or mixed binary type — is treated as compressible, since it could hold anything.
+    /// This content-type-based skip does not apply when <see cref="SetRecordOptions.ContentEncoding"/> is
+    /// set: that always skips the client's own compression, regardless of content type.
     /// </param>
     /// <param name="options">Optional write options.</param>
     /// <param name="cancellationToken">A token to cancel the request.</param>
@@ -114,6 +210,16 @@ public sealed class KeyValueStoreClient
     {
         options ??= new SetRecordOptions();
         var timeout = options.TimeoutSecs is not null ? TimeSpan.FromSeconds(options.TimeoutSecs.Value) : (TimeSpan?)null;
+        string? contentEncoding = null;
+        if (options.ContentEncoding is not null)
+        {
+            contentEncoding = options.ContentEncoding.Trim();
+            if (contentEncoding.Length == 0)
+            {
+                throw new ArgumentException("ContentEncoding must not be empty or whitespace-only.", nameof(options));
+            }
+        }
+
         return _ctx.PutRawAsync(
             "records/" + ResourceContext.EncodePathSegment(key),
             new QueryParams(),
@@ -122,7 +228,8 @@ public sealed class KeyValueStoreClient
             timeout,
             options.DoNotRetryTimeouts,
             RequestTier.Long,
-            cancellationToken);
+            cancellationToken,
+            contentEncoding);
     }
 
     /// <summary>Stores a record holding the JSON serialization of <paramref name="value"/>.</summary>
