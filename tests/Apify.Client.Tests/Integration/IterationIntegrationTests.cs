@@ -358,7 +358,7 @@ public sealed class IterationIntegrationTests : IntegrationTestBase
                     async () =>
                     {
                         seen.Clear();
-                        await foreach (var item in dataset.IterateItemsAsync())
+                        await foreach (var item in dataset.IterateItemsAsync(new DatasetListItemsOptions { ChunkSize = 2 }))
                         {
                             seen.Add(item!["n"]!.GetValue<int>());
                         }
@@ -369,12 +369,12 @@ public sealed class IterationIntegrationTests : IntegrationTestBase
             Assert.Equal(Enumerable.Range(0, total), seen);
 
             var limited = new List<int>();
-            await foreach (var item in dataset.IterateItemsAsync(new DatasetListItemsOptions { Offset = 1, Limit = 2 }))
+            await foreach (var item in dataset.IterateItemsAsync(new DatasetListItemsOptions { Offset = 1, Limit = 3, ChunkSize = 2 }))
             {
                 limited.Add(item!["n"]!.GetValue<int>());
             }
 
-            Assert.Equal(new[] { 1, 2 }, limited);
+            Assert.Equal(new[] { 1, 2, 3 }, limited);
         }
         finally
         {

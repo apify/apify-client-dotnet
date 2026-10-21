@@ -141,8 +141,7 @@ public sealed class TaskClient
     /// <param name="cancellationToken">A token to cancel the request.</param>
     public async Task<JsonNode?> GetInputAsync(CancellationToken cancellationToken = default)
     {
-        var body = await _ctx.GetRawRequiredAsync("input", new QueryParams(), RequestTier.Short, cancellationToken).ConfigureAwait(false);
-        return Json.Decode(body);
+        return await _ctx.GetJsonRequiredAsync("input", new QueryParams(), RequestTier.Short, cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>Replaces the task's stored input and returns the updated input.</summary>
@@ -158,7 +157,7 @@ public sealed class TaskClient
             timeout: _ctx.RequestTimeout,
             tier: RequestTier.Short,
             cancellationToken: cancellationToken).ConfigureAwait(false);
-        return Json.Decode(await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false));
+        return await response.ReadJsonAsync(cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>Returns a client for the last run of this task, optionally filtered by status and/or origin.</summary>

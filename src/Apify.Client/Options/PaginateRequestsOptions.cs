@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using Apify.Client.Internal;
 
 namespace Apify.Client.Options;
 
@@ -23,7 +24,16 @@ public sealed class PaginateRequestsOptions
     /// <summary>Maximum total number of requests to iterate across all pages (<c>null</c> for no bound).</summary>
     public int? Limit { get; init; }
 
-    /// <summary>Maximum number of requests fetched per page (defaults to <see cref="DefaultMaxPageLimit"/>).</summary>
+    /// <summary>
+    /// Maximum number of requests fetched per API call (must be positive; defaults to
+    /// <see cref="DefaultMaxPageLimit"/>). Matches the reference client's <c>chunkSize</c>.
+    /// </summary>
+    public int? ChunkSize { get; init; }
+
+    /// <summary>
+    /// The earlier name of <see cref="ChunkSize"/>, kept so existing callers keep working.
+    /// <see cref="ChunkSize"/> takes precedence when both are set.
+    /// </summary>
     public int? MaxPageLimit { get; init; }
 
     /// <summary>Start iterating after this request ID (first page only; mutually exclusive with cursor).</summary>
@@ -41,6 +51,9 @@ public sealed class PaginateRequestsOptions
     /// <summary>Validates the options for API-level constraints.</summary>
     internal void Validate()
     {
+        PageSizing.ValidateChunkSize(ChunkSize, nameof(ChunkSize));
+        PageSizing.ValidateChunkSize(MaxPageLimit, nameof(MaxPageLimit));
+
         if (ExclusiveStartId is not null && Cursor is not null)
         {
             throw new ArgumentException("PaginateRequestsOptions: ExclusiveStartId and Cursor are mutually exclusive");

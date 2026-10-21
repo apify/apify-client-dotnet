@@ -1,6 +1,5 @@
 using System.Text.Encodings.Web;
 using System.Text.Json;
-using Apify.Client.Exceptions;
 using System.Text.Json.Nodes;
 
 namespace Apify.Client.Internal;
@@ -27,8 +26,9 @@ internal static class Json
         value?.ToJsonString(SerializerOptions) ?? "null";
 
     /// <summary>
-    /// Decodes a JSON response body into a <see cref="JsonNode"/> (<c>null</c> for an empty body).
-    /// Throws <see cref="InvalidResponseBodyException"/> when the body is not valid JSON.
+    /// Decodes a JSON string into a <see cref="JsonNode"/> (<c>null</c> for an empty body). Throws
+    /// <see cref="JsonException"/> when it is not valid JSON; response bodies go through
+    /// <see cref="ResponseReader"/>, which turns that into an <see cref="Apify.Client.Exceptions.InvalidResponseBodyException"/>.
     /// </summary>
     public static JsonNode? Decode(string body)
     {
@@ -37,28 +37,7 @@ internal static class Json
             return null;
         }
 
-        try
-        {
-            return JsonNode.Parse(body);
-        }
-        catch (JsonException ex)
-        {
-            throw new InvalidResponseBodyException("response body is not valid JSON: " + ex.Message, ex);
-        }
-    }
-
-    /// <summary>
-    /// Decodes a JSON response body wrapped in a <c>{"data": ...}</c> envelope, returning the unwrapped
-    /// <c>data</c> value (or <c>null</c> if it is absent/null).
-    /// </summary>
-    public static JsonNode? DecodeData(string body)
-    {
-        if (Decode(body) is JsonObject obj && obj.TryGetPropertyValue("data", out var data))
-        {
-            return data;
-        }
-
-        return null;
+        return JsonNode.Parse(body);
     }
 
     /// <summary>Attempts to decode a body, returning <c>null</c> on any parse error.</summary>
@@ -68,7 +47,7 @@ internal static class Json
         {
             return Decode(body);
         }
-        catch (InvalidResponseBodyException)
+        catch (JsonException)
         {
             return null;
         }

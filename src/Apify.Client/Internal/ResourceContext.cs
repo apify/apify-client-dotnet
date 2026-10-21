@@ -170,8 +170,7 @@ internal sealed class ResourceContext
     {
         var url = MergedParams(p).ApplyToUrl(SubUrl(subPath));
         using var response = await Http.CallAsync(HttpMethod.Get, url, timeout: _requestTimeout, tier: tier, cancellationToken: ct).ConfigureAwait(false);
-        var body = await response.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
-        return Json.DecodeData(body);
+        return await response.ReadDataAsync(ct).ConfigureAwait(false);
     }
 
     /// <summary>PUT to update a resource with a JSON-serializable body, returning the decoded <c>data</c>.</summary>
@@ -179,7 +178,7 @@ internal sealed class ResourceContext
     {
         var url = MergedParams(new QueryParams()).ApplyToUrl(SubUrl(subPath));
         using var response = await Http.CallAsync(HttpMethod.Put, url, Json.Encode(body), ContentTypeJson, _requestTimeout, tier: tier, cancellationToken: ct).ConfigureAwait(false);
-        return AsObject(Json.DecodeData(await response.Content.ReadAsStringAsync(ct).ConfigureAwait(false)));
+        return await response.ReadDataObjectAsync(ct).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -233,18 +232,25 @@ internal sealed class ResourceContext
         QueryParams baseQuery,
         int startOffset,
         int? limit,
+        int? chunkSize,
         Func<JsonObject, T> hydrate,
         RequestTier tier,
         [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken ct)
     {
+        PageSizing.ValidateChunkSize(chunkSize, "ChunkSize");
         var offset = Math.Max(startOffset, 0);
         var yielded = 0;
         while (true)
         {
             var q = baseQuery.Copy().Set("offset", offset);
-            if (limit is not null)
+            var pageLimit = PageSizing.PageLimit(chunkSize, limit is null ? null : Math.Max(limit.Value - yielded, 0));
+            if (pageLimit is not null)
             {
-                q.Set("limit", Math.Max(limit.Value - yielded, 0));
+                q.Set("limit", pageLimit.Value);
+            }
+            else if (limit is not null)
+            {
+                q.Set("limit", 0);
             }
 
             var page = await ListResourceAsync(subPath, q, hydrate, tier, ct).ConfigureAwait(false);
@@ -267,7 +273,7 @@ internal sealed class ResourceContext
     {
         var url = MergedParams(p).ApplyToUrl(SubUrl(string.Empty));
         using var response = await Http.CallAsync(HttpMethod.Post, url, Json.Encode(body), ContentTypeJson, _requestTimeout, tier: tier, cancellationToken: ct).ConfigureAwait(false);
-        return AsObject(Json.DecodeData(await response.Content.ReadAsStringAsync(ct).ConfigureAwait(false)));
+        return await response.ReadDataObjectAsync(ct).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -286,7 +292,7 @@ internal sealed class ResourceContext
         using var response = schema is not null
             ? await Http.CallAsync(HttpMethod.Post, url, Json.Encode(new JsonObject { ["schema"] = schema.DeepClone() }), ContentTypeJson, _requestTimeout, tier: RequestTier.Short, cancellationToken: ct).ConfigureAwait(false)
             : await Http.CallAsync(HttpMethod.Post, url, timeout: _requestTimeout, tier: RequestTier.Short, cancellationToken: ct).ConfigureAwait(false);
-        return AsObject(Json.DecodeData(await response.Content.ReadAsStringAsync(ct).ConfigureAwait(false)));
+        return await response.ReadDataObjectAsync(ct).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -298,7 +304,7 @@ internal sealed class ResourceContext
     {
         var url = MergedParams(p).ApplyToUrl(SubUrl(subPath));
         using var response = await Http.CallAsync(HttpMethod.Post, url, body, contentType, _requestTimeout, bodyBytes: bodyBytes, tier: tier, cancellationToken: ct).ConfigureAwait(false);
-        return AsObject(Json.DecodeData(await response.Content.ReadAsStringAsync(ct).ConfigureAwait(false)));
+        return await response.ReadDataObjectAsync(ct).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -311,7 +317,7 @@ internal sealed class ResourceContext
     {
         var url = MergedParams(p).ApplyToUrl(SubUrl(subPath));
         using var response = await Http.CallAsync(HttpMethod.Post, url, body, contentType, _requestTimeout, bodyBytes: bodyBytes, tier: tier, cancellationToken: ct).ConfigureAwait(false);
-        return Json.Decode(await response.Content.ReadAsStringAsync(ct).ConfigureAwait(false));
+        return await response.ReadJsonAsync(ct).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -340,7 +346,7 @@ internal sealed class ResourceContext
     {
         var url = MergedParams(p).ApplyToUrl(SubUrl(subPath));
         using var response = await Http.CallAsync(HttpMethod.Delete, url, Json.Encode(body), ContentTypeJson, _requestTimeout, tier: tier, cancellationToken: ct).ConfigureAwait(false);
-        return AsObject(Json.DecodeData(await response.Content.ReadAsStringAsync(ct).ConfigureAwait(false)));
+        return await response.ReadDataObjectAsync(ct).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -371,6 +377,40 @@ internal sealed class ResourceContext
         var url = MergedParams(p).ApplyToUrl(SubUrl(subPath));
         using var response = await Http.CallAsync(HttpMethod.Get, url, timeout: _requestTimeout, tier: tier, cancellationToken: ct).ConfigureAwait(false);
         return await response.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// GET returning a JSON body that is not wrapped in a data envelope; propagates a 404 (see
+    /// <see cref="GetRawRequiredAsync"/> for why). Returns a JSON <c>null</c> node for an empty body.
+    /// </summary>
+    public async Task<JsonNode?> GetJsonRequiredAsync(string subPath, QueryParams p, RequestTier tier, CancellationToken ct)
+    {
+        var url = MergedParams(p).ApplyToUrl(SubUrl(subPath));
+        using var response = await Http.CallAsync(HttpMethod.Get, url, timeout: _requestTimeout, tier: tier, cancellationToken: ct).ConfigureAwait(false);
+        return await response.ReadJsonAsync(ct).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// GET returning a JSON body that is not wrapped in a data envelope. Returns <c>null</c> on not-found.
+    /// </summary>
+    public async Task<JsonNode?> GetJsonAsync(string subPath, QueryParams p, RequestTier tier, CancellationToken ct)
+    {
+        try
+        {
+            return await GetJsonRequiredAsync(subPath, p, tier, ct).ConfigureAwait(false);
+        }
+        catch (ApifyApiException e) when (HttpClientCore.IsNotFound(e))
+        {
+            return null;
+        }
+    }
+
+    /// <summary>GET returning a data-enveloped object; propagates a 404 (see <see cref="GetRawRequiredAsync"/> for why).</summary>
+    public async Task<JsonObject> GetDataObjectRequiredAsync(string subPath, QueryParams p, RequestTier tier, CancellationToken ct)
+    {
+        var url = MergedParams(p).ApplyToUrl(SubUrl(subPath));
+        using var response = await Http.CallAsync(HttpMethod.Get, url, timeout: _requestTimeout, tier: tier, cancellationToken: ct).ConfigureAwait(false);
+        return await response.ReadDataObjectAsync(ct).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -537,13 +577,6 @@ internal sealed class ResourceContext
         throw new InvalidOperationException(
             $"waiting for {resourceName} to finish failed: cannot fetch {resourceName} details from the server");
     }
-
-    /// <summary>
-    /// Coerces a decoded value to a JSON object. Endpoints that return a resource object always decode to
-    /// an object; a non-object (e.g. an unexpected <c>null</c> data field) becomes an empty object so model
-    /// construction stays type-safe.
-    /// </summary>
-    private static JsonObject AsObject(JsonNode? value) => value as JsonObject ?? new JsonObject();
 
     // ---- URL / id helpers -----------------------------------------------------
 

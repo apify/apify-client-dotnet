@@ -11,6 +11,13 @@ public sealed class StoreListOptions
     /// <summary>Maximum number of Actors to return (also the per-page size when iterating).</summary>
     public int? Limit { get; init; }
 
+    /// <summary>
+    /// Maximum number of items requested per API call when iterating across pages (must be positive). Only
+    /// iteration uses it, as the page size; it is never sent to the API. The effective page size is the
+    /// smaller of this and the remaining <c>Limit</c>. Defaults to the API's own page size.
+    /// </summary>
+    public int? ChunkSize { get; init; }
+
     /// <summary>Full-text search query.</summary>
     public string? Search { get; init; }
 
@@ -39,10 +46,10 @@ public sealed class StoreListOptions
     public string? ResponseFormat { get; init; }
 
     /// <summary>Returns a copy of these options with a new <see cref="Offset"/> (used by lazy iteration).</summary>
-    internal StoreListOptions WithOffset(int? offset) => new()
+    internal StoreListOptions WithPage(int? offset, int? limit) => new()
     {
         Offset = offset,
-        Limit = Limit,
+        Limit = limit,
         Search = Search,
         SortBy = SortBy,
         Category = Category,

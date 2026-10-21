@@ -30,20 +30,23 @@ public sealed class StoreCollectionClient
     }
 
     /// <summary>
-    /// Lazily iterates over all Store Actors matching the options, fetching pages on demand. The options'
-    /// <c>Limit</c> (if set) is used as the per-page size.
+    /// Lazily iterates over all Store Actors matching the options, fetching pages on demand. The page size
+    /// is the options' <c>ChunkSize</c>, falling back to <c>Limit</c> (which here is the per-page size, not
+    /// a total cap), falling back to the API default.
     /// </summary>
-    /// <param name="options">Optional listing filters; <c>Limit</c> is used as the page size.</param>
+    /// <param name="options">Optional listing filters; <c>ChunkSize</c> (or else <c>Limit</c>) is the page size.</param>
     /// <param name="cancellationToken">A token to cancel the iteration.</param>
     public async IAsyncEnumerable<ActorStoreListItem> IterateAsync(
         StoreListOptions? options = null,
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
         options ??= new StoreListOptions();
+        PageSizing.ValidateChunkSize(options.ChunkSize, nameof(StoreListOptions.ChunkSize));
+        var pageSize = options.ChunkSize ?? options.Limit;
         var offset = options.Offset ?? 0;
         while (true)
         {
-            var page = await ListAsync(options.WithOffset(offset), cancellationToken).ConfigureAwait(false);
+            var page = await ListAsync(options.WithPage(offset, pageSize), cancellationToken).ConfigureAwait(false);
             var items = page.Items;
             foreach (var item in items)
             {

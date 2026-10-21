@@ -14,6 +14,8 @@
     <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2" />
     <!-- Enables dynamic test skipping ([SkippableFact] + Skip.If) when APIFY_TOKEN is not set. -->
     <PackageReference Include="Xunit.SkippableFact" Version="1.5.23" />
+    <!-- Compiles the C# snippets in the README and docs (DocumentationSnippetTests). -->
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.11.0" />
   </ItemGroup>
 
   <ItemGroup>

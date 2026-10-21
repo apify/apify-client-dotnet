@@ -256,14 +256,16 @@ public sealed class RunClient
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
         options ??= new RunIterateDatasetItemsOptions();
-        var chunkSize = options.ChunkSize is > 0 ? options.ChunkSize.Value : RunIterateDatasetItemsOptions.DefaultChunkSize;
+        PageSizing.ValidateChunkSize(options.ChunkSize, nameof(RunIterateDatasetItemsOptions.ChunkSize));
+        var chunkSize = options.ChunkSize ?? RunIterateDatasetItemsOptions.DefaultChunkSize;
         var pollIntervalSecs = options.PollIntervalSecs ?? RunIterateDatasetItemsOptions.DefaultPollIntervalSecs;
-        ArgumentOutOfRangeException.ThrowIfNegative(pollIntervalSecs, nameof(options));
-        ArgumentOutOfRangeException.ThrowIfNegative(options.Offset ?? 0, nameof(options));
-        ArgumentOutOfRangeException.ThrowIfNegative(options.Limit ?? 0, nameof(options));
+        ArgumentOutOfRangeException.ThrowIfNegative(pollIntervalSecs, nameof(RunIterateDatasetItemsOptions.PollIntervalSecs));
+        ArgumentOutOfRangeException.ThrowIfNegative(options.Offset ?? 0, nameof(RunIterateDatasetItemsOptions.Offset));
+        ArgumentOutOfRangeException.ThrowIfNegative(options.Limit ?? 0, nameof(RunIterateDatasetItemsOptions.Limit));
 
         var position = options.Offset ?? 0;
-        int? end = options.Limit is > 0 ? position + options.Limit.Value : null;
+        // Wider than int: Offset + Limit can exceed int.MaxValue (e.g. Limit = int.MaxValue as "everything").
+        long? end = options.Limit is > 0 ? (long)position + options.Limit.Value : null;
 
         var run = await GetAsync(cancellationToken: cancellationToken).ConfigureAwait(false);
         // A last-run client resolves `runs/last` on each request, so a newer run would swap the dataset
@@ -318,7 +320,7 @@ public sealed class RunClient
         // The run is finished, but `itemCount` lags the pushed items: read the remaining rows page by page.
         while (true)
         {
-            var pageLimit = end is not null ? Math.Min(chunkSize, end.Value - position) : chunkSize;
+            var pageLimit = end is not null ? (int)Math.Min(chunkSize, end.Value - position) : chunkSize;
             var (page, scannedCount) = await datasetClient.FetchItemsPageAsync(ItemsPageOptions(options, position, pageLimit), cancellationToken).ConfigureAwait(false);
             foreach (var item in page.Items)
             {
@@ -363,20 +365,20 @@ public sealed class RunClient
         return page.Items.Count == 0;
     }
 
-    // Nested accessors inherit this client's params so last-run status/origin filters (see
-    // SetLastRunParams) resolve the intended run's storage/log rather than the latest run's.
+    // Nested accessors inherit this client's params, so last-run status/origin filters (see SetLastRunParams)
+    // resolve the intended run's storage/log rather than the latest run's, and its WithTimeout override.
 
     /// <summary>A client for this run's default dataset.</summary>
-    public DatasetClient Dataset() => DatasetClient.Nested(_http, _ctx.SubUrl(""), "dataset", _ctx.BaseParams);
+    public DatasetClient Dataset() => DatasetClient.Nested(_http, _ctx.SubUrl(""), "dataset", _ctx.BaseParams, _ctx.RequestTimeout);
 
     /// <summary>A client for this run's default key-value store.</summary>
-    public KeyValueStoreClient KeyValueStore() => KeyValueStoreClient.Nested(_http, _ctx.SubUrl(""), "key-value-store", _ctx.BaseParams);
+    public KeyValueStoreClient KeyValueStore() => KeyValueStoreClient.Nested(_http, _ctx.SubUrl(""), "key-value-store", _ctx.BaseParams, _ctx.RequestTimeout);
 
     /// <summary>A client for this run's default request queue.</summary>
-    public RequestQueueClient RequestQueue() => RequestQueueClient.Nested(_http, _ctx.SubUrl(""), "request-queue", _ctx.BaseParams);
+    public RequestQueueClient RequestQueue() => RequestQueueClient.Nested(_http, _ctx.SubUrl(""), "request-queue", _ctx.BaseParams, _ctx.RequestTimeout);
 
     /// <summary>A client for accessing this run's log.</summary>
-    public LogClient Log() => LogClient.Nested(_http, _ctx.SubUrl(""), _ctx.BaseParams);
+    public LogClient Log() => LogClient.Nested(_http, _ctx.SubUrl(""), _ctx.BaseParams, _ctx.RequestTimeout);
 
     /// <summary>
     /// Opens a live stream of this run's raw log bytes. The caller reads (and disposes) the returned

@@ -28,8 +28,8 @@ public sealed class DatasetClient
     internal static DatasetClient ForId(HttpClientCore http, string baseUrl, string id)
         => new(http, ResourceContext.Single(http, baseUrl, "datasets", id));
 
-    internal static DatasetClient Nested(HttpClientCore http, string baseUrl, string subPath, QueryParams? inheritedParams = null)
-        => new(http, ResourceContext.NestedSingleton(http, baseUrl, subPath, inheritedParams));
+    internal static DatasetClient Nested(HttpClientCore http, string baseUrl, string subPath, QueryParams? inheritedParams = null, TimeSpan? timeout = null)
+        => new(http, ResourceContext.NestedSingleton(http, baseUrl, subPath, inheritedParams).WithTimeout(timeout));
 
     internal DatasetClient WithPublicBase(string publicBaseUrl)
     {
@@ -102,6 +102,7 @@ public sealed class DatasetClient
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
         options ??= new DatasetListItemsOptions();
+        PageSizing.ValidateChunkSize(options.ChunkSize, nameof(DatasetListItemsOptions.ChunkSize));
         var desc = options.Desc ?? false;
         var baseQuery = new QueryParams();
         options.AppendTo(baseQuery);
@@ -111,9 +112,14 @@ public sealed class DatasetClient
         while (true)
         {
             var q = baseQuery.Copy().Set("offset", offset);
-            if (limit is not null)
+            var pageLimit = PageSizing.PageLimit(options.ChunkSize, limit is null ? null : Math.Max(limit.Value - yielded, 0));
+            if (pageLimit is not null)
             {
-                q.Set("limit", Math.Max(limit.Value - yielded, 0));
+                q.Set("limit", pageLimit.Value);
+            }
+            else if (limit is not null)
+            {
+                q.Set("limit", 0);
             }
 
             var (page, scannedCount) = await FetchItemsPageAsync(q, desc, cancellationToken).ConfigureAwait(false);
@@ -149,15 +155,10 @@ public sealed class DatasetClient
     {
         var url = _ctx.MergedParams(q).ApplyToUrl(_ctx.SubUrl("items"));
         using var response = await _http.CallAsync(HttpMethod.Get, url, timeout: _ctx.RequestTimeout, tier: RequestTier.Long, cancellationToken: cancellationToken).ConfigureAwait(false);
-        var body = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
-
         var items = new List<JsonNode?>();
-        if (Json.Decode(body) is JsonArray array)
+        foreach (var item in await response.ReadJsonArrayAsync(cancellationToken).ConfigureAwait(false))
         {
-            foreach (var item in array)
-            {
-                items.Add(item);
-            }
+            items.Add(item);
         }
 
         var count = items.Count;
@@ -249,8 +250,7 @@ public sealed class DatasetClient
     /// <param name="cancellationToken">A token to cancel the request.</param>
     public async Task<JsonObject> GetStatisticsAsync(CancellationToken cancellationToken = default)
     {
-        var body = await _ctx.GetRawRequiredAsync("statistics", new QueryParams(), RequestTier.Short, cancellationToken).ConfigureAwait(false);
-        return Json.DecodeData(body) as JsonObject ?? new JsonObject();
+        return await _ctx.GetDataObjectRequiredAsync("statistics", new QueryParams(), RequestTier.Short, cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>

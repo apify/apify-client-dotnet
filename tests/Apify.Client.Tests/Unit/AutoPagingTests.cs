@@ -268,7 +268,7 @@ public sealed class AutoPagingTests
     {
         var transport = new MockTransport();
 
-        await Assert.ThrowsAsync<ArgumentException>(async () =>
+        await Assert.ThrowsAsync<ArgumentOutOfRangeException>(async () =>
         {
             await foreach (var _ in Client(transport).KeyValueStore("s1").IterateKeysAsync(new IterateKeysOptions { MaxPageLimit = maxPageLimit }))
             {

@@ -17,6 +17,7 @@ Browse public Actors in the [Apify Store](https://apify.com/store).
 |---|---|---|
 | `Offset` | `int?` | Number of Actors to skip from the start. |
 | `Limit` | `int?` | Maximum number of Actors to return in the page. |
+| `ChunkSize` | `int?` | Page size used by `IterateAsync` (positive); takes precedence over `Limit` as the page size. Never sent to the API. |
 | `Search` | `string?` | Full-text search string to filter Actors by. |
 | `SortBy` | `string?` | Field to sort by (e.g. `popularity`, `newest`). |
 | `Category` | `string?` | Restrict results to a Store category. |

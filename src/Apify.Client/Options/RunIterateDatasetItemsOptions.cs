@@ -24,7 +24,10 @@ public sealed class RunIterateDatasetItemsOptions
     /// </summary>
     public int? Limit { get; init; }
 
-    /// <summary>Maximum number of dataset rows requested per API call (defaults to <see cref="DefaultChunkSize"/>).</summary>
+    /// <summary>
+    /// Maximum number of dataset rows requested per API call (must be positive; defaults to
+    /// <see cref="DefaultChunkSize"/>).
+    /// </summary>
     public int? ChunkSize { get; init; }
 
     /// <summary>How long to wait for the run to finish between polls, in seconds (defaults to <see cref="DefaultPollIntervalSecs"/>).</summary>

@@ -63,12 +63,11 @@ public sealed class BuildClient
     /// <param name="cancellationToken">A token to cancel the request.</param>
     public async Task<JsonObject?> GetOpenApiDefinitionAsync(CancellationToken cancellationToken = default)
     {
-        var body = await _ctx.GetRawAsync("openapi.json", new QueryParams(), RequestTier.Medium, cancellationToken).ConfigureAwait(false);
-        return body is null ? null : Json.Decode(body) as JsonObject;
+        return await _ctx.GetJsonAsync("openapi.json", new QueryParams(), RequestTier.Medium, cancellationToken).ConfigureAwait(false) as JsonObject;
     }
 
     /// <summary>A client for accessing this build's log.</summary>
-    public LogClient Log() => LogClient.Nested(_http, _ctx.SubUrl(""));
+    public LogClient Log() => LogClient.Nested(_http, _ctx.SubUrl(""), timeout: _ctx.RequestTimeout);
 
     /// <summary>
     /// Returns this client with every subsequent call's timeout set to <paramref name="timeout"/>,

@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using Apify.Client.Options;
 using Xunit;
@@ -44,22 +46,32 @@ public sealed class ActorRunIntegrationTests : IntegrationTestBase
         var client = RequireClient();
         var run = await client.Actor("apify/hello-world").CallAsync(null, null, 120);
 
-        var iterated = 0;
+        var iterated = new List<string>();
         await foreach (var item in client.Run(run.Id!).IterateDatasetItemsAsync(new RunIterateDatasetItemsOptions { ChunkSize = 1 }))
         {
             Assert.NotNull(item);
-            iterated++;
+            iterated.Add(item!.ToJsonString());
         }
 
-        // The run is finished, so its dataset is complete. The dataset's reported item count lags the pushed
-        // items by a few seconds (which is why the iterator drains past it), so it must catch up to what the
-        // iterator already read.
+        // hello-world pushes an item, so an iterator that yields nothing is a failure.
+        Assert.NotEmpty(iterated);
+
+        // The run is finished, so its dataset is complete. The dataset listing lags the pushed items by a few
+        // seconds (which is why the iterator drains past the reported item count), so it must catch up to
+        // exactly the items the iterator already read.
+        var listed = new List<string>();
         Assert.True(
             await PollUntilAsync(
                 EventualConsistencyAttempts,
                 EventualConsistencyBackoff,
-                async () => (await client.Run(run.Id!).Dataset().ListItemsAsync(new DatasetListItemsOptions())).Total == iterated),
-            "expected the dataset's item count to catch up with the iterated items");
+                async () =>
+                {
+                    var page = await client.Run(run.Id!).Dataset().ListItemsAsync(new DatasetListItemsOptions());
+                    listed = page.Items.Select(static i => i!.ToJsonString()).ToList();
+                    return listed.Count == iterated.Count;
+                }),
+            "expected the dataset listing to catch up with the iterated items");
+        Assert.Equal(listed, iterated);
     }
 
     [SkippableFact]

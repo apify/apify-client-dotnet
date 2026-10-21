@@ -9,8 +9,21 @@
 - Documented that the rental pricing model (`FLAT_PRICE_PER_MONTH`) is no longer supported and is not an
   accepted `StoreListOptions.PricingModel` filter value.
 - Added `InvalidResponseBodyException` (an `ApifyClientException`), thrown when a successful response's
-  body is not valid JSON, instead of a raw `System.Text.Json.JsonException`. It is not retried. An error
-  status with an unparsable body keeps throwing the `ApifyApiException` for its status code.
+  body is not valid JSON, instead of a raw `System.Text.Json.JsonException`. It is not retried and exposes
+  the status code, HTTP method, path and raw body. An error status with an unparsable body keeps throwing
+  the `ApifyApiException` for its status code.
+- Added `ResponseValidationException` (an `ApifyClientException`), thrown when a successful response is
+  missing the `data` envelope or has a `data` of the wrong type (for example an array where an object is
+  expected), instead of silently returning `null` or an empty object. Matches the reference client's
+  `ResponseValidationError`.
+- Added `ChunkSize` to `ListOptions`, `StorageListOptions`, `ActorListOptions`, `StoreListOptions`,
+  `DatasetListItemsOptions`, `IterateKeysOptions` and `PaginateRequestsOptions`: the page size iterators
+  request (the smaller of it and the remaining `Limit`), matching the reference client's `chunkSize`.
+  `MaxPageLimit` stays as the older name of the same option. A non-positive `ChunkSize` throws
+  `ArgumentOutOfRangeException`.
+- Nested accessors of a run (`Dataset()`, `KeyValueStore()`, `RequestQueue()`, `Log()`) and of a build
+  (`Log()`) now inherit the run's or build's `WithTimeout` override.
+- Added a documentation test that compiles every C# snippet in the README and `docs/`.
 - Added `RunClient.IterateDatasetItemsAsync` (with `RunIterateDatasetItemsOptions`), which iterates a run's
   default dataset while the run is still producing items, matching the reference client's
   `iterateDatasetItems()`.
