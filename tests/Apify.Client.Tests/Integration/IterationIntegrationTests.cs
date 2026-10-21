@@ -178,11 +178,12 @@ public sealed class IterationIntegrationTests : IntegrationTestBase
     {
         var client = RequireClient();
         var ids = new HashSet<string>();
+        var actorId = await CreateWebhookActorAsync(client);
         try
         {
             for (var i = 0; i < 2; i++)
             {
-                ids.Add((await client.Webhooks().CreateAsync(MinimalWebhook("https://example.com/it-wh-" + i))).Id!);
+                ids.Add((await client.Webhooks().CreateAsync(MinimalWebhook("https://example.com/it-wh-" + i, actorId))).Id!);
             }
 
             Assert.True(
@@ -198,6 +199,7 @@ public sealed class IterationIntegrationTests : IntegrationTestBase
             {
                 await client.Webhook(id).DeleteAsync();
             }
+            await client.Actor(actorId).DeleteAsync();
         }
     }
 

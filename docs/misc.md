@@ -21,7 +21,7 @@ Browse public Actors in the [Apify Store](https://apify.com/store).
 | `SortBy` | `string?` | Field to sort by (e.g. `popularity`, `newest`). |
 | `Category` | `string?` | Restrict results to a Store category. |
 | `Username` | `string?` | Restrict results to a given owner's Actors. |
-| `PricingModel` | `string?` | Filter by pricing model (`FREE`, `FLAT_PRICE_PER_MONTH`, `PRICE_PER_DATASET_ITEM`, …). |
+| `PricingModel` | `string?` | Filter by pricing model (`FREE`, `PRICE_PER_DATASET_ITEM`, `PAY_PER_EVENT`; the rental model `FLAT_PRICE_PER_MONTH` is no longer supported). |
 | `IncludeUnrunnableActors` | `bool?` | Include Actors that cannot currently be run. |
 | `AllowsAgenticUsers` | `bool?` | Only Actors that permit agentic (automated) users. |
 | `ResponseFormat` | `string?` | Requested response format. |

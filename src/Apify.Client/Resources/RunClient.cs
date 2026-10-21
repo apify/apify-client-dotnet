@@ -166,6 +166,11 @@ public sealed class RunClient
             ["eventName"] = options.EventName,
             ["count"] = options.CountValue(),
         };
+        if (!string.IsNullOrEmpty(options.RequestId))
+        {
+            body["requestId"] = options.RequestId;
+        }
+
         using var response = await _http.CallAsync(
             HttpMethod.Post,
             _ctx.SubUrl("charge"),

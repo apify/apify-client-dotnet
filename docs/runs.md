@@ -53,6 +53,7 @@ and `RestartOnError` (`bool?`). See [Actors](actors.md) for each field's meaning
 | `EventName` | `string` | Name of the pay-per-event event to charge for (required, non-empty). |
 | `Count` | `int?` | Number of event occurrences to charge (defaults to 1 server-side). |
 | `IdempotencyKey` | `string?` | Key that deduplicates retried charges; auto-generated when omitted. |
+| `RequestId` | `string?` | ID of the Server Actor request being charged (the `X-Actor-Request-ID` header of the incoming request); required for multi-tenant Server Actor runs. Set via object initializer. |
 
 ```csharp
 using Apify.Client;

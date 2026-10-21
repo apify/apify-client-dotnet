@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.7.0
+
+- Bumped `ApifyClientVersion.ApiSpecVersion` to the Apify OpenAPI spec `v2-2026-10-20T121847Z` and
+  the project version to `0.7.0`.
+- Added `RequestId` to `RunChargeOptions`, sent as `requestId` in the charge request body; it identifies
+  the Server Actor request being charged (required for multi-tenant Server Actor runs).
+- Documented that the rental pricing model (`FLAT_PRICE_PER_MONTH`) is no longer supported and is not an
+  accepted `StoreListOptions.PricingModel` filter value.
+- Fixed the webhook integration tests: the API now requires a webhook condition to reference an existing
+  resource, so they use a throwaway Actor owned by the test account instead of a made-up run ID.
+
 ## 0.6.0
 
 - Bumped `ApifyClientVersion.ApiSpecVersion` to the Apify OpenAPI spec `v2-2026-10-19T133704Z` and

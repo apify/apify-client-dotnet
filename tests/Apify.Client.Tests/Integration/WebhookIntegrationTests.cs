@@ -31,7 +31,8 @@ public sealed class WebhookIntegrationTests : IntegrationTestBase
     public async Task GetWebhook()
     {
         var client = RequireClient();
-        var wh = await client.Webhooks().CreateAsync(MinimalWebhook("https://example.com/webhook"));
+        var actorId = await CreateWebhookActorAsync(client);
+        var wh = await CreateWebhookOrCleanUpAsync(client, actorId);
         try
         {
             var got = await client.Webhook(wh.Id!).GetAsync();
@@ -41,6 +42,7 @@ public sealed class WebhookIntegrationTests : IntegrationTestBase
         finally
         {
             await client.Webhook(wh.Id!).DeleteAsync();
+            await client.Actor(actorId).DeleteAsync();
         }
     }
 
@@ -48,7 +50,8 @@ public sealed class WebhookIntegrationTests : IntegrationTestBase
     public async Task GetWebhookDispatch()
     {
         var client = RequireClient();
-        var wh = await client.Webhooks().CreateAsync(MinimalWebhook("https://example.com/webhook"));
+        var actorId = await CreateWebhookActorAsync(client);
+        var wh = await CreateWebhookOrCleanUpAsync(client, actorId);
         try
         {
             var dispatch = await client.Webhook(wh.Id!).TestAsync();
@@ -59,6 +62,7 @@ public sealed class WebhookIntegrationTests : IntegrationTestBase
         finally
         {
             await client.Webhook(wh.Id!).DeleteAsync();
+            await client.Actor(actorId).DeleteAsync();
         }
     }
 
@@ -66,7 +70,8 @@ public sealed class WebhookIntegrationTests : IntegrationTestBase
     public async Task WebhookCrudFlow()
     {
         var client = RequireClient();
-        var wh = await client.Webhooks().CreateAsync(MinimalWebhook("https://example.com/webhook"));
+        var actorId = await CreateWebhookActorAsync(client);
+        var wh = await CreateWebhookOrCleanUpAsync(client, actorId);
         try
         {
             var webhook = client.Webhook(wh.Id!);
@@ -79,6 +84,21 @@ public sealed class WebhookIntegrationTests : IntegrationTestBase
         finally
         {
             await client.Webhook(wh.Id!).DeleteAsync();
+            await client.Actor(actorId).DeleteAsync();
+        }
+    }
+
+    /// <summary>Creates the webhook, deleting the Actor if that fails so a failed test leaks nothing.</summary>
+    private static async Task<Apify.Client.Models.Webhook> CreateWebhookOrCleanUpAsync(ApifyClient client, string actorId)
+    {
+        try
+        {
+            return await client.Webhooks().CreateAsync(MinimalWebhook("https://example.com/webhook", actorId));
+        }
+        catch
+        {
+            await client.Actor(actorId).DeleteAsync();
+            throw;
         }
     }
 }

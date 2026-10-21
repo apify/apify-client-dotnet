@@ -26,6 +26,13 @@ public sealed class RunChargeOptions
     /// <summary>A key that deduplicates the charge across retries.</summary>
     public string? IdempotencyKey { get; }
 
+    /// <summary>
+    /// The ID of the Server Actor request being charged, taken from the <c>X-Actor-Request-ID</c> header of
+    /// the incoming request. Required for multi-tenant Server Actor runs, where it identifies the request
+    /// the charge belongs to.
+    /// </summary>
+    public string? RequestId { get; init; }
+
     /// <summary>The count to send, defaulting to 1.</summary>
     internal int CountValue() => Count ?? 1;
 }

@@ -114,14 +114,21 @@ public abstract class IntegrationTestBase
         actions = Array.Empty<object>(),
     };
 
-    /// <summary>A minimal ad-hoc webhook definition targeting a condition that never actually fires.</summary>
-    protected static object MinimalWebhook(string requestUrl) => new
+    /// <summary>
+    /// A minimal webhook definition that fires on runs of the given Actor. The API requires the condition's
+    /// resource to exist and be accessible, so the Actor must be one the test account owns (see
+    /// <see cref="CreateWebhookActorAsync"/>).
+    /// </summary>
+    protected static object MinimalWebhook(string requestUrl, string actorId) => new
     {
-        isAdHoc = true,
         eventTypes = new[] { "ACTOR.RUN.SUCCEEDED" },
-        condition = new { actorRunId = "ZZZZZZZZZZZZZZZZZ" },
+        condition = new { actorId },
         requestUrl,
     };
+
+    /// <summary>Creates a throwaway Actor owned by the test account, to use as a webhook condition. Delete it when done.</summary>
+    protected static async Task<string> CreateWebhookActorAsync(ApifyClient client)
+        => (await client.Actors().CreateAsync(MinimalActor(UniqueName("wh-act")))).Id!;
 
     /// <summary>
     /// Retries <paramref name="check"/> up to <paramref name="attempts"/> times, sleeping

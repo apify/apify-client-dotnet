@@ -24,8 +24,8 @@ public sealed class StoreListOptions
     public string? Username { get; init; }
 
     /// <summary>
-    /// Filter Actors by pricing model (<c>FREE</c>, <c>FLAT_PRICE_PER_MONTH</c>,
-    /// <c>PRICE_PER_DATASET_ITEM</c>, <c>PAY_PER_EVENT</c>).
+    /// Filter Actors by pricing model (<c>FREE</c>, <c>PRICE_PER_DATASET_ITEM</c>,
+    /// <c>PAY_PER_EVENT</c>). The rental model (<c>FLAT_PRICE_PER_MONTH</c>) is no longer supported.
     /// </summary>
     public string? PricingModel { get; init; }
 

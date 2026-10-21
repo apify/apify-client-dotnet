@@ -118,6 +118,19 @@ public sealed class RequestShapeTests
     }
 
     [Fact]
+    public async Task RunChargeSendsRequestIdOnlyWhenSet()
+    {
+        var transport = new MockTransport().QueueResponse(200, string.Empty).QueueResponse(200, string.Empty);
+        var run = Client(transport).Run("run1");
+
+        await run.ChargeAsync(new RunChargeOptions("e") { RequestId = "req-1" });
+        Assert.Equal("req-1", JsonNode.Parse(transport.LastRequest.Body)!["requestId"]!.GetValue<string>());
+
+        await run.ChargeAsync(new RunChargeOptions("e"));
+        Assert.Null(JsonNode.Parse(transport.LastRequest.Body)!.AsObject()["requestId"]);
+    }
+
+    [Fact]
     public async Task RunChargeUsesProvidedIdempotencyKey()
     {
         var transport = new MockTransport().QueueResponse(200, string.Empty);
