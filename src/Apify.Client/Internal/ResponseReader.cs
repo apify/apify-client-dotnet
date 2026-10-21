@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Net.Http;
 using System.Text.Json;
 using System.Text.Json.Nodes;
@@ -64,7 +65,7 @@ internal static class ResponseReader
         var issues = ResponseSchemas.Validate(MethodOf(response), PathOf(response), node);
         if (issues.Count > 0)
         {
-            throw Invalid(response, body, string.Join("; ", issues));
+            throw Invalid(response, body, issues);
         }
     }
 
@@ -87,8 +88,11 @@ internal static class ResponseReader
     }
 
     private static ResponseValidationException Invalid(HttpResponseMessage response, string body, string problem)
+        => Invalid(response, body, new[] { problem });
+
+    private static ResponseValidationException Invalid(HttpResponseMessage response, string body, IReadOnlyList<string> issues)
         => new(
-            "response does not match the API specification: " + problem,
+            issues,
             (int)response.StatusCode,
             MethodOf(response),
             PathOf(response),

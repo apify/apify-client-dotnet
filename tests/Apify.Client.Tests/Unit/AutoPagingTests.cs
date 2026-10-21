@@ -196,7 +196,7 @@ public sealed class AutoPagingTests
     public async Task DatasetIterateItemsAdvancesByScannedCountNotReturnedItemsWhenUnwindExpandsAPage()
     {
         // Regression test: `unwind` can make a page return more items than rows scanned. Advancing by the
-        // returned item count (3) instead of the scanned count (1) would skip the remaining 4 rows.
+        // returned item count (3) instead of the rows the page was asked to scan (1) would skip rows.
         var page1Headers = new Dictionary<string, string>
         {
             ["X-Apify-Pagination-Total"] = "5",
@@ -208,8 +208,8 @@ public sealed class AutoPagingTests
         {
             ["X-Apify-Pagination-Total"] = "5",
             ["X-Apify-Pagination-Offset"] = "1",
-            ["X-Apify-Pagination-Limit"] = "4",
-            ["X-Apify-Pagination-Count"] = "4",
+            ["X-Apify-Pagination-Limit"] = "1",
+            ["X-Apify-Pagination-Count"] = "1",
         };
         var transport = new MockTransport()
             .QueueResponse(200, "[{\"i\":1},{\"i\":2},{\"i\":3}]", page1Headers)
@@ -217,7 +217,7 @@ public sealed class AutoPagingTests
             .QueueResponse(200, "[]");
 
         var values = new List<int>();
-        await foreach (var item in Client(transport).Dataset("ds1").IterateItemsAsync())
+        await foreach (var item in Client(transport).Dataset("ds1").IterateItemsAsync(new DatasetListItemsOptions { Unwind = new[] { "a" }, ChunkSize = 1 }))
         {
             values.Add(item!["i"]!.GetValue<int>());
         }
@@ -226,6 +226,28 @@ public sealed class AutoPagingTests
         Assert.Equal(3, transport.CallCount);
         Assert.Contains("offset=0", transport.Received[0].Uri, StringComparison.Ordinal);
         Assert.Contains("offset=1", transport.Received[1].Uri, StringComparison.Ordinal);
+        Assert.Contains("offset=2", transport.Received[2].Uri, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task DatasetIterateItemsDoesNotStopWhenTheScannedCountHeaderLagsBehindReturnedItems()
+    {
+        // The scanned count is derived from the dataset's item count, which lags a fresh push: a page can
+        // return items while the header still reports 0. The larger of the two is used, so iteration goes on.
+        var laggingHeaders = new Dictionary<string, string> { ["X-Apify-Pagination-Count"] = "0" };
+        var transport = new MockTransport()
+            .QueueResponse(200, "[{\"i\":1},{\"i\":2}]", laggingHeaders)
+            .QueueResponse(200, "[{\"i\":3}]", laggingHeaders)
+            .QueueResponse(200, "[]", laggingHeaders);
+
+        var values = new List<int>();
+        await foreach (var item in Client(transport).Dataset("ds1").IterateItemsAsync())
+        {
+            values.Add(item!["i"]!.GetValue<int>());
+        }
+
+        Assert.Equal(new[] { 1, 2, 3 }, values);
+        Assert.Contains("offset=2", transport.Received[1].Uri, StringComparison.Ordinal);
     }
 
     [Fact]

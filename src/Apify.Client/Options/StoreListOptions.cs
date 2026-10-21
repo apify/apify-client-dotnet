@@ -8,7 +8,7 @@ public sealed class StoreListOptions
     /// <summary>Number of Actors to skip.</summary>
     public int? Offset { get; init; }
 
-    /// <summary>Maximum number of Actors to return (also the per-page size when iterating).</summary>
+    /// <summary>Maximum number of Actors to return (when iterating, in total across all pages).</summary>
     public int? Limit { get; init; }
 
     /// <summary>
@@ -45,7 +45,6 @@ public sealed class StoreListOptions
     /// <summary>The response format (<c>full</c>, <c>agent</c>).</summary>
     public string? ResponseFormat { get; init; }
 
-    /// <summary>Returns a copy of these options with a new <see cref="Offset"/> (used by lazy iteration).</summary>
     internal void AppendTo(QueryParams q)
     {
         q.AddInt("offset", Offset)

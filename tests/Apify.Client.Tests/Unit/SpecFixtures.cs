@@ -53,7 +53,7 @@ internal static class SpecFixtures
     /// <summary>The bare run object, for tests that compose a larger body.</summary>
     public static string RunObject(string id, string status = "SUCCEEDED")
         => "{\"id\":\"" + id + "\",\"actId\":\"a\",\"userId\":\"u\",\"startedAt\":\"" + Timestamp + "\",\"status\":\"" + status
-            + "\",\"meta\":{\"origin\":\"API\"},\"stats\":{},\"options\":{\"build\":\"latest\",\"timeoutSecs\":0,\"memoryMbytes\":0,\"diskMbytes\":0},\"buildId\":\"b\""
+            + "\",\"meta\":{\"origin\":\"API\"},\"stats\":{},\"options\":{\"build\":\"latest\",\"timeoutSecs\":0,\"memoryMbytes\":256,\"diskMbytes\":0},\"buildId\":\"b\""
             + ",\"defaultKeyValueStoreId\":\"kvs\",\"defaultDatasetId\":\"ds\",\"defaultRequestQueueId\":\"rq\"}";
 
     /// <summary>An Actor build.</summary>

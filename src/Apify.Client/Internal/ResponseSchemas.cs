@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
@@ -17,10 +18,11 @@ namespace Apify.Client.Internal;
 /// <remarks>
 /// The schemas come from the embedded <c>ResponseSchemas.json</c>, generated from the specification by
 /// <c>tools/generate_response_schemas.py</c>. Validation covers JSON types, required properties (including
-/// nullability), nested properties and array items, and the <c>allOf</c>/<c>anyOf</c>/<c>oneOf</c>
-/// combinators. Like the reference client's schemas, it lets unknown properties and unknown enum values
-/// through, so an API that grows new fields or values does not break existing clients. A request that
-/// matches no documented operation is not validated.
+/// nullability), nested properties and array items, the <c>allOf</c>/<c>anyOf</c>/<c>oneOf</c> combinators,
+/// and value constraints: the <c>date-time</c>, <c>uri</c> and <c>email</c> formats, <c>pattern</c>,
+/// <c>minimum</c>/<c>maximum</c> and <c>minLength</c>/<c>maxLength</c>. Like the reference client's
+/// schemas, it lets unknown properties and unknown enum values through, so an API that grows new fields or
+/// values does not break existing clients. A request that matches no documented operation is not validated.
 /// </remarks>
 internal static class ResponseSchemas
 {
@@ -30,6 +32,18 @@ internal static class ResponseSchemas
 
     /// <summary>The most issues reported for one response, so a badly wrong body stays readable.</summary>
     private const int MaxReportedIssues = 10;
+
+    /// <summary>RFC 3339 date-time: the shape <c>DateTimeOffset.TryParse</c> alone would be too lenient about.</summary>
+    private static readonly Regex DateTimePattern = new(
+        @"^\d{4}-\d{2}-\d{2}[Tt]\d{2}:\d{2}:\d{2}(\.\d+)?([Zz]|[+-]\d{2}:\d{2})$",
+        RegexOptions.Compiled | RegexOptions.CultureInvariant);
+
+    private static readonly Regex EmailPattern = new(@"^[^@\s]+@[^@\s]+\.[^@\s]+$", RegexOptions.Compiled | RegexOptions.CultureInvariant);
+
+    /// <summary>Bounds the time a schema's <c>pattern</c> may take, so a pathological pattern cannot hang a response read.</summary>
+    private static readonly TimeSpan PatternTimeout = TimeSpan.FromSeconds(1);
+
+    private static readonly ConcurrentDictionary<string, Regex> Patterns = new(StringComparer.Ordinal);
 
     private static readonly Lazy<SchemaSet> Loaded = new(Load);
 
@@ -155,6 +169,11 @@ internal static class ResponseSchemas
                 return;
             }
 
+            if (value is not null)
+            {
+                CheckConstraints(value, rules, location, issues);
+            }
+
             if (value is JsonObject obj)
             {
                 CheckObject(obj, rules, location, issues);
@@ -167,6 +186,63 @@ internal static class ResponseSchemas
                 }
             }
         }
+
+        /// <summary>Checks the value constraints (format, pattern, bounds, length) that apply to a scalar.</summary>
+        private static void CheckConstraints(JsonNode value, JsonObject rules, string location, List<string> issues)
+        {
+            switch (value.GetValueKind())
+            {
+                case JsonValueKind.String:
+                    var text = value.GetValue<string>();
+                    if (rules["format"] is JsonNode format && !MatchesFormat(text, (string)format!))
+                    {
+                        issues.Add(location + ": is not a valid " + (string)format! + " value");
+                    }
+
+                    if (rules["pattern"] is JsonNode pattern && !PatternFor((string)pattern!).IsMatch(text))
+                    {
+                        issues.Add(location + ": does not match the pattern " + (string)pattern!);
+                    }
+
+                    if (rules["minLength"] is JsonNode minLength && text.Length < (int)minLength!)
+                    {
+                        issues.Add(location + ": is shorter than the minimum length " + ((int)minLength!).ToString(CultureInfo.InvariantCulture));
+                    }
+
+                    if (rules["maxLength"] is JsonNode maxLength && text.Length > (int)maxLength!)
+                    {
+                        issues.Add(location + ": is longer than the maximum length " + ((int)maxLength!).ToString(CultureInfo.InvariantCulture));
+                    }
+
+                    break;
+                case JsonValueKind.Number:
+                    var number = value.GetValue<JsonElement>().GetDouble();
+                    if (rules["minimum"] is JsonNode minimum && number < (double)minimum!)
+                    {
+                        issues.Add(location + ": is a value outside the documented range (minimum " + ((double)minimum!).ToString(CultureInfo.InvariantCulture) + ")");
+                    }
+
+                    if (rules["maximum"] is JsonNode maximum && number > (double)maximum!)
+                    {
+                        issues.Add(location + ": is a value outside the documented range (maximum " + ((double)maximum!).ToString(CultureInfo.InvariantCulture) + ")");
+                    }
+
+                    break;
+                default:
+                    break;
+            }
+        }
+
+        private static bool MatchesFormat(string text, string format) => format switch
+        {
+            "date-time" => DateTimePattern.IsMatch(text) && DateTimeOffset.TryParse(text, CultureInfo.InvariantCulture, DateTimeStyles.None, out _),
+            "uri" => Uri.TryCreate(text, UriKind.Absolute, out _),
+            "email" => EmailPattern.IsMatch(text),
+            _ => true,
+        };
+
+        private static Regex PatternFor(string pattern)
+            => Patterns.GetOrAdd(pattern, static p => new Regex(p, RegexOptions.CultureInvariant, PatternTimeout));
 
         private void CheckObject(JsonObject obj, JsonObject rules, string location, List<string> issues)
         {

@@ -8,9 +8,10 @@ specification version:
     python3 tools/generate_response_schemas.py [SPEC_URL_OR_PATH]
 
 The default source is https://docs.apify.com/api/openapi.json. Only what validation needs is kept: types,
-required properties, nested properties and items, composition keywords and references. Documentation,
-examples and keywords the client deliberately does not enforce (enum, const, pattern, format, bounds) are
-dropped, which also keeps the embedded resource small.
+required properties, nested properties and items, composition keywords, references, and the value
+constraints (format, pattern, minimum, maximum, minLength, maxLength). Documentation, examples and keywords the client deliberately does not enforce (enum, const) are dropped, which also keeps the
+embedded resource small. Enum values stay open on purpose so that a value the API adds later does not break
+existing clients; the reference client's generated schemas do the same.
 """
 import json
 import pathlib
@@ -23,6 +24,8 @@ HTTP_METHODS = ("get", "post", "put", "delete", "patch")
 SCHEMA_REF_PREFIX = "#/components/schemas/"
 # Keywords that carry structure the validator evaluates. Everything else is dropped.
 SCHEMA_LIST_KEYWORDS = ("allOf", "anyOf", "oneOf")
+# Scalar constraints copied as they are.
+CONSTRAINT_KEYWORDS = ("format", "pattern", "minimum", "maximum", "minLength", "maxLength")
 
 
 def load_spec(source):
@@ -42,6 +45,9 @@ def slim(schema):
         result["$ref"] = schema["$ref"]
     if "type" in schema:
         result["type"] = schema["type"]
+    for keyword in CONSTRAINT_KEYWORDS:
+        if keyword in schema:
+            result[keyword] = schema[keyword]
     if "required" in schema:
         result["required"] = schema["required"]
     if "properties" in schema:

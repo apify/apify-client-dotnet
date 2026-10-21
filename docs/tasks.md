@@ -24,8 +24,8 @@ a specific task with `client.Task(id)`.
 - `StartAsync(object? input = null, TaskStartOptions? options = null)` → `ActorRun`.
 - `CallAsync(object? input = null, TaskStartOptions? options = null, int? waitSecs = null, Action<string>? log = null)`
   → `ActorRun` (`log`, if set, redirects the run's live log to that sink for the duration of the wait).
-- `GetInputAsync()` → `JsonNode?` (throws if the task does not exist; a JSON `null` means the task has
-  no stored input) / `UpdateInputAsync(object input)` → `JsonNode?`.
+- `GetInputAsync()` → `JsonNode?` (throws if the task does not exist; a task without stored input
+  yields an empty JSON object) / `UpdateInputAsync(object input)` → `JsonNode?`.
 - `LastRun(LastRunOptions? options = null)` → `RunClient`; `Runs()` → `RunCollectionClient`.
 - `Webhooks()` → read-only `NestedWebhookCollectionClient`.
 

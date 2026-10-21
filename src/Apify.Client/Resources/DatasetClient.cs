@@ -82,54 +82,36 @@ public sealed class DatasetClient
     /// </summary>
     /// <remarks>
     /// The offset for the next page, and whether iteration continues, follow the number of rows the API
-    /// scanned (<c>X-Apify-Pagination-Count</c>) rather than the number of items a page returned. The
+    /// scanned (<c>X-Apify-Pagination-Count</c>) rather than the number of items a page returned: the
     /// <see cref="DatasetListItemsOptions.Clean"/>/<see cref="DatasetListItemsOptions.SkipEmpty"/>/
     /// <see cref="DatasetListItemsOptions.SkipHidden"/> filters apply after <c>offset</c>/<c>limit</c>, so a
-    /// page can scan up to the requested limit of rows while returning fewer of them, or none at all;
-    /// advancing by the returned count (as <see cref="PaginationList{T}.Count"/> intentionally does, since it
-    /// is public and reports this page's item count) would re-scan rows on the next page or stop iteration
-    /// in front of rows a filter hid. <see cref="DatasetListItemsOptions.Unwind"/> can conversely leave a page
-    /// with more items than rows scanned, so the two counts cannot be mixed. The scanned count is read from
-    /// the response header and falls back to the returned item count only when the header itself is absent
-    /// (the API always sends it; a missing header means something between the client and the API, such as a
-    /// proxy, stripped it).
+    /// page can scan up to the requested limit of rows while returning fewer of them, or none at all, and
+    /// <see cref="DatasetListItemsOptions.Unwind"/> can return more items than rows scanned.
+    /// <see cref="DatasetListItemsOptions.Limit"/> therefore caps the rows scanned (<c>0</c> or <c>null</c>
+    /// for no cap). The header can lag behind items that were just pushed, so the larger of it and the
+    /// returned item count is used, capped at the page's requested limit; see <see cref="PagedIteration"/>.
     /// </remarks>
     /// <param name="options">Optional item filtering/projection; <c>Offset</c>/<c>Limit</c> bound where
-    /// iteration starts and the total number of items yielded.</param>
+    /// iteration starts and the rows scanned, and <c>ChunkSize</c> sets the page size.</param>
     /// <param name="cancellationToken">A token to cancel the iteration.</param>
-    public async IAsyncEnumerable<JsonNode?> IterateItemsAsync(
+    public IAsyncEnumerable<JsonNode?> IterateItemsAsync(
         DatasetListItemsOptions? options = null,
-        [EnumeratorCancellation] CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default)
     {
         options ??= new DatasetListItemsOptions();
-        PageSizing.ValidateChunkSize(options.ChunkSize, nameof(DatasetListItemsOptions.ChunkSize));
         var desc = options.Desc ?? false;
         var baseQuery = new QueryParams();
         options.AppendTo(baseQuery);
-        var offset = Math.Max(options.Offset ?? 0, 0);
-        var limit = options.Limit;
-        var yielded = 0;
-        while (true)
-        {
-            var q = baseQuery.Copy().Set("offset", offset);
-            PageSizing.SetPageLimit(q, options.ChunkSize, limit, yielded);
-
-            var (page, scannedCount) = await FetchItemsPageAsync(q, desc, cancellationToken).ConfigureAwait(false);
-            foreach (var item in page.Items)
+        return PagedIteration.IterateAsync(
+            options.Offset ?? 0,
+            options.Limit,
+            options.ChunkSize,
+            async (offset, pageLimit, token) =>
             {
-                yield return item;
-                yielded++;
-            }
-
-            // Never stop at the reported total: it only reflects the moment its own page was fetched, and the
-            // dataset can grow while the iteration runs. Like the collection iterators, stop once a page scans
-            // no rows, which costs one extra request at the end.
-            offset += (int)scannedCount;
-            if (scannedCount == 0 || (limit is not null && yielded >= limit.Value))
-            {
-                yield break;
-            }
-        }
+                var (page, scannedCount) = await FetchItemsPageAsync(baseQuery.PageQuery(offset, pageLimit), desc, token).ConfigureAwait(false);
+                return new FetchedPage<JsonNode?>(page.Items, scannedCount);
+            },
+            cancellationToken);
     }
 
     /// <summary>Fetches a single page of items for the given options (see the query overload).</summary>

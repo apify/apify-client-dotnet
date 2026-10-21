@@ -9,7 +9,7 @@ Access the account-wide run collection with `client.Runs()`, an Actor's or task'
 - `IterateAsync(ListOptions? options = null, RunListOptions? filter = null)` → `IAsyncEnumerable<ActorRun>`
   (lazy, all pages).
 
-`ListOptions` fields: `Offset`, `Limit`, `Desc` (standard pagination) and `ChunkSize` (the page size `IterateAsync` requests; the smaller of it and the remaining `Limit` is used per call). `RunListOptions` fields:
+`ListOptions` fields: `Offset`, `Limit`, `Desc` (standard pagination; `Limit` `0` or unset means no cap) and `ChunkSize` (the page size `IterateAsync` requests; the smaller of it and the remaining `Limit` is used per call). `RunListOptions` fields:
 `Status` (`IReadOnlyList<string>?`, filter by one or more run statuses such as `SUCCEEDED`/`RUNNING`),
 `StartedAfter` and `StartedBefore` (ISO 8601 bounds, honoured only by the Actor- and task-scoped run
 collections).

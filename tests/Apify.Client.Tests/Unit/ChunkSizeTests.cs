@@ -59,11 +59,45 @@ public sealed class ChunkSizeTests
     public async Task ZeroLimitDoesNotBeatChunkSize()
     {
         // The API reads limit=0 as unset, so it must lose to the chunk size.
-        var transport = new MockTransport().QueueResponse(200, SpecFixtures.Page(1, SpecFixtures.ScheduleItem("a")));
+        var transport = new MockTransport().QueueResponse(200, SpecFixtures.Page(1, SpecFixtures.ScheduleItem("a"))).QueueResponse(200, SpecFixtures.Page(1));
 
         await DrainAsync(Client(transport).Schedules().IterateAsync(new ListOptions { Limit = 0, ChunkSize = 3 }));
 
-        Assert.Contains("limit=3", transport.Received[0].Uri, StringComparison.Ordinal);
+        Assert.All(transport.Received, static r => Assert.Contains("limit=3", r.Uri, StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task ZeroLimitMeansNoLimitForCollectionStoreAndDatasetItemIteration()
+    {
+        var collection = new MockTransport().QueueResponse(200, SpecFixtures.ActorPage(3, "a", "b")).QueueResponse(200, SpecFixtures.ActorPage(3, "c")).QueueResponse(200, SpecFixtures.ActorPage(3));
+        var collected = 0;
+        await foreach (var unused in Client(collection).Actors().IterateAsync(new ActorListOptions { Limit = 0, ChunkSize = 2 }))
+        {
+            _ = unused;
+            collected++;
+        }
+
+        Assert.Equal(3, collected);
+
+        var store = new MockTransport().QueueResponse(200, SpecFixtures.Page(2, SpecFixtures.StoreItem("a"))).QueueResponse(200, SpecFixtures.Page(2, SpecFixtures.StoreItem("b"))).QueueResponse(200, SpecFixtures.Page(2));
+        var stored = 0;
+        await foreach (var unused in Client(store).Store().IterateAsync(new StoreListOptions { Limit = 0, ChunkSize = 1 }))
+        {
+            _ = unused;
+            stored++;
+        }
+
+        Assert.Equal(2, stored);
+
+        var dataset = new MockTransport().QueueResponse(200, "[{\"n\":1},{\"n\":2}]").QueueResponse(200, "[{\"n\":3}]").QueueResponse(200, "[]");
+        var items = 0;
+        await foreach (var unused in Client(dataset).Dataset("ds1").IterateItemsAsync(new DatasetListItemsOptions { Limit = 0, ChunkSize = 2 }))
+        {
+            _ = unused;
+            items++;
+        }
+
+        Assert.Equal(3, items);
     }
 
     [Theory]

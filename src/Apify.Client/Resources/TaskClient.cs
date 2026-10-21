@@ -136,7 +136,7 @@ public sealed class TaskClient
     /// <summary>
     /// Fetches the task's stored input. Throws if the task does not exist (no longer resolves to <c>null</c>
     /// for that case): the input endpoint has no meaning apart from its parent task, matching the reference
-    /// client. Still returns a JSON <c>null</c> node if the task exists but has no stored input.
+    /// client. A task without stored input yields an empty JSON object.
     /// </summary>
     /// <param name="cancellationToken">A token to cancel the request.</param>
     public async Task<JsonNode?> GetInputAsync(CancellationToken cancellationToken = default)

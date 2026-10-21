@@ -214,20 +214,13 @@ internal sealed class ResourceContext
     }
 
     /// <summary>
-    /// Lazily iterates every item of an offset/limit-paginated listing, fetching pages on demand. Mirrors
-    /// the reference client's auto-paging list iterators: it starts at <paramref name="startOffset"/> and,
-    /// if <paramref name="limit"/> is set, yields at most that many items in total. <paramref name="baseQuery"/>
-    /// carries the caller's filters; its <c>offset</c>/<c>limit</c> are overwritten per page.
+    /// Lazily iterates every item of an offset/limit-paginated listing, fetching pages on demand (see
+    /// <see cref="PagedIteration"/>). It starts at <paramref name="startOffset"/>; <paramref name="limit"/>
+    /// caps the total number of items (<c>null</c> or <c>0</c> for no cap) and <paramref name="chunkSize"/>
+    /// sizes each page request. <paramref name="baseQuery"/> carries the caller's filters; its
+    /// <c>offset</c>/<c>limit</c> are replaced per page.
     /// </summary>
-    /// <remarks>
-    /// Paging stops once a page returns no items (or <paramref name="limit"/> is reached), never by
-    /// comparing the offset to a page's reported <c>total</c>: the listed resource can grow while the
-    /// iteration runs (e.g. a dataset collection a running Actor keeps adding to), and a reported total
-    /// only ever reflects the moment its own page was fetched. Stopping at an early page's total would cut
-    /// the iteration off before items added later, so — like the reference client — this always issues one
-    /// more request at the end to confirm there is nothing left, unless <paramref name="limit"/> is hit first.
-    /// </remarks>
-    public async IAsyncEnumerable<T> IterateListAsync<T>(
+    public IAsyncEnumerable<T> IterateListAsync<T>(
         string subPath,
         QueryParams baseQuery,
         int startOffset,
@@ -235,29 +228,18 @@ internal sealed class ResourceContext
         int? chunkSize,
         Func<JsonObject, T> hydrate,
         RequestTier tier,
-        [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken ct)
+        CancellationToken ct)
     {
-        PageSizing.ValidateChunkSize(chunkSize, "ChunkSize");
-        var offset = Math.Max(startOffset, 0);
-        var yielded = 0;
-        while (true)
-        {
-            var q = baseQuery.Copy().Set("offset", offset);
-            PageSizing.SetPageLimit(q, chunkSize, limit, yielded);
-
-            var page = await ListResourceAsync(subPath, q, hydrate, tier, ct).ConfigureAwait(false);
-            foreach (var item in page.Items)
+        return PagedIteration.IterateAsync(
+            startOffset,
+            limit,
+            chunkSize,
+            async (offset, pageLimit, token) =>
             {
-                yield return item;
-                yielded++;
-            }
-
-            offset += (int)page.Count;
-            if (page.Count == 0 || (limit is not null && yielded >= limit.Value))
-            {
-                yield break;
-            }
-        }
+                var page = await ListResourceAsync(subPath, baseQuery.PageQuery(offset, pageLimit), hydrate, tier, token).ConfigureAwait(false);
+                return new FetchedPage<T>(page.Items, null);
+            },
+            ct);
     }
 
     /// <summary>POST to create a resource with a JSON-serializable body, returning the decoded <c>data</c>.</summary>

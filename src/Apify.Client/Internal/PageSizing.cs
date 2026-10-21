@@ -21,22 +21,19 @@ internal static class PageSizing
     }
 
     /// <summary>
-    /// Sets the <c>limit</c> query parameter of the next page: the smaller of the chunk size and the number
-    /// of items still wanted under the caller's total limit. A total limit of <c>0</c> means unset (the API
-    /// itself reads <c>limit=0</c> as unbounded), so it loses to the chunk size, and when neither is set the
-    /// query is left as the caller built it.
+    /// The smaller of two page limits, for the <c>limit</c> query parameter. The API reads a <c>limit</c> of
+    /// <c>0</c> as unset, so <c>0</c> (like <c>null</c>) means "no limit" here and loses to any other value;
+    /// the result is <c>null</c> when neither is set. Matches the reference client's <c>minForLimitParam</c>.
     /// </summary>
-    /// <param name="query">The page query, which already carries the caller's own <c>limit</c> if any.</param>
-    /// <param name="chunkSize">The validated chunk size, or <c>null</c> when unset.</param>
-    /// <param name="totalLimit">The caller's total limit across all pages, or <c>null</c> when unbounded.</param>
-    /// <param name="yielded">The number of items already yielded.</param>
-    public static void SetPageLimit(QueryParams query, int? chunkSize, int? totalLimit, int yielded)
+    public static int? MinForLimit(int? a, int? b)
     {
-        var remaining = totalLimit is null or 0 ? null : (int?)Math.Max(totalLimit.Value - yielded, 0);
-        var pageLimit = chunkSize is null ? remaining : (remaining is null ? chunkSize : Math.Min(chunkSize.Value, remaining.Value));
-        if (pageLimit is not null)
+        a = a is 0 ? null : a;
+        b = b is 0 ? null : b;
+        if (a is null)
         {
-            query.Set("limit", pageLimit.Value);
+            return b;
         }
+
+        return b is null ? a : Math.Min(a.Value, b.Value);
     }
 }

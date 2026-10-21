@@ -75,6 +75,53 @@ public sealed class ResponseSchemaTests
     }
 
     [Fact]
+    public void DateTimeFormatIsEnforced()
+    {
+        var issues = Issues("GET", "/v2/actor-builds/b1", "{\"data\":{" + Build.Replace("2026-01-01T00:00:00.000Z", "yesterday", StringComparison.Ordinal) + "}}");
+
+        Assert.Equal(new[] { "$.data.startedAt: is not a valid date-time value" }, issues);
+    }
+
+    [Fact]
+    public void PatternIsEnforced()
+    {
+        var issues = Issues("GET", "/v2/actor-builds/b1", "{\"data\":{" + Build.Replace("0.0.1", "not-a-version", StringComparison.Ordinal) + "}}");
+
+        Assert.Single(issues);
+        Assert.Contains("$.data.buildNumber: does not match the pattern", issues[0], StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void NumericBoundsAreEnforced()
+    {
+        var below = Issues("GET", "/v2/actor-runs/r1", "{\"data\":" + SpecFixtures.RunObject("r").Replace("\"memoryMbytes\":256", "\"memoryMbytes\":64", StringComparison.Ordinal) + "}");
+        var above = Issues("GET", "/v2/actor-runs/r1", "{\"data\":" + SpecFixtures.RunObject("r").Replace("\"memoryMbytes\":256", "\"memoryMbytes\":999999", StringComparison.Ordinal) + "}");
+
+        Assert.Equal(new[] { "$.data.options.memoryMbytes: is a value outside the documented range (minimum 128)" }, below);
+        Assert.Equal(new[] { "$.data.options.memoryMbytes: is a value outside the documented range (maximum 32768)" }, above);
+    }
+
+    [Fact]
+    public void UriFormatIsEnforced()
+    {
+        var issues = Issues("GET", "/v2/key-value-stores/s1/keys", SpecFixtures.KeysPage(1, false, null, "a").Replace("https://example.com/a", "not a url", StringComparison.Ordinal));
+
+        Assert.Equal(new[] { "$.data.items[0].recordPublicUrl: is not a valid uri value" }, issues);
+    }
+
+    [Fact]
+    public async Task ExceptionExposesTheIssuesAsAStructuredList()
+    {
+        var transport = new MockTransport().QueueResponse(200, "{\"data\":{\"id\":\"b\"}}");
+
+        var ex = await Assert.ThrowsAsync<ResponseValidationException>(() => Client(transport).Build("b1").GetAsync());
+
+        Assert.Contains("$.data.actId: required property is missing", ex.Issues);
+        Assert.Contains(ex.Issues, static issue => issue.StartsWith("$.data.status", StringComparison.Ordinal));
+        Assert.StartsWith("response does not match the API specification: ", ex.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void UnknownPropertiesAndUnknownEnumValuesAreAccepted()
     {
         Assert.Empty(Issues("GET", "/v2/actor-builds/b1", "{\"data\":{" + Build.Replace("SUCCEEDED", "SOME-FUTURE-STATUS", StringComparison.Ordinal) + ",\"brandNewField\":{\"x\":1}}}"));

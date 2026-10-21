@@ -92,6 +92,23 @@ internal sealed class QueryParams
         return this;
     }
 
+    /// <summary>
+    /// Returns a copy with the page's <c>offset</c> and <c>limit</c> set, the latter left out when
+    /// <paramref name="limit"/> is <c>null</c> (so a caller's own limit does not leak into every page).
+    /// </summary>
+    public QueryParams PageQuery(int offset, int? limit)
+    {
+        var page = Copy().Set("offset", offset).Remove("limit");
+        return limit is null ? page : page.Set("limit", limit.Value);
+    }
+
+    /// <summary>Removes every occurrence of <paramref name="key"/>.</summary>
+    public QueryParams Remove(string key)
+    {
+        _pairs.RemoveAll(pair => string.Equals(pair.Key, key, StringComparison.Ordinal));
+        return this;
+    }
+
     /// <summary>Whether no parameters have been added.</summary>
     public bool IsEmpty => _pairs.Count == 0;
 

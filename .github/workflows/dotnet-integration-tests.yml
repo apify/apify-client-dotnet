@@ -10,6 +10,9 @@ on:
       - '**/*.cs'
       - '**/*.csproj'
       - '**/*.sln'
+      # The embedded response schemas change the validation of every response, and the script generates them.
+      - 'src/Apify.Client/Internal/ResponseSchemas.json'
+      - 'tools/**'
       - 'Directory.Build.props'
       - '.editorconfig'
       # The "Test examples" step validates the in-documentation snippets, so doc changes must re-run
