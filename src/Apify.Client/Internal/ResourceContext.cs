@@ -245,10 +245,11 @@ internal sealed class ResourceContext
             startOffset,
             limit,
             chunkSize,
+            limitCountsRows: false,
             async (offset, pageLimit, token) =>
             {
                 var (page, rowsScanned) = await ListPageAsync(subPath, baseQuery.PageQuery(offset, pageLimit), hydrate, tier, token).ConfigureAwait(false);
-                return new FetchedPage<T>(page.Items, rowsScanned, LimitCountsRows: false);
+                return new FetchedPage<T>(page.Items, rowsScanned);
             },
             ct);
     }

@@ -230,6 +230,25 @@ public sealed class AutoPagingTests
     }
 
     [Fact]
+    public async Task DatasetIterateItemsLimitCapsTheRowsReadNotTheItemsYielded()
+    {
+        // With a filter, a page can scan its whole limit while returning nothing. Limit = 2 allows reading 2
+        // rows only, so iteration ends after this page instead of reading on until 2 items were yielded.
+        var scanned = new Dictionary<string, string> { ["X-Apify-Pagination-Count"] = "2" };
+        var transport = new MockTransport().QueueResponse(200, "[]", scanned);
+
+        var count = 0;
+        await foreach (var unused in Client(transport).Dataset("ds1").IterateItemsAsync(new DatasetListItemsOptions { SkipEmpty = true, Limit = 2 }))
+        {
+            _ = unused;
+            count++;
+        }
+
+        Assert.Equal(0, count);
+        Assert.Equal(1, transport.CallCount);
+    }
+
+    [Fact]
     public async Task DatasetIterateItemsDoesNotStopWhenTheScannedCountHeaderLagsBehindReturnedItems()
     {
         // The scanned count is derived from the dataset's item count, which lags a fresh push: a page can

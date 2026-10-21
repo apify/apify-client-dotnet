@@ -9,12 +9,8 @@ namespace Apify.Client.Internal;
 /// <summary>One fetched page: its items and, when the API reports it, the number of rows it scanned.</summary>
 /// <param name="Items">The items on the page.</param>
 /// <param name="ScannedRows">The rows the API scanned to produce the page (<c>null</c> when not reported).</param>
-/// <param name="LimitCountsRows">
-/// Whether the caller's total limit counts the rows scanned (dataset items) rather than the items returned
-/// (listings, where the API can scan more rows than it returns, e.g. the Store dropping unrunnable Actors).
-/// </param>
 /// <typeparam name="T">The item type.</typeparam>
-internal readonly record struct FetchedPage<T>(IReadOnlyList<T> Items, long? ScannedRows, bool LimitCountsRows);
+internal readonly record struct FetchedPage<T>(IReadOnlyList<T> Items, long? ScannedRows);
 
 /// <summary>
 /// The offset/limit paging loop shared by every list iterator, ported from the reference client's
@@ -26,8 +22,9 @@ internal static class PagedIteration
     /// Lazily yields every item from <paramref name="startOffset"/> on, fetching pages on demand.
     /// </summary>
     /// <remarks>
-    /// <paramref name="totalLimit"/> caps the items yielded, or the rows scanned when the page says the limit
-    /// counts rows (<c>null</c> or <c>0</c> for no cap); a negative offset or limit is rejected.
+    /// <paramref name="totalLimit"/> caps the items yielded, or the rows scanned when
+    /// <paramref name="limitCountsRows"/> is set (<c>null</c> or <c>0</c> for no cap); a negative offset or
+    /// limit is rejected.
     /// The next offset and the stop condition follow the rows a page scanned, not the items it returned:
     /// advancing by the item count would re-scan rows after a filter dropped some and skip rows after
     /// <c>unwind</c> multiplied them, and stopping at an empty page would end the iteration in front of rows
@@ -38,7 +35,12 @@ internal static class PagedIteration
     /// stops once a page scans no rows, which costs one extra request at the end.
     /// </remarks>
     /// <param name="startOffset">The offset of the first row.</param>
-    /// <param name="totalLimit">The most items (or rows, see <see cref="FetchedPage{T}"/>) across all pages, or <c>null</c>/<c>0</c> for no cap.</param>
+    /// <param name="totalLimit">The most items (or rows, see <paramref name="limitCountsRows"/>) across all pages, or <c>null</c>/<c>0</c> for no cap.</param>
+    /// <param name="limitCountsRows">
+    /// Whether <paramref name="totalLimit"/> counts the rows scanned (dataset items) rather than the items
+    /// returned (listings, where the API can scan more rows than it returns, e.g. the Store dropping Actors
+    /// the caller cannot run).
+    /// </param>
     /// <param name="chunkSize">The most rows to request per call, or <c>null</c> for the API default.</param>
     /// <param name="fetchPage">Fetches one page given its offset and limit (<c>null</c> limit: leave it out).</param>
     /// <param name="cancellationToken">A token to cancel the iteration.</param>
@@ -47,6 +49,7 @@ internal static class PagedIteration
         int startOffset,
         int? totalLimit,
         int? chunkSize,
+        bool limitCountsRows,
         Func<int, int?, CancellationToken, Task<FetchedPage<T>>> fetchPage,
         [EnumeratorCancellation] CancellationToken cancellationToken)
     {
@@ -68,7 +71,7 @@ internal static class PagedIteration
 
             scanned = ScannedRows(page, requestedLimit);
             offset += (int)scanned;
-            remaining -= (int?)(page.LimitCountsRows ? scanned : page.Items.Count);
+            remaining -= (int?)(limitCountsRows ? scanned : page.Items.Count);
         }
         while (scanned > 0 && (remaining is null || remaining > 0));
     }

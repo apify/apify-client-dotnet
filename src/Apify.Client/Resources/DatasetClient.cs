@@ -106,10 +106,11 @@ public sealed class DatasetClient
             options.Offset ?? 0,
             options.Limit,
             options.ChunkSize,
+            limitCountsRows: true,
             async (offset, pageLimit, token) =>
             {
                 var (page, scannedCount) = await FetchItemsPageAsync(baseQuery.PageQuery(offset, pageLimit), desc, token).ConfigureAwait(false);
-                return new FetchedPage<JsonNode?>(page.Items, scannedCount, LimitCountsRows: true);
+                return new FetchedPage<JsonNode?>(page.Items, scannedCount);
             },
             cancellationToken);
     }

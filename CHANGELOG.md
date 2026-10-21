@@ -24,12 +24,16 @@
   request (the smaller of it and the remaining `Limit`), matching the reference client's `chunkSize`.
   `MaxPageLimit` stays as the older name of the same option. A non-positive `ChunkSize` throws
   `ArgumentOutOfRangeException`.
-- Changed the offset/limit iterators (`IterateAsync`, `IterateItemsAsync`) to follow the reference client:
-  `Limit` caps the items yielded in total (the rows read, for dataset items), `0` means no limit, a
-  negative `Offset` or `Limit` throws `ArgumentOutOfRangeException`, and paging follows the rows each page
-  scanned (its `count`) until a page scans none, instead of the items returned or the reported total. The
-  Store no longer repeats or skips Actors, and `StoreCollectionClient.IterateAsync` takes `Limit` as a
-  total cap rather than the page size.
+- Changed `DatasetClient.IterateItemsAsync`: `Limit` now caps the dataset rows read instead of the items
+  yielded (so with `Clean`, `SkipEmpty` or `Unwind` the item count differs), matching the reference
+  client. Paging advances by the larger of the `X-Apify-Pagination-Count` header and the items returned,
+  so a header lagging behind freshly pushed items no longer ends the iteration, and it no longer stops at
+  the total an earlier page reported.
+- Changed `StoreCollectionClient.IterateAsync`: `Limit` is now a cap on the total number of Actors rather
+  than the page size, and, unlike the reference client, paging advances by the response's `count`, so the
+  Store dropping Actors the caller cannot run no longer makes it repeat or skip Actors.
+- A `Limit` of `0` now means no limit in all offset/limit iterators, and a negative `Offset` or `Limit`
+  throws `ArgumentOutOfRangeException` instead of being silently adjusted.
 - Nested accessors of a run (`Dataset()`, `KeyValueStore()`, `RequestQueue()`, `Log()`) and of a build
   (`Log()`) now inherit the run's or build's `WithTimeout` override.
 - Added a documentation test that compiles every C# snippet in the README and `docs/`.
