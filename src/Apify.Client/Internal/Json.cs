@@ -1,5 +1,6 @@
 using System.Text.Encodings.Web;
 using System.Text.Json;
+using Apify.Client.Exceptions;
 using System.Text.Json.Nodes;
 
 namespace Apify.Client.Internal;
@@ -25,7 +26,10 @@ internal static class Json
     public static string Encode(JsonNode? value) =>
         value?.ToJsonString(SerializerOptions) ?? "null";
 
-    /// <summary>Decodes a JSON string into a <see cref="JsonNode"/> (<c>null</c> for an empty body).</summary>
+    /// <summary>
+    /// Decodes a JSON response body into a <see cref="JsonNode"/> (<c>null</c> for an empty body).
+    /// Throws <see cref="InvalidResponseBodyException"/> when the body is not valid JSON.
+    /// </summary>
     public static JsonNode? Decode(string body)
     {
         if (string.IsNullOrEmpty(body))
@@ -33,7 +37,14 @@ internal static class Json
             return null;
         }
 
-        return JsonNode.Parse(body);
+        try
+        {
+            return JsonNode.Parse(body);
+        }
+        catch (JsonException ex)
+        {
+            throw new InvalidResponseBodyException("response body is not valid JSON: " + ex.Message, ex);
+        }
     }
 
     /// <summary>
@@ -57,7 +68,7 @@ internal static class Json
         {
             return Decode(body);
         }
-        catch (JsonException)
+        catch (InvalidResponseBodyException)
         {
             return null;
         }

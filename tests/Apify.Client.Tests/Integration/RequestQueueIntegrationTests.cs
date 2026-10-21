@@ -55,6 +55,14 @@ public sealed class RequestQueueIntegrationTests : IntegrationTestBase
             Assert.Equal("https://example.com", got!.Url);
 
             Assert.NotEmpty((await queue.ListHeadAsync(10)).Items);
+
+            got.Method = "POST";
+            await queue.UpdateRequestAsync(got);
+            Assert.Equal("POST", (await queue.GetRequestAsync(info.RequestId!))!.Method);
+            Assert.Contains(
+                (await queue.ListRequestsAsync(new ListRequestsOptions { Limit = 10 })).Items,
+                r => r.Id == info.RequestId);
+
             await queue.UpdateAsync(new { name = UniqueName("rq-renamed") });
             await queue.DeleteRequestAsync(info.RequestId!);
         }

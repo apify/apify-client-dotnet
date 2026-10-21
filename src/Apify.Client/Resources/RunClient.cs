@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Net.Http;
+using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Text.Json.Nodes;
@@ -25,12 +26,14 @@ public sealed class RunClient
     /// <summary>Header the API uses to deduplicate charge requests.</summary>
     private const string ChargeIdempotencyHeader = "idempotency-key";
 
+    private readonly ApifyClient _root;
     private readonly HttpClientCore _http;
     private readonly ResourceContext _ctx;
     private readonly string _id;
 
-    internal RunClient(HttpClientCore http, string baseUrl, string resourcePath, string id)
+    internal RunClient(ApifyClient root, HttpClientCore http, string baseUrl, string resourcePath, string id)
     {
+        _root = root;
         _http = http;
         _id = id;
         _ctx = ResourceContext.Single(http, baseUrl, resourcePath, id);
@@ -230,6 +233,134 @@ public sealed class RunClient
         {
             await streamedLog.StopAsync().ConfigureAwait(false);
         }
+    }
+
+    /// <summary>
+    /// Lazily iterates over the items of the run's default dataset while the run is still producing them.
+    /// Mirrors the reference client's <c>iterateDatasetItems()</c>.
+    /// </summary>
+    /// <remarks>
+    /// While the run has not finished, each poll yields the rows below the dataset's <c>itemCount</c> and
+    /// then waits up to <see cref="RunIterateDatasetItemsOptions.PollIntervalSecs"/> for the run to finish,
+    /// so the last rows are read as soon as it does. Each page is requested with a limit that ends at
+    /// <c>itemCount</c>, so it covers exactly the rows it asks for, whatever the filters or
+    /// <see cref="RunIterateDatasetItemsOptions.Unwind"/> do to the items. <c>itemCount</c> lags a few
+    /// seconds behind the pushed items, so once the run reaches a terminal status the rows past it are read
+    /// a page at a time until none are left. On a last-run client, the iteration sticks to the run its
+    /// first request resolves to, so a newer run cannot swap the dataset mid-iteration.
+    /// </remarks>
+    /// <param name="options">Optional pagination, filtering and polling options.</param>
+    /// <param name="cancellationToken">A token to cancel the iteration.</param>
+    public async IAsyncEnumerable<JsonNode?> IterateDatasetItemsAsync(
+        RunIterateDatasetItemsOptions? options = null,
+        [EnumeratorCancellation] CancellationToken cancellationToken = default)
+    {
+        options ??= new RunIterateDatasetItemsOptions();
+        var chunkSize = options.ChunkSize is > 0 ? options.ChunkSize.Value : RunIterateDatasetItemsOptions.DefaultChunkSize;
+        var pollIntervalSecs = options.PollIntervalSecs ?? RunIterateDatasetItemsOptions.DefaultPollIntervalSecs;
+        ArgumentOutOfRangeException.ThrowIfNegative(pollIntervalSecs, nameof(options));
+        ArgumentOutOfRangeException.ThrowIfNegative(options.Offset ?? 0, nameof(options));
+        ArgumentOutOfRangeException.ThrowIfNegative(options.Limit ?? 0, nameof(options));
+
+        var position = options.Offset ?? 0;
+        int? end = options.Limit is > 0 ? position + options.Limit.Value : null;
+
+        var run = await GetAsync(cancellationToken: cancellationToken).ConfigureAwait(false);
+        // A last-run client resolves `runs/last` on each request, so a newer run would swap the dataset
+        // mid-iteration: pin to the run the first request resolved to.
+        var runClient = this;
+        if (run?.Id is { } resolvedId && resolvedId != _id)
+        {
+            runClient = _root.Run(resolvedId);
+            if (_ctx.RequestTimeout is { } timeout)
+            {
+                runClient.WithTimeout(timeout);
+            }
+        }
+
+        var datasetClient = runClient.Dataset();
+
+        while (true)
+        {
+            var isFinished = run is null || run.IsTerminal;
+            var dataset = await datasetClient.GetAsync(cancellationToken).ConfigureAwait(false);
+            var itemCount = dataset?.ItemCount ?? 0;
+            if (end is not null)
+            {
+                itemCount = Math.Min(itemCount, end.Value);
+            }
+
+            while (position < itemCount)
+            {
+                var pageLimit = (int)Math.Min(chunkSize, itemCount - position);
+                var (page, _) = await datasetClient.FetchItemsPageAsync(ItemsPageOptions(options, position, pageLimit), cancellationToken).ConfigureAwait(false);
+                foreach (var item in page.Items)
+                {
+                    yield return item;
+                }
+
+                position += pageLimit;
+            }
+
+            if (end is not null && position >= end)
+            {
+                yield break;
+            }
+
+            if (isFinished)
+            {
+                break;
+            }
+
+            run = await runClient.WaitForFinishAsync(pollIntervalSecs, cancellationToken).ConfigureAwait(false);
+        }
+
+        // The run is finished, but `itemCount` lags the pushed items: read the remaining rows page by page.
+        while (true)
+        {
+            var pageLimit = end is not null ? Math.Min(chunkSize, end.Value - position) : chunkSize;
+            var (page, scannedCount) = await datasetClient.FetchItemsPageAsync(ItemsPageOptions(options, position, pageLimit), cancellationToken).ConfigureAwait(false);
+            foreach (var item in page.Items)
+            {
+                yield return item;
+            }
+
+            // Only a page that returned nothing and scanned no rows marks the end: filters can shorten a
+            // full page, or empty one that still scanned rows. When a filter could have hidden every row
+            // past a lagging `itemCount`, a plain one-row read confirms nothing is left.
+            if (page.Items.Count == 0 && scannedCount == 0
+                && (!options.HasRowFilters || await IsDatasetExhaustedAsync(datasetClient, position, cancellationToken).ConfigureAwait(false)))
+            {
+                yield break;
+            }
+
+            position += pageLimit;
+            if (end is not null && position >= end)
+            {
+                yield break;
+            }
+        }
+    }
+
+    /// <summary>Builds the dataset-items options for one page of <see cref="IterateDatasetItemsAsync"/>.</summary>
+    private static DatasetListItemsOptions ItemsPageOptions(RunIterateDatasetItemsOptions options, int offset, int limit) => new()
+    {
+        Offset = offset,
+        Limit = limit,
+        Clean = options.Clean,
+        Fields = options.Fields,
+        Omit = options.Omit,
+        Unwind = options.Unwind,
+        SkipEmpty = options.SkipEmpty,
+        SkipHidden = options.SkipHidden,
+    };
+
+    /// <summary>Checks, without any filter, whether the dataset has no row at or after <paramref name="position"/>.</summary>
+    private static async Task<bool> IsDatasetExhaustedAsync(DatasetClient datasetClient, int position, CancellationToken cancellationToken)
+    {
+        var plain = new DatasetListItemsOptions { Offset = position, Limit = 1 };
+        var (page, _) = await datasetClient.FetchItemsPageAsync(plain, cancellationToken).ConfigureAwait(false);
+        return page.Items.Count == 0;
     }
 
     // Nested accessors inherit this client's params so last-run status/origin filters (see

@@ -26,14 +26,14 @@ public abstract class IntegrationTestBase
     /// Retry budget for <see cref="FindsAllEventuallyAsync{T}"/>: how many times a freshly created
     /// resource's collection listing is re-scanned before giving up on it having propagated.
     /// </summary>
-    private const int EventualConsistencyAttempts = 16;
+    protected const int EventualConsistencyAttempts = 16;
 
     /// <summary>
     /// Delay between retries in <see cref="FindsAllEventuallyAsync{T}"/>. Combined with
     /// <see cref="EventualConsistencyAttempts"/>, the total wait budget is
     /// <c>(EventualConsistencyAttempts - 1) * EventualConsistencyBackoff</c> = ~15s.
     /// </summary>
-    private static readonly TimeSpan EventualConsistencyBackoff = TimeSpan.FromSeconds(1);
+    protected static readonly TimeSpan EventualConsistencyBackoff = TimeSpan.FromSeconds(1);
 
     /// <summary>
     /// Derives the client base URL from an optional <c>APIFY_API_URL</c>. The variable includes the
@@ -115,9 +115,9 @@ public abstract class IntegrationTestBase
     };
 
     /// <summary>
-    /// A minimal webhook definition that fires on runs of the given Actor. The API requires the condition's
-    /// resource to exist and be accessible, so the Actor must be one the test account owns (see
-    /// <see cref="CreateWebhookActorAsync"/>).
+    /// A minimal webhook definition that fires on runs of the given Actor. The API requires the condition to
+    /// reference an existing Actor by its ID (not its <c>username/name</c> slug), see
+    /// <see cref="ResolveHelloWorldActorIdAsync"/>.
     /// </summary>
     protected static object MinimalWebhook(string requestUrl, string actorId) => new
     {
@@ -126,9 +126,9 @@ public abstract class IntegrationTestBase
         requestUrl,
     };
 
-    /// <summary>Creates a throwaway Actor owned by the test account, to use as a webhook condition. Delete it when done.</summary>
-    protected static async Task<string> CreateWebhookActorAsync(ApifyClient client)
-        => (await client.Actors().CreateAsync(MinimalActor(UniqueName("wh-act")))).Id!;
+    /// <summary>Resolves the ID of the public <c>apify/hello-world</c> Actor, for use as a webhook condition.</summary>
+    protected static async Task<string> ResolveHelloWorldActorIdAsync(ApifyClient client)
+        => (await client.Actor("apify/hello-world").GetAsync())!.Id!;
 
     /// <summary>
     /// Retries <paramref name="check"/> up to <paramref name="attempts"/> times, sleeping

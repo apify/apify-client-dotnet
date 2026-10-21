@@ -131,6 +131,14 @@ public sealed class DatasetClient
         }
     }
 
+    /// <summary>Fetches a single page of items for the given options (see the query overload).</summary>
+    internal Task<(PaginationList<JsonNode?> Page, long ScannedCount)> FetchItemsPageAsync(DatasetListItemsOptions options, CancellationToken cancellationToken)
+    {
+        var q = new QueryParams();
+        options.AppendTo(q);
+        return FetchItemsPageAsync(q, options.Desc ?? false, cancellationToken);
+    }
+
     /// <summary>
     /// Fetches a single page of dataset items. The endpoint returns a bare JSON array with pagination in
     /// <c>X-Apify-Pagination-*</c> response headers. Returns the page alongside the number of rows the API

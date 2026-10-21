@@ -8,8 +8,17 @@
   the Server Actor request being charged (required for multi-tenant Server Actor runs).
 - Documented that the rental pricing model (`FLAT_PRICE_PER_MONTH`) is no longer supported and is not an
   accepted `StoreListOptions.PricingModel` filter value.
+- Added `InvalidResponseBodyException` (an `ApifyClientException`), thrown when a successful response's
+  body is not valid JSON, instead of a raw `System.Text.Json.JsonException`. It is not retried. An error
+  status with an unparsable body keeps throwing the `ApifyApiException` for its status code.
+- Added `RunClient.IterateDatasetItemsAsync` (with `RunIterateDatasetItemsOptions`), which iterates a run's
+  default dataset while the run is still producing items, matching the reference client's
+  `iterateDatasetItems()`.
 - Fixed the webhook integration tests: the API now requires a webhook condition to reference an existing
-  resource, so they use a throwaway Actor owned by the test account instead of a made-up run ID.
+  Actor ID, so they use the ID of the public `apify/hello-world` Actor instead of a made-up run ID.
+- Added integration tests for Actor and task webhook listing, request-queue request update/list and
+  dataset item iteration, and narrowed the CA1711 analyzer suppression to the `Queue` suffix.
+- Removed the experimental/AI notice from the NuGet package description (it stays in the top-level README).
 
 ## 0.6.0
 

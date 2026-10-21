@@ -141,7 +141,7 @@ public sealed class ApifyClient
 
     /// <summary>A client for a specific Actor run. Must not be empty.</summary>
     /// <param name="id">The run ID.</param>
-    public RunClient Run(string id) => new(_http, _baseUrl, "actor-runs", RequireNonEmptyId(id, nameof(id)));
+    public RunClient Run(string id) => new(this, _http, _baseUrl, "actor-runs", RequireNonEmptyId(id, nameof(id)));
 
     // ----- Dataset accessors ---------------------------------------------------
 

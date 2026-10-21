@@ -12,10 +12,10 @@ indent_size = 4
 # Use file-scoped namespaces throughout.
 csharp_style_namespace_declarations = file_scoped:warning
 
-# CA1711: the model type `RequestQueue` deliberately mirrors the Apify API resource name (and the
-# JS/PHP/Java/Go/Rust sibling clients). Renaming it away from the reserved "Queue" suffix would break
-# cross-client naming consistency, which the client requirements mandate. Justified suppression.
-dotnet_diagnostic.CA1711.severity = none
+# CA1711: the `RequestQueue*` types deliberately mirror the Apify API resource name and the reference
+# client. Renaming them away from the "Queue" suffix would break cross-client naming consistency, which
+# the client requirements mandate. The rule stays on for every other suffix.
+dotnet_code_quality.CA1711.allowed_suffixes = Queue
 
 [*.{csproj,props,targets}]
 indent_size = 2

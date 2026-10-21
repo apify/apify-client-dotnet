@@ -39,6 +39,30 @@ public sealed class ActorRunIntegrationTests : IntegrationTestBase
     }
 
     [SkippableFact]
+    public async Task IterateRunDatasetItems()
+    {
+        var client = RequireClient();
+        var run = await client.Actor("apify/hello-world").CallAsync(null, null, 120);
+
+        var iterated = 0;
+        await foreach (var item in client.Run(run.Id!).IterateDatasetItemsAsync(new RunIterateDatasetItemsOptions { ChunkSize = 1 }))
+        {
+            Assert.NotNull(item);
+            iterated++;
+        }
+
+        // The run is finished, so its dataset is complete. The dataset's reported item count lags the pushed
+        // items by a few seconds (which is why the iterator drains past it), so it must catch up to what the
+        // iterator already read.
+        Assert.True(
+            await PollUntilAsync(
+                EventualConsistencyAttempts,
+                EventualConsistencyBackoff,
+                async () => (await client.Run(run.Id!).Dataset().ListItemsAsync(new DatasetListItemsOptions())).Total == iterated),
+            "expected the dataset's item count to catch up with the iterated items");
+    }
+
+    [SkippableFact]
     public async Task UpdateAndDeleteRun()
     {
         var client = RequireClient();

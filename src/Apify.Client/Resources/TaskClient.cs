@@ -165,7 +165,7 @@ public sealed class TaskClient
     /// <param name="options">Optional last-run filters.</param>
     public RunClient LastRun(LastRunOptions? options = null)
     {
-        var client = new RunClient(_http, _ctx.SubUrl(""), "runs", "last");
+        var client = new RunClient(_root, _http, _ctx.SubUrl(""), "runs", "last");
         client.SetLastRunParams(options ?? new LastRunOptions());
         return client;
     }

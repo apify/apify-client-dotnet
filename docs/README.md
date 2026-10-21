@@ -74,7 +74,7 @@ the `using` directives for whichever ones a file references:
 | `Apify.Client.Resources` | Every resource client the entry point returns — `ActorClient`, `RunClient`, `BuildClient`, `DatasetClient`, `KeyValueStoreClient`, `RequestQueueClient`, `TaskClient`, `ScheduleClient`, `LogClient`, `UserClient`, `ActorVersionClient`, `ActorEnvVarClient`, the `…CollectionClient` types (including `ActorVersionCollectionClient`, `ActorEnvVarCollectionClient`, `NestedWebhookCollectionClient`, and `WebhookDispatchCollectionClient`), etc. |
 | `Apify.Client.Models` | Data models returned by the clients — `Actor`, `ActorRun`, `Build`, `Dataset`, `RequestQueueRequest`, `ActorEnvVar`, `PaginationList<T>`, and so on. |
 | `Apify.Client.Options` | The option/request objects passed into methods — `ActorStartOptions`, `ActorBuildOptions`, `ActorListOptions`, `RunListOptions`, `RunResurrectOptions`, `RunChargeOptions`, `MetamorphOptions`, `LastRunOptions`, `DatasetListItemsOptions`, `DatasetDownloadOptions`, `DownloadItemsFormat`, `GetRecordOptions`, `SetRecordOptions`, `ListKeysOptions`, `IterateKeysOptions`, `ListRequestsOptions`, `PaginateRequestsOptions`, `BatchAddRequestsOptions`, `RequestQueueClientOptions`, `TaskStartOptions`, `ValidateInputOptions`, `LogOptions`, `ListOptions`, `StorageListOptions`, `StoreListOptions`. |
-| `Apify.Client.Exceptions` | `ApifyClientException` (common base), `ApifyApiException` (and its per-status subclasses) and `ApifyTransportException`. |
+| `Apify.Client.Exceptions` | `ApifyClientException` (common base), `ApifyApiException` (and its per-status subclasses), `ApifyTransportException` and `InvalidResponseBodyException`. |
 | `Apify.Client.Http` | The replaceable transport: `IHttpTransport` and the default `HttpClientTransport`. |
 | `System.Text.Json.Nodes` (BCL) | Not an Apify namespace, but required whenever you name the JSON escape-hatch types the client returns/accepts — `JsonObject`/`JsonNode` (e.g. dataset items, `GetInputAsync`/`UpdateInputAsync`, `GetStatisticsAsync`, `GetOpenApiDefinitionAsync`, `MonthlyUsageAsync`/`LimitsAsync`, `RequestQueueRequest.UserData`). Add `using System.Text.Json.Nodes;`. |
 
@@ -205,11 +205,25 @@ catch (ApifyApiException e)
 `ApifyTransportException` is thrown instead when the request never reaches the API (network failure,
 timeout, or DNS error) after all retries are exhausted.
 
-Both `ApifyApiException` and `ApifyTransportException` extend the common `ApifyClientException`, so
-`catch (ApifyClientException)` catches every error this client raises for a failed call without naming
-either concrete type:
+`InvalidResponseBodyException` is thrown when a successful response's body is not valid JSON. The response
+arrived in full, so it is not retried. An error status with an unparsable body throws the
+`ApifyApiException` for its status code, with the raw body in its message.
+
+`ApifyApiException`, `ApifyTransportException` and `InvalidResponseBodyException` extend the common
+`ApifyClientException`, so `catch (ApifyClientException)` catches every error this client raises for a
+failed call without naming the concrete types:
 
 ```csharp
+using System;
+using Apify.Client;
+using Apify.Client.Exceptions;
+
+var client = new ApifyClient("my-api-token");
+try
+{
+    var user = await client.User().GetAsync();
+    Console.WriteLine(user?.Username);
+}
 catch (ApifyClientException e)
 {
     Console.WriteLine("client call failed: " + e.Message);

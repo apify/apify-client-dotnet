@@ -27,6 +27,10 @@ collections).
 - `WaitForFinishAsync(int? waitSecs = null)` → `ActorRun` — client-side polling until terminal (`null`
   waits indefinitely). A run id that keeps answering 404 for 3 seconds straight (replica lag resolves
   faster than that) throws `NotFoundException` instead of polling for the rest of `waitSecs`.
+- `IterateDatasetItemsAsync(RunIterateDatasetItemsOptions? options = null)` → `IAsyncEnumerable<JsonNode?>` —
+  lazily iterates the run's default dataset while the run is still producing items: it reads the rows
+  below the dataset's `itemCount`, waits for the run to finish between polls, and after the run finishes
+  reads any remaining rows. On a `LastRun()` client it sticks to the run its first request resolved to.
 - `Dataset()`, `KeyValueStore()`, `RequestQueue()` — the run's default storages. Their own
   `GetAsync()`/`DeleteAsync()` throw on a 404 instead of resolving `null`/no-op, since the run itself
   (not just the storage) could be what's missing; a record/request looked up by its own key or id
@@ -44,6 +48,26 @@ collections).
 `RunResurrectOptions` overrides run settings when resurrecting a finished run: `Build` (`string?`),
 `MemoryMbytes` (`int?`), `TimeoutSecs` (`int?`), `MaxItems` (`int?`), `MaxTotalChargeUsd` (`double?`),
 and `RestartOnError` (`bool?`). See [Actors](actors.md) for each field's meaning.
+
+`RunIterateDatasetItemsOptions` fields (all optional): `Offset` (rows to skip), `Limit` (maximum rows to
+scan; `null` or `0` for no limit), `ChunkSize` (rows per API call, default 1000), `PollIntervalSecs`
+(seconds to wait for the run to finish between polls, default 5), and the item filters `Clean`, `Fields`,
+`Omit`, `Unwind`, `SkipEmpty` and `SkipHidden` (same meaning as in `DatasetListItemsOptions`).
+
+```csharp
+using System;
+using Apify.Client;
+using Apify.Client.Options;
+
+var client = new ApifyClient("my-api-token");
+var run = await client.Actor("apify/hello-world").StartAsync();
+
+// Items are yielded as the run produces them, until the run has finished and its dataset is drained.
+await foreach (var item in client.Run(run.Id!).IterateDatasetItemsAsync(new RunIterateDatasetItemsOptions { ChunkSize = 100 }))
+{
+    Console.WriteLine(item);
+}
+```
 
 `RunChargeOptions` describes a pay-per-event charge and is built via its constructor
 `RunChargeOptions(string eventName, int? count = null, string? idempotencyKey = null)`:
