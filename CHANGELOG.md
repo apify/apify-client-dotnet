@@ -24,19 +24,12 @@
   request (the smaller of it and the remaining `Limit`), matching the reference client's `chunkSize`.
   `MaxPageLimit` stays as the older name of the same option. A non-positive `ChunkSize` throws
   `ArgumentOutOfRangeException`.
-- Fixed `StoreCollectionClient.IterateAsync` to treat `Limit` as a cap on the total number of Actors
-  yielded (as every other iterator does) instead of as the page size, and made it, like
-  `DatasetClient.IterateItemsAsync`, keep paging until a page is empty instead of stopping at the total
-  an earlier page reported, so items added while iterating are no longer missed.
-- Fixed the list, Store and dataset-item iterators to treat a `Limit` of `0` as "no limit" (as the API
-  does) instead of stopping after the first page, and made dataset-item iteration advance by the larger of
-  the `X-Apify-Pagination-Count` header and the returned item count (capped at the requested limit), so a
-  header that lags behind freshly pushed items no longer ends the iteration early. A dataset `Limit` now
-  caps the rows scanned.
-- Fixed the list and Store iterators to advance by the rows a page scanned (its `count`) instead of the items
-  it returned, so the Store listing, which drops Actors the caller cannot run after applying offset and
-  limit, no longer repeats or skips Actors. A negative `Offset` or `Limit` now throws
-  `ArgumentOutOfRangeException` instead of being silently adjusted.
+- Changed the offset/limit iterators (`IterateAsync`, `IterateItemsAsync`) to follow the reference client:
+  `Limit` caps the items yielded in total (the rows read, for dataset items), `0` means no limit, a
+  negative `Offset` or `Limit` throws `ArgumentOutOfRangeException`, and paging follows the rows each page
+  scanned (its `count`) until a page scans none, instead of the items returned or the reported total. The
+  Store no longer repeats or skips Actors, and `StoreCollectionClient.IterateAsync` takes `Limit` as a
+  total cap rather than the page size.
 - Nested accessors of a run (`Dataset()`, `KeyValueStore()`, `RequestQueue()`, `Log()`) and of a build
   (`Log()`) now inherit the run's or build's `WithTimeout` override.
 - Added a documentation test that compiles every C# snippet in the README and `docs/`.

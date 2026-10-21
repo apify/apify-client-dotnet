@@ -209,8 +209,19 @@ internal sealed class ResourceContext
     /// <summary>GET a paginated listing and build a <see cref="PaginationList{T}"/> with each item hydrated.</summary>
     public async Task<PaginationList<T>> ListResourceAsync<T>(string subPath, QueryParams p, Func<JsonObject, T> hydrate, RequestTier tier, CancellationToken ct)
     {
+        var (page, _) = await ListPageAsync(subPath, p, hydrate, tier, ct).ConfigureAwait(false);
+        return page;
+    }
+
+    /// <summary>
+    /// Fetches one page of a listing together with the API's <c>count</c> of the rows it scanned to produce
+    /// the page. That can exceed the number of items returned: the Store listing drops Actors the caller
+    /// cannot run after applying offset and limit, so advancing by the returned items would re-read rows.
+    /// </summary>
+    private async Task<(PaginationList<T> Page, long RowsScanned)> ListPageAsync<T>(string subPath, QueryParams p, Func<JsonObject, T> hydrate, RequestTier tier, CancellationToken ct)
+    {
         var data = await GetResourceRequiredAsync(subPath, p, tier, ct).ConfigureAwait(false);
-        return PaginationList<T>.FromData(data, hydrate);
+        return (PaginationList<T>.FromData(data, hydrate), JsonValues.IntOr(data, "count", 0));
     }
 
     /// <summary>
@@ -236,12 +247,8 @@ internal sealed class ResourceContext
             chunkSize,
             async (offset, pageLimit, token) =>
             {
-                var data = await GetResourceRequiredAsync(subPath, baseQuery.PageQuery(offset, pageLimit), tier, token).ConfigureAwait(false);
-                var page = PaginationList<T>.FromData(data, hydrate);
-                // `count` is the number of rows scanned. It can exceed the items returned: the Store listing
-                // drops Actors the caller cannot run after applying offset and limit, so advancing by the
-                // returned items would re-read rows.
-                return new FetchedPage<T>(page.Items, JsonValues.IntOr(data, "count", 0));
+                var (page, rowsScanned) = await ListPageAsync(subPath, baseQuery.PageQuery(offset, pageLimit), hydrate, tier, token).ConfigureAwait(false);
+                return new FetchedPage<T>(page.Items, rowsScanned, LimitCountsRows: false);
             },
             ct);
     }

@@ -181,6 +181,46 @@ public sealed class ChunkSizeTests
     }
 
     [Fact]
+    public async Task StoreIterationContinuesPastAPageThatScannedRowsButReturnedNoItems()
+    {
+        // Every Actor of the first page was dropped (count 1, no items); the next page still has one.
+        var transport = new MockTransport()
+            .QueueResponse(200, SpecFixtures.PageWithCount(9, 1))
+            .QueueResponse(200, SpecFixtures.Page(9, SpecFixtures.StoreItem("a")))
+            .QueueResponse(200, SpecFixtures.Page(9));
+
+        var ids = new System.Collections.Generic.List<string?>();
+        await foreach (var item in Client(transport).Store().IterateAsync(new StoreListOptions { ChunkSize = 1 }))
+        {
+            ids.Add(item.Id);
+        }
+
+        Assert.Equal(new[] { "a" }, ids);
+        Assert.Contains("offset=1", transport.Received[1].Uri, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task StoreLimitCountsTheActorsYieldedEvenWhenAPageDropsSome()
+    {
+        // Limit = 3 asks for three Actors. The first page scanned 3 rows but returned only 2 (one was
+        // dropped), so one more Actor is still wanted, from the row after the 3 scanned.
+        var transport = new MockTransport()
+            .QueueResponse(200, SpecFixtures.PageWithCount(9, 3, SpecFixtures.StoreItem("a"), SpecFixtures.StoreItem("b")))
+            .QueueResponse(200, SpecFixtures.Page(9, SpecFixtures.StoreItem("c")));
+
+        var ids = new System.Collections.Generic.List<string?>();
+        await foreach (var item in Client(transport).Store().IterateAsync(new StoreListOptions { Limit = 3, ChunkSize = 3 }))
+        {
+            ids.Add(item.Id);
+        }
+
+        Assert.Equal(new[] { "a", "b", "c" }, ids);
+        Assert.Equal(2, transport.CallCount);
+        Assert.Contains("offset=3", transport.Received[1].Uri, StringComparison.Ordinal);
+        Assert.Contains("limit=1", transport.Received[1].Uri, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task ScannedRowsAreCappedAtTheRequestedLimit()
     {
         // Limit = 2 asks for 2 rows; a page claiming 5 scanned rows must not advance past what was asked for.
