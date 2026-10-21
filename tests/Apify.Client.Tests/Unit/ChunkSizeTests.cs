@@ -167,6 +167,45 @@ public sealed class ChunkSizeTests
     }
 
     [Fact]
+    public async Task StoreIterationAdvancesByTheRowsScannedNotTheItemsReturned()
+    {
+        // The Store listing drops Actors the caller cannot run after applying offset and limit, so a page that
+        // scanned 3 rows can return only 2 Actors. The next page must start after all 3 rows.
+        var transport = new MockTransport()
+            .QueueResponse(200, SpecFixtures.PageWithCount(9, 3, SpecFixtures.StoreItem("a"), SpecFixtures.StoreItem("b")))
+            .QueueResponse(200, SpecFixtures.Page(9));
+
+        await DrainAsync(Client(transport).Store().IterateAsync(new StoreListOptions { ChunkSize = 3 }));
+
+        Assert.Contains("offset=3", transport.Received[1].Uri, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task ScannedRowsAreCappedAtTheRequestedLimit()
+    {
+        // Limit = 2 asks for 2 rows; a page claiming 5 scanned rows must not advance past what was asked for.
+        var transport = new MockTransport().QueueResponse(200, SpecFixtures.PageWithCount(9, 5, SpecFixtures.ActorItem("a"), SpecFixtures.ActorItem("b")));
+
+        await DrainAsync(Client(transport).Actors().IterateAsync(new ActorListOptions { Limit = 2 }));
+
+        Assert.Equal(1, transport.CallCount);
+    }
+
+    [Theory]
+    [InlineData("Offset")]
+    [InlineData("Limit")]
+    public async Task NegativeOffsetOrLimitIsRejectedBeforeAnyRequest(string option)
+    {
+        var transport = new MockTransport();
+        var options = option == "Offset" ? new ActorListOptions { Offset = -1 } : new ActorListOptions { Limit = -1 };
+
+        var ex = await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() => DrainAsync(Client(transport).Actors().IterateAsync(options)));
+
+        Assert.Equal(option, ex.ParamName);
+        Assert.Equal(0, transport.CallCount);
+    }
+
+    [Fact]
     public async Task StoreIterationLimitIsATotalCapNotAPageSize()
     {
         // Limit = 2 is satisfied by the first page, so nothing more may be requested.

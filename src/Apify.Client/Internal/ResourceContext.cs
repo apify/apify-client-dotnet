@@ -236,8 +236,12 @@ internal sealed class ResourceContext
             chunkSize,
             async (offset, pageLimit, token) =>
             {
-                var page = await ListResourceAsync(subPath, baseQuery.PageQuery(offset, pageLimit), hydrate, tier, token).ConfigureAwait(false);
-                return new FetchedPage<T>(page.Items, null);
+                var data = await GetResourceRequiredAsync(subPath, baseQuery.PageQuery(offset, pageLimit), tier, token).ConfigureAwait(false);
+                var page = PaginationList<T>.FromData(data, hydrate);
+                // `count` is the number of rows scanned. It can exceed the items returned: the Store listing
+                // drops Actors the caller cannot run after applying offset and limit, so advancing by the
+                // returned items would re-read rows.
+                return new FetchedPage<T>(page.Items, JsonValues.IntOr(data, "count", 0));
             },
             ct);
     }

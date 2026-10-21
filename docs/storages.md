@@ -40,7 +40,8 @@ reached from a run (`client.Run(id).Dataset()`, `.KeyValueStore()`, `.RequestQue
 - `GetStatisticsAsync()` → `JsonObject` (throws if the dataset does not exist).
 - `CreateItemsPublicUrlAsync(DatasetListItemsOptions? options = null, int? expiresInSecs = null, DownloadItemsFormat? format = null)` → `string` (a signed public URL; `format` defaults to `Json`).
 
-`DatasetListItemsOptions` selects and reshapes items: `Offset`/`Limit` (pagination), `ChunkSize` (the page
+`DatasetListItemsOptions` selects and reshapes items: `Offset`/`Limit` (pagination: `Limit` is the number of
+dataset rows read, in total across pages when iterating; `0` or unset means no cap), `ChunkSize` (the page
 size `IterateItemsAsync` requests, never sent to the API), `Desc` (reverse
 order), `Fields`/`OutputFields`/`Omit` (choose columns), `Unwind`/`Flatten` (restructure nested
 fields), `Clean`/`SkipEmpty`/`SkipHidden`/`SkipFailedPages` (drop unwanted rows), `Simplified`,

@@ -102,6 +102,13 @@ public sealed class ResponseSchemaTests
     }
 
     [Fact]
+    public void EmailIsOnlyRequiredToBeAString()
+    {
+        // Like the reference client's schemas: an address such as user@localhost is not rejected.
+        Assert.Empty(Issues("GET", "/v2/users/me", "{\"data\":{\"username\":\"u\",\"email\":\"user@localhost\"}}"));
+    }
+
+    [Fact]
     public void UriFormatIsEnforced()
     {
         var issues = Issues("GET", "/v2/key-value-stores/s1/keys", SpecFixtures.KeysPage(1, false, null, "a").Replace("https://example.com/a", "not a url", StringComparison.Ordinal));

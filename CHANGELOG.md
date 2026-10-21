@@ -33,6 +33,10 @@
   the `X-Apify-Pagination-Count` header and the returned item count (capped at the requested limit), so a
   header that lags behind freshly pushed items no longer ends the iteration early. A dataset `Limit` now
   caps the rows scanned.
+- Fixed the list and Store iterators to advance by the rows a page scanned (its `count`) instead of the items
+  it returned, so the Store listing, which drops Actors the caller cannot run after applying offset and
+  limit, no longer repeats or skips Actors. A negative `Offset` or `Limit` now throws
+  `ArgumentOutOfRangeException` instead of being silently adjusted.
 - Nested accessors of a run (`Dataset()`, `KeyValueStore()`, `RequestQueue()`, `Log()`) and of a build
   (`Log()`) now inherit the run's or build's `WithTimeout` override.
 - Added a documentation test that compiles every C# snippet in the README and `docs/`.

@@ -22,6 +22,10 @@ internal static class SpecFixtures
             items.Length,
             string.Join(",", items));
 
+    /// <summary>A paginated list response whose reported <c>count</c> (rows scanned) differs from the items returned.</summary>
+    public static string PageWithCount(int total, int count, params string[] items)
+        => Page(total, items).Replace("\"count\":" + items.Length.ToString(CultureInfo.InvariantCulture), "\"count\":" + count.ToString(CultureInfo.InvariantCulture), System.StringComparison.Ordinal);
+
     /// <summary>An item of the Actor collection.</summary>
     public static string ActorItem(string id)
         => "{\"id\":\"" + id + "\",\"createdAt\":\"" + Timestamp + "\",\"modifiedAt\":\"" + Timestamp + "\",\"name\":\"n\",\"username\":\"u\"}";

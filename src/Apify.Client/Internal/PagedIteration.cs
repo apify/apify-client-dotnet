@@ -22,7 +22,8 @@ internal static class PagedIteration
     /// Lazily yields every item from <paramref name="startOffset"/> on, fetching pages on demand.
     /// </summary>
     /// <remarks>
-    /// <paramref name="totalLimit"/> caps the number of scanned rows (<c>null</c> or <c>0</c> for no cap).
+    /// <paramref name="totalLimit"/> caps the number of scanned rows (<c>null</c> or <c>0</c> for no cap); a
+    /// negative offset or limit is rejected.
     /// The next offset and the stop condition follow the rows a page scanned, not the items it returned:
     /// advancing by the item count would re-scan rows after a filter dropped some and skip rows after
     /// <c>unwind</c> multiplied them, and stopping at an empty page would end the iteration in front of rows
@@ -46,7 +47,9 @@ internal static class PagedIteration
         [EnumeratorCancellation] CancellationToken cancellationToken)
     {
         PageSizing.ValidateChunkSize(chunkSize, "ChunkSize");
-        var offset = Math.Max(startOffset, 0);
+        ArgumentOutOfRangeException.ThrowIfNegative(startOffset, "Offset");
+        ArgumentOutOfRangeException.ThrowIfNegative(totalLimit ?? 0, "Limit");
+        var offset = startOffset;
         int? remaining = totalLimit is > 0 ? totalLimit : null;
 
         long scanned;

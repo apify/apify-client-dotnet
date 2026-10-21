@@ -12,7 +12,11 @@ public sealed class DatasetListItemsOptions
     /// <summary>Number of items to skip.</summary>
     public int? Offset { get; init; }
 
-    /// <summary>Maximum number of items to return.</summary>
+    /// <summary>
+    /// Maximum number of dataset rows to read. Filters can return fewer items than rows read and
+    /// <see cref="Unwind"/> more. When iterating, it caps the rows read in total across all pages; <c>0</c>
+    /// or unset means no cap.
+    /// </summary>
     public int? Limit { get; init; }
 
     /// <summary>

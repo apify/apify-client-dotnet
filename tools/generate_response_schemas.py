@@ -9,8 +9,9 @@ specification version:
 
 The default source is https://docs.apify.com/api/openapi.json. Only what validation needs is kept: types,
 required properties, nested properties and items, composition keywords, references, and the value
-constraints (format, pattern, minimum, maximum, minLength, maxLength). Documentation, examples and keywords the client deliberately does not enforce (enum, const) are dropped, which also keeps the
-embedded resource small. Enum values stay open on purpose so that a value the API adds later does not break
+constraints (format, pattern, minimum, maximum, minLength, maxLength). Documentation, examples and
+keywords the client deliberately does not enforce (enum, const) are dropped, which also keeps the embedded
+resource small. Enum values stay open on purpose so that a value the API adds later does not break
 existing clients; the reference client's generated schemas do the same.
 """
 import json

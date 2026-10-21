@@ -19,7 +19,7 @@ namespace Apify.Client.Internal;
 /// The schemas come from the embedded <c>ResponseSchemas.json</c>, generated from the specification by
 /// <c>tools/generate_response_schemas.py</c>. Validation covers JSON types, required properties (including
 /// nullability), nested properties and array items, the <c>allOf</c>/<c>anyOf</c>/<c>oneOf</c> combinators,
-/// and value constraints: the <c>date-time</c>, <c>uri</c> and <c>email</c> formats, <c>pattern</c>,
+/// and value constraints: the <c>date-time</c> and <c>uri</c> formats, <c>pattern</c>,
 /// <c>minimum</c>/<c>maximum</c> and <c>minLength</c>/<c>maxLength</c>. Like the reference client's
 /// schemas, it lets unknown properties and unknown enum values through, so an API that grows new fields or
 /// values does not break existing clients. A request that matches no documented operation is not validated.
@@ -37,8 +37,6 @@ internal static class ResponseSchemas
     private static readonly Regex DateTimePattern = new(
         @"^\d{4}-\d{2}-\d{2}[Tt]\d{2}:\d{2}:\d{2}(\.\d+)?([Zz]|[+-]\d{2}:\d{2})$",
         RegexOptions.Compiled | RegexOptions.CultureInvariant);
-
-    private static readonly Regex EmailPattern = new(@"^[^@\s]+@[^@\s]+\.[^@\s]+$", RegexOptions.Compiled | RegexOptions.CultureInvariant);
 
     /// <summary>Bounds the time a schema's <c>pattern</c> may take, so a pathological pattern cannot hang a response read.</summary>
     private static readonly TimeSpan PatternTimeout = TimeSpan.FromSeconds(1);
@@ -237,7 +235,6 @@ internal static class ResponseSchemas
         {
             "date-time" => DateTimePattern.IsMatch(text) && DateTimeOffset.TryParse(text, CultureInfo.InvariantCulture, DateTimeStyles.None, out _),
             "uri" => Uri.TryCreate(text, UriKind.Absolute, out _),
-            "email" => EmailPattern.IsMatch(text),
             _ => true,
         };
 
