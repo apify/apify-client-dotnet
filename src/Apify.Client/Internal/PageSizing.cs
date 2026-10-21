@@ -21,21 +21,22 @@ internal static class PageSizing
     }
 
     /// <summary>
-    /// The <c>limit</c> to request for the next page: the smaller of the chunk size and the number of items
-    /// still wanted. A value of <c>null</c> or <c>0</c> means unset (the API itself reads <c>limit=0</c> as
-    /// unbounded), so it loses to any other value; <c>null</c> is returned when both are unset.
+    /// Sets the <c>limit</c> query parameter of the next page: the smaller of the chunk size and the number
+    /// of items still wanted under the caller's total limit. A total limit of <c>0</c> means unset (the API
+    /// itself reads <c>limit=0</c> as unbounded), so it loses to the chunk size, and when neither is set the
+    /// query is left as the caller built it.
     /// </summary>
+    /// <param name="query">The page query, which already carries the caller's own <c>limit</c> if any.</param>
     /// <param name="chunkSize">The validated chunk size, or <c>null</c> when unset.</param>
-    /// <param name="remaining">The number of items still wanted under the caller's total limit, or <c>null</c> when unbounded.</param>
-    public static int? PageLimit(int? chunkSize, int? remaining)
+    /// <param name="totalLimit">The caller's total limit across all pages, or <c>null</c> when unbounded.</param>
+    /// <param name="yielded">The number of items already yielded.</param>
+    public static void SetPageLimit(QueryParams query, int? chunkSize, int? totalLimit, int yielded)
     {
-        var chunk = chunkSize is 0 ? null : chunkSize;
-        var wanted = remaining is 0 ? null : remaining;
-        if (chunk is null)
+        var remaining = totalLimit is null or 0 ? null : (int?)Math.Max(totalLimit.Value - yielded, 0);
+        var pageLimit = chunkSize is null ? remaining : (remaining is null ? chunkSize : Math.Min(chunkSize.Value, remaining.Value));
+        if (pageLimit is not null)
         {
-            return wanted;
+            query.Set("limit", pageLimit.Value);
         }
-
-        return wanted is null ? chunk : Math.Min(chunk.Value, wanted.Value);
     }
 }

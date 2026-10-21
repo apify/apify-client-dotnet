@@ -44,9 +44,9 @@ public sealed class AutoPagingTests
         // CollectionIterateDoesNotStopAtAnEarlierPagesStaleTotal), so it always sends one more request
         // after the last non-empty page to confirm nothing is left.
         var transport = new MockTransport()
-            .QueueResponse(200, "{\"data\":{\"total\":3,\"items\":[{\"id\":\"a\"},{\"id\":\"b\"}]}}")
-            .QueueResponse(200, "{\"data\":{\"total\":3,\"items\":[{\"id\":\"c\"}]}}")
-            .QueueResponse(200, "{\"data\":{\"total\":3,\"items\":[]}}");
+            .QueueResponse(200, SpecFixtures.ActorPage(3, "a", "b"))
+            .QueueResponse(200, SpecFixtures.ActorPage(3, "c"))
+            .QueueResponse(200, SpecFixtures.ActorPage(3));
 
         var ids = new List<string?>();
         await foreach (var actor in Client(transport).Actors().IterateAsync())
@@ -69,11 +69,11 @@ public sealed class AutoPagingTests
         // iteration runs. The iterator must keep paging past an earlier page's `total` and only stop once a
         // page actually scans no rows.
         var transport = new MockTransport()
-            .QueueResponse(200, "{\"data\":{\"total\":2,\"items\":[{\"id\":\"a\"},{\"id\":\"b\"}]}}")
+            .QueueResponse(200, SpecFixtures.ActorPage(2, "a", "b"))
             // By the time this page is fetched, a third item was added: total is now 3, not the 2 the first
             // page reported.
-            .QueueResponse(200, "{\"data\":{\"total\":3,\"items\":[{\"id\":\"c\"}]}}")
-            .QueueResponse(200, "{\"data\":{\"total\":3,\"items\":[]}}");
+            .QueueResponse(200, SpecFixtures.ActorPage(3, "c"))
+            .QueueResponse(200, SpecFixtures.ActorPage(3));
 
         var ids = new List<string?>();
         await foreach (var actor in Client(transport).Actors().IterateAsync())
@@ -89,7 +89,7 @@ public sealed class AutoPagingTests
     public async Task CollectionIterateStopsAtLimit()
     {
         var transport = new MockTransport()
-            .QueueResponse(200, "{\"data\":{\"total\":10,\"items\":[{\"id\":\"a\"},{\"id\":\"b\"}]}}");
+            .QueueResponse(200, SpecFixtures.ActorPage(10, "a", "b"));
 
         var ids = new List<string?>();
         await foreach (var actor in Client(transport).Actors().IterateAsync(new ActorListOptions { Limit = 2 }))
@@ -108,7 +108,8 @@ public sealed class AutoPagingTests
     {
         var transport = new MockTransport()
             .QueueResponse(200, "[{\"i\":1},{\"i\":2}]", Page1Headers)
-            .QueueResponse(200, "[{\"i\":3}]", Page2Headers);
+            .QueueResponse(200, "[{\"i\":3}]", Page2Headers)
+            .QueueResponse(200, "[]"); // a final empty page confirms nothing is left
 
         var values = new List<int>();
         await foreach (var item in Client(transport).Dataset("ds1").IterateItemsAsync())
@@ -117,10 +118,31 @@ public sealed class AutoPagingTests
         }
 
         Assert.Equal(new[] { 1, 2, 3 }, values);
-        Assert.Equal(2, transport.CallCount);
+        Assert.Equal(3, transport.CallCount);
         Assert.Contains("/datasets/ds1/items", transport.Received[0].Uri, StringComparison.Ordinal);
         Assert.Contains("offset=0", transport.Received[0].Uri, StringComparison.Ordinal);
         Assert.Contains("offset=2", transport.Received[1].Uri, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task DatasetIterateItemsDoesNotStopAtAnEarlierPagesStaleTotal()
+    {
+        // The dataset grows while the iteration runs: page 1 reports a total of 2 (and has 2 items), yet a
+        // third item exists by the time page 2 is fetched. Stopping once offset reached that total would lose it.
+        var staleTotal = new Dictionary<string, string> { ["X-Apify-Pagination-Total"] = "2" };
+        var grownTotal = new Dictionary<string, string> { ["X-Apify-Pagination-Total"] = "3" };
+        var transport = new MockTransport()
+            .QueueResponse(200, "[{\"i\":1},{\"i\":2}]", staleTotal)
+            .QueueResponse(200, "[{\"i\":3}]", grownTotal)
+            .QueueResponse(200, "[]", grownTotal);
+
+        var values = new List<int>();
+        await foreach (var item in Client(transport).Dataset("ds1").IterateItemsAsync())
+        {
+            values.Add(item!["i"]!.GetValue<int>());
+        }
+
+        Assert.Equal(new[] { 1, 2, 3 }, values);
     }
 
     [Fact]
@@ -154,7 +176,8 @@ public sealed class AutoPagingTests
         var transport = new MockTransport()
             .QueueResponse(200, "[]", page1Headers) // fully filtered: 0 items returned from 2 scanned
             .QueueResponse(200, "[{\"i\":3}]", page2Headers) // 1 item returned from 2 scanned
-            .QueueResponse(200, "[{\"i\":5}]", page3Headers);
+            .QueueResponse(200, "[{\"i\":5}]", page3Headers)
+            .QueueResponse(200, "[]");
 
         var values = new List<int>();
         await foreach (var item in Client(transport).Dataset("ds1").IterateItemsAsync())
@@ -163,7 +186,7 @@ public sealed class AutoPagingTests
         }
 
         Assert.Equal(new[] { 3, 5 }, values);
-        Assert.Equal(3, transport.CallCount);
+        Assert.Equal(4, transport.CallCount);
         Assert.Contains("offset=0", transport.Received[0].Uri, StringComparison.Ordinal);
         Assert.Contains("offset=2", transport.Received[1].Uri, StringComparison.Ordinal);
         Assert.Contains("offset=4", transport.Received[2].Uri, StringComparison.Ordinal);
@@ -190,7 +213,8 @@ public sealed class AutoPagingTests
         };
         var transport = new MockTransport()
             .QueueResponse(200, "[{\"i\":1},{\"i\":2},{\"i\":3}]", page1Headers)
-            .QueueResponse(200, "[{\"i\":4}]", page2Headers);
+            .QueueResponse(200, "[{\"i\":4}]", page2Headers)
+            .QueueResponse(200, "[]");
 
         var values = new List<int>();
         await foreach (var item in Client(transport).Dataset("ds1").IterateItemsAsync())
@@ -199,7 +223,7 @@ public sealed class AutoPagingTests
         }
 
         Assert.Equal(new[] { 1, 2, 3, 4 }, values);
-        Assert.Equal(2, transport.CallCount);
+        Assert.Equal(3, transport.CallCount);
         Assert.Contains("offset=0", transport.Received[0].Uri, StringComparison.Ordinal);
         Assert.Contains("offset=1", transport.Received[1].Uri, StringComparison.Ordinal);
     }
@@ -208,8 +232,8 @@ public sealed class AutoPagingTests
     public async Task KeyValueStoreIterateKeysWalksAllPagesByExclusiveStartKey()
     {
         var transport = new MockTransport()
-            .QueueResponse(200, "{\"data\":{\"items\":[{\"key\":\"a\"},{\"key\":\"b\"}],\"limit\":2,\"isTruncated\":true,\"nextExclusiveStartKey\":\"b\"}}")
-            .QueueResponse(200, "{\"data\":{\"items\":[{\"key\":\"c\"}],\"limit\":2,\"isTruncated\":false}}");
+            .QueueResponse(200, SpecFixtures.KeysPage(2, true, "b", "a", "b"))
+            .QueueResponse(200, SpecFixtures.KeysPage(2, false, null, "c"));
 
         var keys = new List<string?>();
         await foreach (var key in Client(transport).KeyValueStore("s1").IterateKeysAsync(new IterateKeysOptions { MaxPageLimit = 2 }))
@@ -231,7 +255,7 @@ public sealed class AutoPagingTests
     public async Task KeyValueStoreIterateKeysStopsAtLimit()
     {
         var transport = new MockTransport()
-            .QueueResponse(200, "{\"data\":{\"items\":[{\"key\":\"a\"},{\"key\":\"b\"}],\"limit\":2,\"isTruncated\":true,\"nextExclusiveStartKey\":\"b\"}}");
+            .QueueResponse(200, SpecFixtures.KeysPage(2, true, "b", "a", "b"));
 
         var keys = new List<string?>();
         await foreach (var key in Client(transport).KeyValueStore("s1").IterateKeysAsync(new IterateKeysOptions { Limit = 2 }))
@@ -299,7 +323,7 @@ public sealed class AutoPagingTests
         // reporting `isTruncated=true` with a null/absent cursor must still stop iteration instead of
         // looping back to the same first page forever and yielding duplicate keys.
         var transport = new MockTransport()
-            .QueueResponse(200, "{\"data\":{\"items\":[{\"key\":\"a\"},{\"key\":\"b\"}],\"limit\":2,\"isTruncated\":true}}");
+            .QueueResponse(200, SpecFixtures.KeysPage(2, true, null, "a", "b"));
 
         var keys = new List<string?>();
         await foreach (var key in Client(transport).KeyValueStore("s1").IterateKeysAsync(new IterateKeysOptions { MaxPageLimit = 2 }))

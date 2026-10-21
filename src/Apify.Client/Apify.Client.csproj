@@ -26,6 +26,11 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- Response schemas generated from the OpenAPI spec by tools/generate_response_schemas.py. -->
+    <EmbeddedResource Include="Internal/ResponseSchemas.json" LogicalName="Apify.Client.ResponseSchemas.json" />
+  </ItemGroup>
+
+  <ItemGroup>
     <!-- The test project exercises internal helpers (signatures, query params) directly. -->
     <InternalsVisibleTo Include="Apify.Client.Tests" />
   </ItemGroup>

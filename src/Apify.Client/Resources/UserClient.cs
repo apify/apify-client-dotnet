@@ -57,8 +57,7 @@ public sealed class UserClient
             q.AddString("date", date);
         }
 
-        var data = await _ctx.GetResourceRequiredAsync("usage/monthly", q, RequestTier.Short, cancellationToken).ConfigureAwait(false);
-        return data as JsonObject ?? new JsonObject();
+        return await _ctx.GetResourceRequiredAsync("usage/monthly", q, RequestTier.Short, cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>Fetches the current account's resource limits. Only available for <c>me</c>.</summary>
@@ -66,8 +65,7 @@ public sealed class UserClient
     public async Task<JsonObject> LimitsAsync(CancellationToken cancellationToken = default)
     {
         RequireMe();
-        var data = await _ctx.GetResourceRequiredAsync("limits", new QueryParams(), RequestTier.Short, cancellationToken).ConfigureAwait(false);
-        return data as JsonObject ?? new JsonObject();
+        return await _ctx.GetResourceRequiredAsync("limits", new QueryParams(), RequestTier.Short, cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>Updates the current account's resource limits. Only available for <c>me</c>.</summary>

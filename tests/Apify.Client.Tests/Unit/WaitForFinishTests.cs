@@ -69,7 +69,7 @@ public sealed class WaitForFinishTests
         // once the resource starts resolving, the run completes normally.
         var transport = new MockTransport()
             .QueueResponse(404, "{\"error\":{\"type\":\"record-not-found\",\"message\":\"Run was not found\"}}")
-            .QueueResponse(200, "{\"data\":{\"id\":\"run1\",\"status\":\"SUCCEEDED\"}}");
+            .QueueResponse(200, SpecFixtures.Run("run1"));
 
         var run = await Client(transport).Run("run1").WaitForFinishAsync(waitSecs: 30);
 

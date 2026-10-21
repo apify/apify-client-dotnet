@@ -16,8 +16,8 @@ namespace Apify.Client.Tests.Unit;
 [Trait("Category", "Unit")]
 public sealed class RunIterateDatasetItemsTests
 {
-    private const string FinishedRun = "{\"data\":{\"id\":\"run1\",\"status\":\"SUCCEEDED\"}}";
-    private const string RunningRun = "{\"data\":{\"id\":\"run1\",\"status\":\"RUNNING\"}}";
+    private static readonly string FinishedRun = SpecFixtures.Run("run1");
+    private static readonly string RunningRun = SpecFixtures.Run("run1", "RUNNING");
 
     private static ApifyClient Client(MockTransport transport) => new(new ApifyClientOptions
     {
@@ -27,7 +27,7 @@ public sealed class RunIterateDatasetItemsTests
         HttpTransport = transport,
     });
 
-    private static string DatasetWithItemCount(int itemCount) => "{\"data\":{\"id\":\"ds1\",\"itemCount\":" + itemCount + "}}";
+    private static string DatasetWithItemCount(int itemCount) => SpecFixtures.Dataset(itemCount);
 
     private static string Items(params int[] ids) => "[" + string.Join(",", ids.Select(static i => "{\"n\":" + i + "}")) + "]";
 
@@ -102,7 +102,7 @@ public sealed class RunIterateDatasetItemsTests
     public async Task LastRunClientPinsToTheRunItFirstResolved()
     {
         var transport = new MockTransport()
-            .QueueResponse(200, "{\"data\":{\"id\":\"resolvedRun\",\"status\":\"SUCCEEDED\"}}")
+            .QueueResponse(200, SpecFixtures.Run("resolvedRun"))
             .QueueResponse(200, DatasetWithItemCount(1))
             .QueueResponse(200, Items(1))
             .QueueResponse(200, Items());

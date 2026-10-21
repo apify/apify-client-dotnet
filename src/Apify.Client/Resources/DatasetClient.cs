@@ -112,15 +112,7 @@ public sealed class DatasetClient
         while (true)
         {
             var q = baseQuery.Copy().Set("offset", offset);
-            var pageLimit = PageSizing.PageLimit(options.ChunkSize, limit is null ? null : Math.Max(limit.Value - yielded, 0));
-            if (pageLimit is not null)
-            {
-                q.Set("limit", pageLimit.Value);
-            }
-            else if (limit is not null)
-            {
-                q.Set("limit", 0);
-            }
+            PageSizing.SetPageLimit(q, options.ChunkSize, limit, yielded);
 
             var (page, scannedCount) = await FetchItemsPageAsync(q, desc, cancellationToken).ConfigureAwait(false);
             foreach (var item in page.Items)
@@ -129,8 +121,11 @@ public sealed class DatasetClient
                 yielded++;
             }
 
+            // Never stop at the reported total: it only reflects the moment its own page was fetched, and the
+            // dataset can grow while the iteration runs. Like the collection iterators, stop once a page scans
+            // no rows, which costs one extra request at the end.
             offset += (int)scannedCount;
-            if (scannedCount == 0 || offset >= page.Total || (limit is not null && yielded >= limit.Value))
+            if (scannedCount == 0 || (limit is not null && yielded >= limit.Value))
             {
                 yield break;
             }

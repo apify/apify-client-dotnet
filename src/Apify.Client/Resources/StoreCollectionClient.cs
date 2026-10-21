@@ -30,35 +30,18 @@ public sealed class StoreCollectionClient
     }
 
     /// <summary>
-    /// Lazily iterates over all Store Actors matching the options, fetching pages on demand. The page size
-    /// is the options' <c>ChunkSize</c>, falling back to <c>Limit</c> (which here is the per-page size, not
-    /// a total cap), falling back to the API default.
+    /// Lazily iterates over all Store Actors matching the options across pages, fetching each page on
+    /// demand.
     /// </summary>
-    /// <param name="options">Optional listing filters; <c>ChunkSize</c> (or else <c>Limit</c>) is the page size.</param>
+    /// <param name="options">Optional listing filters; <c>Offset</c>/<c>Limit</c> bound where iteration
+    /// starts and the total number of Actors yielded, and <c>ChunkSize</c> sets the page size.</param>
     /// <param name="cancellationToken">A token to cancel the iteration.</param>
-    public async IAsyncEnumerable<ActorStoreListItem> IterateAsync(
-        StoreListOptions? options = null,
-        [EnumeratorCancellation] CancellationToken cancellationToken = default)
+    public IAsyncEnumerable<ActorStoreListItem> IterateAsync(StoreListOptions? options = null, CancellationToken cancellationToken = default)
     {
         options ??= new StoreListOptions();
-        PageSizing.ValidateChunkSize(options.ChunkSize, nameof(StoreListOptions.ChunkSize));
-        var pageSize = options.ChunkSize ?? options.Limit;
-        var offset = options.Offset ?? 0;
-        while (true)
-        {
-            var page = await ListAsync(options.WithPage(offset, pageSize), cancellationToken).ConfigureAwait(false);
-            var items = page.Items;
-            foreach (var item in items)
-            {
-                yield return item;
-            }
-
-            offset += items.Count;
-            if (items.Count == 0 || offset >= page.Total)
-            {
-                yield break;
-            }
-        }
+        var q = new QueryParams();
+        options.AppendTo(q);
+        return _ctx.IterateListAsync("", q, options.Offset ?? 0, options.Limit, options.ChunkSize, static d => new ActorStoreListItem(d), RequestTier.Medium, cancellationToken);
     }
 
     /// <summary>

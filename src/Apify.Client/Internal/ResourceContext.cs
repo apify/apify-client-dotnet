@@ -148,7 +148,7 @@ internal sealed class ResourceContext
     /// resource or the nested one is missing) and propagates instead. A non-empty <paramref name="subPath"/>
     /// (e.g. a request looked up by its own id) is never ambiguous regardless of how this context was built.
     /// </summary>
-    public async Task<JsonNode?> GetResourceAsync(string subPath, QueryParams p, RequestTier tier, CancellationToken ct)
+    public async Task<JsonObject?> GetResourceAsync(string subPath, QueryParams p, RequestTier tier, CancellationToken ct)
     {
         if (_ambiguousNotFound && subPath.Length == 0)
         {
@@ -165,12 +165,12 @@ internal sealed class ResourceContext
         }
     }
 
-    /// <summary>GET a single resource, returning its decoded <c>data</c> (propagates errors).</summary>
-    public async Task<JsonNode?> GetResourceRequiredAsync(string subPath, QueryParams p, RequestTier tier, CancellationToken ct)
+    /// <summary>GET a single resource, returning its decoded <c>data</c> object (propagates errors).</summary>
+    public async Task<JsonObject> GetResourceRequiredAsync(string subPath, QueryParams p, RequestTier tier, CancellationToken ct)
     {
         var url = MergedParams(p).ApplyToUrl(SubUrl(subPath));
         using var response = await Http.CallAsync(HttpMethod.Get, url, timeout: _requestTimeout, tier: tier, cancellationToken: ct).ConfigureAwait(false);
-        return await response.ReadDataAsync(ct).ConfigureAwait(false);
+        return await response.ReadDataObjectAsync(ct).ConfigureAwait(false);
     }
 
     /// <summary>PUT to update a resource with a JSON-serializable body, returning the decoded <c>data</c>.</summary>
@@ -243,15 +243,7 @@ internal sealed class ResourceContext
         while (true)
         {
             var q = baseQuery.Copy().Set("offset", offset);
-            var pageLimit = PageSizing.PageLimit(chunkSize, limit is null ? null : Math.Max(limit.Value - yielded, 0));
-            if (pageLimit is not null)
-            {
-                q.Set("limit", pageLimit.Value);
-            }
-            else if (limit is not null)
-            {
-                q.Set("limit", 0);
-            }
+            PageSizing.SetPageLimit(q, chunkSize, limit, yielded);
 
             var page = await ListResourceAsync(subPath, q, hydrate, tier, ct).ConfigureAwait(false);
             foreach (var item in page.Items)
@@ -381,7 +373,7 @@ internal sealed class ResourceContext
 
     /// <summary>
     /// GET returning a JSON body that is not wrapped in a data envelope; propagates a 404 (see
-    /// <see cref="GetRawRequiredAsync"/> for why). Returns a JSON <c>null</c> node for an empty body.
+    /// <see cref="GetRawRequiredAsync"/> for why). Returns <c>null</c> for an empty body.
     /// </summary>
     public async Task<JsonNode?> GetJsonRequiredAsync(string subPath, QueryParams p, RequestTier tier, CancellationToken ct)
     {

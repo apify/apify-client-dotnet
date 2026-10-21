@@ -20,9 +20,6 @@ public sealed class ChunkSizeTests
         HttpTransport = transport,
     });
 
-    private static string Page(params string[] ids)
-        => "{\"data\":{\"total\":99,\"items\":[" + string.Join(",", Array.ConvertAll(ids, static id => "{\"id\":\"" + id + "\"}")) + "]}}";
-
     private static async Task DrainAsync<T>(System.Collections.Generic.IAsyncEnumerable<T> items)
     {
         await foreach (var unused in items)
@@ -35,9 +32,9 @@ public sealed class ChunkSizeTests
     public async Task CollectionIterationRequestsTheSmallerOfChunkSizeAndRemainingLimit()
     {
         var transport = new MockTransport()
-            .QueueResponse(200, Page("a", "b"))
-            .QueueResponse(200, Page("c", "d"))
-            .QueueResponse(200, Page("e"));
+            .QueueResponse(200, SpecFixtures.Page(5, SpecFixtures.TaskItem("a"), SpecFixtures.TaskItem("b")))
+            .QueueResponse(200, SpecFixtures.Page(5, SpecFixtures.TaskItem("c"), SpecFixtures.TaskItem("d")))
+            .QueueResponse(200, SpecFixtures.Page(5, SpecFixtures.TaskItem("e")));
 
         await DrainAsync(Client(transport).Tasks().IterateAsync(new ListOptions { Limit = 5, ChunkSize = 2 }));
 
@@ -51,7 +48,7 @@ public sealed class ChunkSizeTests
     [Fact]
     public async Task CollectionIterationWithoutLimitUsesChunkSizeAsPageLimit()
     {
-        var transport = new MockTransport().QueueResponse(200, Page("a")).QueueResponse(200, Page());
+        var transport = new MockTransport().QueueResponse(200, SpecFixtures.ActorPage(1, "a")).QueueResponse(200, SpecFixtures.ActorPage(1));
 
         await DrainAsync(Client(transport).Actors().IterateAsync(new ActorListOptions { ChunkSize = 7 }));
 
@@ -62,7 +59,7 @@ public sealed class ChunkSizeTests
     public async Task ZeroLimitDoesNotBeatChunkSize()
     {
         // The API reads limit=0 as unset, so it must lose to the chunk size.
-        var transport = new MockTransport().QueueResponse(200, Page("a"));
+        var transport = new MockTransport().QueueResponse(200, SpecFixtures.Page(1, SpecFixtures.ScheduleItem("a")));
 
         await DrainAsync(Client(transport).Schedules().IterateAsync(new ListOptions { Limit = 0, ChunkSize = 3 }));
 
@@ -99,7 +96,7 @@ public sealed class ChunkSizeTests
     [Fact]
     public async Task KeyIterationHonoursChunkSizeOverItsOlderName()
     {
-        var transport = new MockTransport().QueueResponse(200, "{\"data\":{\"items\":[],\"isTruncated\":false}}");
+        var transport = new MockTransport().QueueResponse(200, SpecFixtures.KeysPage(4, false, null));
 
         await DrainAsync(Client(transport).KeyValueStore("s1").IterateKeysAsync(new IterateKeysOptions { ChunkSize = 4, MaxPageLimit = 9 }));
 
@@ -109,7 +106,7 @@ public sealed class ChunkSizeTests
     [Fact]
     public async Task RequestIterationHonoursChunkSize()
     {
-        var transport = new MockTransport().QueueResponse(200, "{\"data\":{\"items\":[],\"limit\":5}}");
+        var transport = new MockTransport().QueueResponse(200, SpecFixtures.ListRequestsPage(5));
 
         await DrainAsync(Client(transport).RequestQueue("q1").PaginateRequestsAsync(new PaginateRequestsOptions { ChunkSize = 5 }));
 
@@ -117,12 +114,58 @@ public sealed class ChunkSizeTests
     }
 
     [Fact]
-    public async Task StoreIterationUsesChunkSizeAsPageSize()
+    public async Task StoreIterationSizesPagesByChunkSizeAndCapsTotalAtLimit()
     {
-        var transport = new MockTransport().QueueResponse(200, Page());
+        var transport = new MockTransport()
+            .QueueResponse(200, SpecFixtures.Page(9, SpecFixtures.StoreItem("a"), SpecFixtures.StoreItem("b")))
+            .QueueResponse(200, SpecFixtures.Page(9, SpecFixtures.StoreItem("c")));
 
-        await DrainAsync(Client(transport).Store().IterateAsync(new StoreListOptions { ChunkSize = 6, Limit = 100 }));
+        var ids = new System.Collections.Generic.List<string?>();
+        await foreach (var item in Client(transport).Store().IterateAsync(new StoreListOptions { ChunkSize = 2, Limit = 3 }))
+        {
+            ids.Add(item.Id);
+        }
 
-        Assert.Contains("limit=6", transport.Received[0].Uri, StringComparison.Ordinal);
+        Assert.Equal(new[] { "a", "b", "c" }, ids);
+        Assert.Equal(2, transport.CallCount);
+        Assert.Contains("limit=2", transport.Received[0].Uri, StringComparison.Ordinal);
+        Assert.Contains("limit=1", transport.Received[1].Uri, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task StoreIterationLimitIsATotalCapNotAPageSize()
+    {
+        // Limit = 2 is satisfied by the first page, so nothing more may be requested.
+        var transport = new MockTransport().QueueResponse(200, SpecFixtures.Page(50, SpecFixtures.StoreItem("a"), SpecFixtures.StoreItem("b")));
+
+        var count = 0;
+        await foreach (var unused in Client(transport).Store().IterateAsync(new StoreListOptions { Limit = 2 }))
+        {
+            _ = unused;
+            count++;
+        }
+
+        Assert.Equal(2, count);
+        Assert.Equal(1, transport.CallCount);
+        Assert.Contains("limit=2", transport.Received[0].Uri, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task StoreIterationDoesNotStopAtAnEarlierPagesStaleTotal()
+    {
+        // The Store grows between pages: page 1 reports a total of 2, but a third item exists on page 2.
+        var transport = new MockTransport()
+            .QueueResponse(200, SpecFixtures.Page(2, SpecFixtures.StoreItem("a"), SpecFixtures.StoreItem("b")))
+            .QueueResponse(200, SpecFixtures.Page(3, SpecFixtures.StoreItem("c")))
+            .QueueResponse(200, SpecFixtures.Page(3));
+
+        var count = 0;
+        await foreach (var unused in Client(transport).Store().IterateAsync())
+        {
+            _ = unused;
+            count++;
+        }
+
+        Assert.Equal(3, count);
     }
 }

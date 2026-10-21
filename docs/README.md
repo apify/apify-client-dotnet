@@ -206,8 +206,10 @@ catch (ApifyApiException e)
 timeout, or DNS error) after all retries are exhausted.
 
 `InvalidResponseBodyException` is thrown when a successful response's body is not valid JSON, and
-`ResponseValidationException` when it is valid JSON but does not have the shape the API specification
-promises (for example the `data` envelope is missing). The response arrived in full, so neither is
+`ResponseValidationException` when it is valid JSON but does not match the schema the API specification
+declares for that operation (for example the `data` envelope or a required property is missing, or a
+property has the wrong JSON type). Unknown properties and enum values are accepted, so new API fields do
+not break the client. The response arrived in full, so neither is
 retried. Both expose `StatusCode`, `HttpMethod`, `Path` and the raw `Body`. An error status with an
 unparsable body throws the `ApifyApiException` for its status code, with the raw body in its message.
 

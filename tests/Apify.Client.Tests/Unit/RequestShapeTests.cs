@@ -59,7 +59,7 @@ public sealed class RequestShapeTests
     [Fact]
     public async Task LastRunRequestQueueForwardsStatusAndOrigin()
     {
-        var transport = new MockTransport().QueueResponse(200, "{\"data\":{\"items\":[]}}");
+        var transport = new MockTransport().QueueResponse(200, SpecFixtures.QueueHead());
         await Client(transport).Actor("me/act")
             .LastRun(new LastRunOptions { Status = "SUCCEEDED", Origin = "API" })
             .RequestQueue()
@@ -141,7 +141,7 @@ public sealed class RequestShapeTests
     [Fact]
     public async Task MetamorphSendsTargetActorIdAndInput()
     {
-        var transport = new MockTransport().QueueResponse(200, "{\"data\":{\"id\":\"r\"}}");
+        var transport = new MockTransport().QueueResponse(200, SpecFixtures.Run("r"));
         await Client(transport).Run("run1").MetamorphAsync("apify/other", new { x = 1 }, new MetamorphOptions { Build = "latest" });
 
         var request = transport.LastRequest;
@@ -155,7 +155,7 @@ public sealed class RequestShapeTests
     [Fact]
     public async Task ResurrectSendsOptions()
     {
-        var transport = new MockTransport().QueueResponse(200, "{\"data\":{\"id\":\"r\"}}");
+        var transport = new MockTransport().QueueResponse(200, SpecFixtures.Run("r"));
         await Client(transport).Run("run1").ResurrectAsync(new RunResurrectOptions { Build = "beta", MemoryMbytes = 1024 });
 
         var uri = transport.LastRequest.Uri;
@@ -167,7 +167,7 @@ public sealed class RequestShapeTests
     [Fact]
     public async Task RebootPostsToRebootPath()
     {
-        var transport = new MockTransport().QueueResponse(200, "{\"data\":{\"id\":\"r\"}}");
+        var transport = new MockTransport().QueueResponse(200, SpecFixtures.Run("r"));
         await Client(transport).Run("run1").RebootAsync();
 
         var request = transport.LastRequest;
@@ -178,7 +178,7 @@ public sealed class RequestShapeTests
     [Fact]
     public async Task AbortSendsGracefullyFlag()
     {
-        var transport = new MockTransport().QueueResponse(200, "{\"data\":{\"id\":\"r\"}}");
+        var transport = new MockTransport().QueueResponse(200, SpecFixtures.Run("r"));
         await Client(transport).Run("run1").AbortAsync(true);
         Assert.Contains("gracefully=1", transport.LastRequest.Uri, StringComparison.Ordinal);
     }
@@ -186,7 +186,7 @@ public sealed class RequestShapeTests
     [Fact]
     public async Task DefaultBuildFetchesBuildsDefault()
     {
-        var transport = new MockTransport().QueueResponse(200, "{\"data\":{\"id\":\"build1\"}}");
+        var transport = new MockTransport().QueueResponse(200, SpecFixtures.Build("build1"));
         await Client(transport).Actor("me~a").DefaultBuildAsync(10);
 
         var request = transport.LastRequest;
@@ -198,7 +198,7 @@ public sealed class RequestShapeTests
     [Fact]
     public async Task RequestQueueOptionsApplyClientKey()
     {
-        var transport = new MockTransport().QueueResponse(200, "{\"data\":{\"items\":[]}}");
+        var transport = new MockTransport().QueueResponse(200, SpecFixtures.QueueHead());
         await Client(transport).RequestQueue("q1", new RequestQueueClientOptions { ClientKey = "ck-123" }).ListHeadAsync(5);
 
         Assert.Contains("clientKey=ck-123", transport.LastRequest.Uri, StringComparison.Ordinal);
@@ -207,7 +207,7 @@ public sealed class RequestShapeTests
     [Fact]
     public async Task RequestQueueOptionsApplyTimeout()
     {
-        var transport = new MockTransport().QueueResponse(200, "{\"data\":{\"items\":[]}}");
+        var transport = new MockTransport().QueueResponse(200, SpecFixtures.QueueHead());
         await Client(transport).RequestQueue("q1", new RequestQueueClientOptions { TimeoutSecs = 2.0 }).ListHeadAsync(5);
 
         // The per-queue timeout must be threaded down to the transport (first attempt uses it directly).
@@ -222,8 +222,8 @@ public sealed class RequestShapeTests
         // as long as it doesn't exceed the overall budget (ApifyClientOptions.TimeoutSecs — see the
         // dedicated cap test below).
         var transport = new MockTransport()
-            .QueueResponse(200, "{\"data\":{\"id\":\"x\"}}")
-            .QueueResponse(200, "{\"data\":{\"id\":\"x\"}}");
+            .QueueResponse(200, SpecFixtures.Actor("x"))
+            .QueueResponse(200, SpecFixtures.Actor("x"));
         var client = new ApifyClient(new ApifyClientOptions
         {
             Token = "t",
@@ -247,7 +247,7 @@ public sealed class RequestShapeTests
         // Matches the reference client: a requested timeout above timeoutMaxSecs (here,
         // ApifyClientOptions.TimeoutSecs) is capped at it rather than silently exceeding it — raising the
         // overall budget itself is how a caller gets a longer per-call timeout.
-        var transport = new MockTransport().QueueResponse(200, "{\"data\":{\"id\":\"x\"}}");
+        var transport = new MockTransport().QueueResponse(200, SpecFixtures.Actor("x"));
         var client = new ApifyClient(new ApifyClientOptions
         {
             Token = "t",
@@ -267,7 +267,7 @@ public sealed class RequestShapeTests
         // TimeSpan.Zero is the client's "no timeout" sentinel (HttpClientTransport skips CancelAfter for a
         // non-positive duration), matching the reference client's 'noTimeout' — which, like here, bypasses
         // the overall-budget cap entirely rather than being clamped to it.
-        var transport = new MockTransport().QueueResponse(200, "{\"data\":{\"id\":\"x\"}}");
+        var transport = new MockTransport().QueueResponse(200, SpecFixtures.Actor("x"));
 
         await Client(transport).Actor("x").WithTimeout(TimeSpan.Zero).GetAsync();
 
@@ -326,7 +326,7 @@ public sealed class RequestShapeTests
     {
         var transport = new MockTransport().QueueResponse(
             200,
-            "{\"data\":{\"id\":\"t1\",\"isPublic\":true,\"publicConfig\":{\"publishedAt\":\"2026-01-01T00:00:00.000Z\",\"seoTitle\":\"My task\"}}}");
+            SpecFixtures.Task("t1", "\"isPublic\":true,\"publicConfig\":{\"publishedAt\":\"2026-01-01T00:00:00.000Z\",\"seoTitle\":\"My task\"}"));
         var task = await Client(transport).Task("t1").PublishAsync();
 
         var request = transport.LastRequest;
@@ -341,7 +341,7 @@ public sealed class RequestShapeTests
     [Fact]
     public async Task UnpublishPutsIsPublicFalse()
     {
-        var transport = new MockTransport().QueueResponse(200, "{\"data\":{\"id\":\"t1\",\"isPublic\":false}}");
+        var transport = new MockTransport().QueueResponse(200, SpecFixtures.Task("t1", "\"isPublic\":false"));
         var task = await Client(transport).Task("t1").UnpublishAsync();
 
         var request = transport.LastRequest;
@@ -372,7 +372,7 @@ public sealed class RequestShapeTests
     [Fact]
     public async Task RunListJoinsStatusAsCsv()
     {
-        var transport = new MockTransport().QueueResponse(200, "{\"data\":{\"items\":[],\"total\":0}}");
+        var transport = new MockTransport().QueueResponse(200, SpecFixtures.Page(0));
         await Client(transport).Runs().ListAsync(null, new RunListOptions { Status = new[] { "SUCCEEDED", "RUNNING" } });
 
         Assert.Contains("status=SUCCEEDED%2CRUNNING", transport.LastRequest.Uri, StringComparison.Ordinal);
@@ -381,7 +381,7 @@ public sealed class RequestShapeTests
     [Fact]
     public async Task ListRequestsJoinsFilterAsCsv()
     {
-        var transport = new MockTransport().QueueResponse(200, "{\"data\":{\"items\":[]}}");
+        var transport = new MockTransport().QueueResponse(200, SpecFixtures.QueueHead());
         await Client(transport).RequestQueue("q1").ListRequestsAsync(new ListRequestsOptions
         {
             Filter = new[] { ListRequestsOptions.FilterLocked, ListRequestsOptions.FilterPending },
@@ -398,7 +398,7 @@ public sealed class RequestShapeTests
         CultureInfo.CurrentCulture = new CultureInfo("de-DE");
         try
         {
-            var transport = new MockTransport().QueueResponse(200, "{\"data\":{\"id\":\"r\"}}");
+            var transport = new MockTransport().QueueResponse(200, SpecFixtures.Run("r"));
             await Client(transport).Actor("act").StartAsync(null, new ActorStartOptions { MaxTotalChargeUsd = 12.5 });
 
             var uri = transport.LastRequest.Uri;
@@ -414,7 +414,7 @@ public sealed class RequestShapeTests
     [Fact]
     public async Task StartAsyncSendsRawBytesInputVerbatimWithoutJsonEncoding()
     {
-        var transport = new MockTransport().QueueResponse(200, "{\"data\":{\"id\":\"r\"}}");
+        var transport = new MockTransport().QueueResponse(200, SpecFixtures.Run("r"));
         var rawInput = new byte[] { 0x00, 0x01, 0xFF, (byte)'{', (byte)'}' };
 
         await Client(transport).Actor("act").StartAsync(rawInput, new ActorStartOptions { ContentType = "application/octet-stream" });
@@ -426,7 +426,7 @@ public sealed class RequestShapeTests
     [Fact]
     public async Task MetamorphAsyncSendsRawBytesInputVerbatimWithoutJsonEncoding()
     {
-        var transport = new MockTransport().QueueResponse(200, "{\"data\":{\"id\":\"r\"}}");
+        var transport = new MockTransport().QueueResponse(200, SpecFixtures.Run("r"));
         var rawInput = new byte[] { 0x10, 0x20, 0x30 };
 
         await Client(transport).Run("run1").MetamorphAsync(

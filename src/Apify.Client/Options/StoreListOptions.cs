@@ -46,20 +46,6 @@ public sealed class StoreListOptions
     public string? ResponseFormat { get; init; }
 
     /// <summary>Returns a copy of these options with a new <see cref="Offset"/> (used by lazy iteration).</summary>
-    internal StoreListOptions WithPage(int? offset, int? limit) => new()
-    {
-        Offset = offset,
-        Limit = limit,
-        Search = Search,
-        SortBy = SortBy,
-        Category = Category,
-        Username = Username,
-        PricingModel = PricingModel,
-        IncludeUnrunnableActors = IncludeUnrunnableActors,
-        AllowsAgenticUsers = AllowsAgenticUsers,
-        ResponseFormat = ResponseFormat,
-    };
-
     internal void AppendTo(QueryParams q)
     {
         q.AddInt("offset", Offset)

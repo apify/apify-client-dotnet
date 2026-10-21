@@ -25,7 +25,7 @@ public sealed class ResponseDecompressionTests
     [InlineData("deflate")]
     public async Task DefaultTransportDecompressesResponse(string encoding)
     {
-        const string json = "{\"data\":{\"id\":\"act1\",\"name\":\"compressed-actor\"}}";
+        var json = SpecFixtures.Actor("act1", "compressed-actor");
         var payload = Compress(Encoding.UTF8.GetBytes(json), encoding);
 
         using var server = new LoopbackServer(encoding, payload);

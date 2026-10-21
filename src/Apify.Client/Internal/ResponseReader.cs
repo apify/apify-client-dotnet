@@ -9,9 +9,10 @@ namespace Apify.Client.Internal;
 
 /// <summary>
 /// Reads a successful JSON response into a <see cref="JsonNode"/> and reports a body that is unparsable
-/// (<see cref="InvalidResponseBodyException"/>) or lacks the shape the API specification promises
-/// (<see cref="ResponseValidationException"/>), with the request's method and path as context. Every
-/// successful JSON response is decoded through here, matching the reference client's <c>parseResponse</c>.
+/// (<see cref="InvalidResponseBodyException"/>) or does not match the schema the API specification
+/// declares for the operation (<see cref="ResponseValidationException"/>, see <see cref="ResponseSchemas"/>),
+/// with the request's method and path as context. Every successful JSON response is decoded through here,
+/// matching the reference client's <c>parseResponse</c>.
 /// </summary>
 internal static class ResponseReader
 {
@@ -21,17 +22,36 @@ internal static class ResponseReader
     public static async Task<JsonNode?> ReadJsonAsync(this HttpResponseMessage response, CancellationToken cancellationToken)
     {
         var body = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
-        return Parse(response, body);
+        var node = Parse(response, body);
+        ValidateAgainstSpec(response, body, node);
+        return node;
+    }
+
+    /// <summary>Reads a bare (not enveloped) JSON array body, such as a dataset's items.</summary>
+    public static async Task<JsonArray> ReadJsonArrayAsync(this HttpResponseMessage response, CancellationToken cancellationToken)
+    {
+        var body = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+        var node = Parse(response, body);
+        ValidateAgainstSpec(response, body, node);
+        return node as JsonArray ?? throw Invalid(response, body, "the response is not a JSON array");
+    }
+
+    /// <summary>Reads a <c>data</c>-enveloped body whose <c>data</c> must be an object.</summary>
+    public static async Task<JsonObject> ReadDataObjectAsync(this HttpResponseMessage response, CancellationToken cancellationToken)
+    {
+        var body = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+        return UnwrapData(response, body) as JsonObject ?? throw Invalid(response, body, "the response's `data` is not an object");
     }
 
     /// <summary>
-    /// Reads a body wrapped in the <c>{"data": ...}</c> envelope and returns the unwrapped value. The
-    /// envelope and a non-null <c>data</c> are required.
+    /// Parses an enveloped body, validates it against the specification's schema for the operation, and
+    /// returns the unwrapped non-null <c>data</c>.
     /// </summary>
-    public static async Task<JsonNode> ReadDataAsync(this HttpResponseMessage response, CancellationToken cancellationToken)
+    private static JsonNode UnwrapData(HttpResponseMessage response, string body)
     {
-        var body = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
-        if (Parse(response, body) is not JsonObject envelope || !envelope.TryGetPropertyValue(DataEnvelopeKey, out var data))
+        var node = Parse(response, body);
+        ValidateAgainstSpec(response, body, node);
+        if (node is not JsonObject envelope || !envelope.TryGetPropertyValue(DataEnvelopeKey, out var data))
         {
             throw Invalid(response, body, "the response is missing the `data` envelope");
         }
@@ -39,23 +59,13 @@ internal static class ResponseReader
         return data ?? throw Invalid(response, body, "the response's `data` is null");
     }
 
-    /// <summary>Reads a <c>data</c>-enveloped body whose <c>data</c> must be an object.</summary>
-    public static async Task<JsonObject> ReadDataObjectAsync(this HttpResponseMessage response, CancellationToken cancellationToken)
+    private static void ValidateAgainstSpec(HttpResponseMessage response, string body, JsonNode? node)
     {
-        var body = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
-        if (Parse(response, body) is not JsonObject envelope || !envelope.TryGetPropertyValue(DataEnvelopeKey, out var data))
+        var issues = ResponseSchemas.Validate(MethodOf(response), PathOf(response), node);
+        if (issues.Count > 0)
         {
-            throw Invalid(response, body, "the response is missing the `data` envelope");
+            throw Invalid(response, body, string.Join("; ", issues));
         }
-
-        return data as JsonObject ?? throw Invalid(response, body, "the response's `data` is not an object");
-    }
-
-    /// <summary>Reads a bare (not enveloped) JSON array body, such as a dataset's items.</summary>
-    public static async Task<JsonArray> ReadJsonArrayAsync(this HttpResponseMessage response, CancellationToken cancellationToken)
-    {
-        var body = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
-        return Parse(response, body) as JsonArray ?? throw Invalid(response, body, "the response is not a JSON array");
     }
 
     private static JsonNode? Parse(HttpResponseMessage response, string body)
