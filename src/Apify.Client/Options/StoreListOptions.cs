@@ -8,8 +8,15 @@ public sealed class StoreListOptions
     /// <summary>Number of Actors to skip.</summary>
     public int? Offset { get; init; }
 
-    /// <summary>Maximum number of Actors to return (also the per-page size when iterating).</summary>
+    /// <summary>Maximum number of Actors to return (when iterating, in total across all pages).</summary>
     public int? Limit { get; init; }
+
+    /// <summary>
+    /// Maximum number of items requested per API call when iterating across pages (must be positive). Only
+    /// iteration uses it, as the page size; it is never sent to the API. The effective page size is the
+    /// smaller of this and the remaining <c>Limit</c>. Defaults to the API's own page size.
+    /// </summary>
+    public int? ChunkSize { get; init; }
 
     /// <summary>Full-text search query.</summary>
     public string? Search { get; init; }
@@ -24,8 +31,8 @@ public sealed class StoreListOptions
     public string? Username { get; init; }
 
     /// <summary>
-    /// Filter Actors by pricing model (<c>FREE</c>, <c>FLAT_PRICE_PER_MONTH</c>,
-    /// <c>PRICE_PER_DATASET_ITEM</c>, <c>PAY_PER_EVENT</c>).
+    /// Filter Actors by pricing model (<c>FREE</c>, <c>PRICE_PER_DATASET_ITEM</c>,
+    /// <c>PAY_PER_EVENT</c>). The rental model (<c>FLAT_PRICE_PER_MONTH</c>) is no longer supported.
     /// </summary>
     public string? PricingModel { get; init; }
 
@@ -37,21 +44,6 @@ public sealed class StoreListOptions
 
     /// <summary>The response format (<c>full</c>, <c>agent</c>).</summary>
     public string? ResponseFormat { get; init; }
-
-    /// <summary>Returns a copy of these options with a new <see cref="Offset"/> (used by lazy iteration).</summary>
-    internal StoreListOptions WithOffset(int? offset) => new()
-    {
-        Offset = offset,
-        Limit = Limit,
-        Search = Search,
-        SortBy = SortBy,
-        Category = Category,
-        Username = Username,
-        PricingModel = PricingModel,
-        IncludeUnrunnableActors = IncludeUnrunnableActors,
-        AllowsAgenticUsers = AllowsAgenticUsers,
-        ResponseFormat = ResponseFormat,
-    };
 
     internal void AppendTo(QueryParams q)
     {

@@ -40,7 +40,7 @@ public sealed class BuildCollectionClient
         options ??= new ListOptions();
         var q = new QueryParams();
         options.AppendTo(q);
-        return _ctx.IterateListAsync("", q, options.Offset ?? 0, options.Limit, static d => new Build(d), RequestTier.Medium, cancellationToken);
+        return _ctx.IterateListAsync("", q, options.Offset ?? 0, options.Limit, options.ChunkSize, static d => new Build(d), RequestTier.Medium, cancellationToken);
     }
 
 

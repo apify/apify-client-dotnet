@@ -4,7 +4,8 @@ namespace Apify.Client.Exceptions;
 
 /// <summary>
 /// Base class of every error this client throws for a failed API call: <see cref="ApifyApiException"/>
-/// (and its per-status subclasses) and <see cref="ApifyTransportException"/>. A single
+/// (and its per-status subclasses), <see cref="ApifyTransportException"/>,
+/// <see cref="InvalidResponseBodyException"/> and <see cref="ResponseValidationException"/>. A single
 /// <c>catch (ApifyClientException)</c> catches all of them, matching the reference client's
 /// <c>ApifyClientError</c>.
 /// </summary>

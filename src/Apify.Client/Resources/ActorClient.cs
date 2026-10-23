@@ -148,7 +148,7 @@ public sealed class ActorClient
         q.AddInt("waitForFinish", waitForFinish);
         // Long: waitForFinish is sent unclamped, so the HTTP timeout must cover whatever the caller asks for.
         var data = await _ctx.GetResourceRequiredAsync("builds/default", q, RequestTier.Long, cancellationToken).ConfigureAwait(false);
-        var build = new Build(data as JsonObject ?? new JsonObject());
+        var build = new Build(data);
         return new BuildClient(_http, _baseUrl, build.Id ?? string.Empty);
     }
 
@@ -156,7 +156,7 @@ public sealed class ActorClient
     /// <param name="options">Optional last-run filters.</param>
     public RunClient LastRun(LastRunOptions? options = null)
     {
-        var client = new RunClient(_http, _ctx.SubUrl(""), "runs", "last");
+        var client = new RunClient(_root, _http, _ctx.SubUrl(""), "runs", "last");
         client.SetLastRunParams(options ?? new LastRunOptions());
         return client;
     }

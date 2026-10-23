@@ -19,6 +19,7 @@ reached from a run (`client.Run(id).Dataset()`, `.KeyValueStore()`, `.RequestQue
 | `Desc` | `bool?` | Sort newest-first when `true`. |
 | `Unnamed` | `bool?` | Include unnamed storages when `true` (they are excluded by default). |
 | `Ownership` | `string?` | Filter by ownership (e.g. only storages owned by the current account). |
+| `ChunkSize` | `int?` | Page size used by `IterateAsync` (positive; the smaller of this and the remaining `Limit` is requested per call). Never sent to the API. |
 
 ## Datasets
 
@@ -39,7 +40,9 @@ reached from a run (`client.Run(id).Dataset()`, `.KeyValueStore()`, `.RequestQue
 - `GetStatisticsAsync()` → `JsonObject` (throws if the dataset does not exist).
 - `CreateItemsPublicUrlAsync(DatasetListItemsOptions? options = null, int? expiresInSecs = null, DownloadItemsFormat? format = null)` → `string` (a signed public URL; `format` defaults to `Json`).
 
-`DatasetListItemsOptions` selects and reshapes items: `Offset`/`Limit` (pagination), `Desc` (reverse
+`DatasetListItemsOptions` selects and reshapes items: `Offset`/`Limit` (pagination: `Limit` is the number of
+dataset rows read, in total across pages when iterating; `0` or unset means no cap), `ChunkSize` (the page
+size `IterateItemsAsync` requests, never sent to the API), `Desc` (reverse
 order), `Fields`/`OutputFields`/`Omit` (choose columns), `Unwind`/`Flatten` (restructure nested
 fields), `Clean`/`SkipEmpty`/`SkipHidden`/`SkipFailedPages` (drop unwanted rows), `Simplified`,
 `View`, and `Signature` (for signed public URLs).
@@ -99,7 +102,7 @@ await csvStream.CopyToAsync(file);
 - `GetAsync()` → `KeyValueStore?`; `UpdateAsync(object newFields)` → `KeyValueStore`; `DeleteAsync()`.
 - `ListKeysAsync(ListKeysOptions? options = null)` → `KeyValueStoreKeysPage` (one page).
 - `IterateKeysAsync(IterateKeysOptions? options = null)` → `IAsyncEnumerable<KeyValueStoreKey>` — lazily
-  iterate every key across pages, fetching each page (sized by `MaxPageLimit`) on demand.
+  iterate every key across pages, fetching each page (sized by `ChunkSize`) on demand.
 - `RecordExistsAsync(string key)` → `bool`.
 - `GetRecordAsync(string key, GetRecordOptions? options = null)` → `KeyValueStoreRecord?`.
   `KeyValueStoreRecord.Value` is a `byte[]` of the record's raw bytes (so binary records survive intact);
@@ -114,8 +117,8 @@ await csvStream.CopyToAsync(file);
 `ListKeysOptions` fields: `Limit` (page size), `ExclusiveStartKey` (start after this key),
 `Prefix` (only keys with this prefix), `Collection` (a named record collection), and `Signature`
 (for signed public URLs). `IterateKeysOptions` fields: `Limit` (total across all pages),
-`MaxPageLimit` (page size; client-side only, never sent to the API — defaults to 1000),
-`ExclusiveStartKey`, `Collection`, and `Prefix`. `GetRecordOptions` fields: `Attachment` (request a
+`ChunkSize` (page size; client-side only, never sent to the API — defaults to 1000; `MaxPageLimit` is its
+older name, and `ChunkSize` wins if both are set), `ExclusiveStartKey`, `Collection`, and `Prefix`. `GetRecordOptions` fields: `Attachment` (request a
 download disposition) and `Signature`. `SetRecordOptions` fields: `TimeoutSecs`, `DoNotRetryTimeouts`,
 and `ContentEncoding` (upload a value that is already compressed — see below).
 
@@ -210,7 +213,7 @@ leaves unprocessed), `MaxParallel` (how many chunks are sent concurrently), and
 `MinDelayBetweenUnprocessedRequestsRetriesMillis` (backoff before retrying unprocessed requests).
 `ListRequestsOptions`/`PaginateRequestsOptions` fields: `Limit`, `ExclusiveStartId`, `Cursor`, and
 `Filter` (an `IReadOnlyList<string>?` — one or more of `"pending"`/`"locked"`, so several states can be
-requested at once); `PaginateRequestsOptions` also has `MaxPageLimit`.
+requested at once); `PaginateRequestsOptions` also has `ChunkSize` (page size, defaults to 1000; `MaxPageLimit` is its older name).
 
 ```csharp
 using System;

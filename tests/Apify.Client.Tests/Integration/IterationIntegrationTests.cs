@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using Apify.Client.Models;
 using Apify.Client.Options;
@@ -7,29 +8,15 @@ using Xunit;
 namespace Apify.Client.Tests.Integration;
 
 /// <summary>
-/// Iteration coverage for the 12 <em>collection</em>-of-resources <c>IterateAsync</c> clients that had no
-/// dedicated test before this suite was added (Actors, Actor versions, Actor environment variables,
-/// datasets, key-value stores, request queues, tasks, schedules, webhooks, builds, runs, and webhook
-/// dispatches — exercised by the 11 test methods below, since Actor versions and Actor environment
-/// variables share one). <see cref="StoreIntegrationTests.IterateStore"/> already covers the thirteenth
-/// (<c>StoreCollectionClient</c>), so it is not duplicated here.
+/// Live iteration tests for the collection-of-resources <c>IterateAsync</c> clients, plus dataset item
+/// iteration. Where creation is cheap, a test creates a couple of uniquely-named resources and asserts that
+/// iterating the collection (newest-first) eventually surfaces every one of them. Builds, runs and webhook
+/// dispatches are slow to create on demand, so those tests drain a <c>Limit</c>-bounded slice of what
+/// already exists on the account and check the iterator terminates, respects the cap and yields
+/// well-formed items. <see cref="StoreIntegrationTests.IterateStore"/> covers the store collection; key
+/// iteration and request iteration have their own tests below and in
+/// <c>RequestQueueIntegrationTests.RequestQueuePaginateMultiplePages</c>.
 /// </summary>
-/// <remarks>
-/// This suite is about iterating a collection of resources (e.g. "every dataset"), not a resource's own
-/// contents: dataset item iteration (<c>DatasetClient.IterateItemsAsync</c>) and key-value-store key
-/// iteration (<c>KeyValueStoreClient.IterateKeysAsync</c>) are covered by unit tests (<c>AutoPagingTests</c>)
-/// against a mocked transport, since they need to exercise multi-page paging logic deterministically;
-/// <see cref="IterateKeyValueStoreKeysMultiplePages"/> below covers the same iterator against the real API.
-/// Request-queue request iteration has its own integration test
-/// (<c>RequestQueueIntegrationTests.RequestQueuePaginateMultiplePages</c>).
-///
-/// Where creation is cheap, each test below creates a couple of uniquely-named resources and asserts that
-/// iterating the collection (newest-first) eventually surfaces every one of them — exercising the real
-/// async generator, not just a single <c>ListAsync</c> call. Builds, runs, and webhook dispatches are
-/// expensive or slow to create on demand, so those tests instead drain a <c>Limit</c>-bounded slice of
-/// whatever already exists on the test account and assert the iterator behaves (terminates, respects the
-/// cap, yields well-formed items).
-/// </remarks>
 [Trait("Category", "Integration")]
 public sealed class IterationIntegrationTests : IntegrationTestBase
 {
@@ -178,11 +165,12 @@ public sealed class IterationIntegrationTests : IntegrationTestBase
     {
         var client = RequireClient();
         var ids = new HashSet<string>();
+        var actorId = await ResolveHelloWorldActorIdAsync(client);
         try
         {
             for (var i = 0; i < 2; i++)
             {
-                ids.Add((await client.Webhooks().CreateAsync(MinimalWebhook("https://example.com/it-wh-" + i))).Id!);
+                ids.Add((await client.Webhooks().CreateAsync(MinimalWebhook("https://example.com/it-wh-" + i, actorId))).Id!);
             }
 
             Assert.True(
@@ -348,5 +336,49 @@ public sealed class IterationIntegrationTests : IntegrationTestBase
         }
 
         Assert.True(count <= 5, "the total-cap limit must bound iteration; got " + count);
+    }
+
+    [SkippableFact]
+    public async Task IterateDatasetItemsMultiplePages()
+    {
+        var client = RequireClient();
+        var ds = await client.Datasets().GetOrCreateAsync(UniqueName("ds-iter"));
+        try
+        {
+            const int total = 5;
+            var dataset = client.Dataset(ds.Id!);
+            await dataset.PushItemsAsync(Enumerable.Range(0, total).Select(static n => (object)new { n }).ToArray());
+
+            // Dataset item counts propagate with a delay, so retry until every pushed item is readable.
+            var seen = new List<int>();
+            Assert.True(
+                await PollUntilAsync(
+                    EventualConsistencyAttempts,
+                    EventualConsistencyBackoff,
+                    async () =>
+                    {
+                        seen.Clear();
+                        await foreach (var item in dataset.IterateItemsAsync(new DatasetListItemsOptions { ChunkSize = 2 }))
+                        {
+                            seen.Add(item!["n"]!.GetValue<int>());
+                        }
+
+                        return seen.Count == total;
+                    }),
+                "expected iteration to eventually return every pushed item");
+            Assert.Equal(Enumerable.Range(0, total), seen);
+
+            var limited = new List<int>();
+            await foreach (var item in dataset.IterateItemsAsync(new DatasetListItemsOptions { Offset = 1, Limit = 3, ChunkSize = 2 }))
+            {
+                limited.Add(item!["n"]!.GetValue<int>());
+            }
+
+            Assert.Equal(new[] { 1, 2, 3 }, limited);
+        }
+        finally
+        {
+            await client.Dataset(ds.Id!).DeleteAsync();
+        }
     }
 }

@@ -35,8 +35,8 @@ public sealed class LogClient
     /// missing — so <see cref="GetAsync"/> and <see cref="StreamAsync"/> throw instead of resolving
     /// <c>null</c>, matching the reference client's <c>catchNotFoundForResourceOrThrow()</c>.
     /// </summary>
-    internal static LogClient Nested(HttpClientCore http, string baseUrl, QueryParams? inheritedParams = null)
-        => new(http, ResourceContext.Collection(http, baseUrl, "log", inheritedParams), ambiguousNotFound: true);
+    internal static LogClient Nested(HttpClientCore http, string baseUrl, QueryParams? inheritedParams = null, TimeSpan? timeout = null)
+        => new(http, ResourceContext.Collection(http, baseUrl, "log", inheritedParams).WithTimeout(timeout), ambiguousNotFound: true);
 
     /// <summary>
     /// Fetches the log as text. For a log addressed by its own id (<see cref="ApifyClient.Log"/>), a 404

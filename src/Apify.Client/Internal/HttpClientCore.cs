@@ -169,6 +169,9 @@ internal sealed class HttpClientCore
                 var status = (int)response.StatusCode;
                 if (status < MaxSuccessStatus)
                 {
+                    // The sent request is disposed by now; keep a body-less copy of it so response readers can
+                    // report the method and path in the errors they raise.
+                    response.RequestMessage = new HttpRequestMessage(method, url);
                     return response;
                 }
 

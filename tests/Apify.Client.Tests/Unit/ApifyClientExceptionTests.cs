@@ -48,6 +48,25 @@ public sealed class ApifyClientExceptionTests
     }
 
     [Fact]
+    public async Task SuccessWithUnparsableBodyThrowsInvalidResponseBodyWithoutRetry()
+    {
+        var transport = new MockTransport().QueueResponse(200, "not json").QueueResponse(200, "{\"data\":{\"id\":\"a\"}}");
+
+        var ex = await Assert.ThrowsAsync<InvalidResponseBodyException>(() => Client(transport).Actor("x").GetAsync());
+        Assert.IsAssignableFrom<ApifyClientException>(ex);
+        Assert.Equal(1, transport.CallCount);
+    }
+
+    [Fact]
+    public async Task ErrorStatusWithUnparsableBodyThrowsApiExceptionForItsStatus()
+    {
+        var transport = new MockTransport().QueueResponse(400, "<html>Bad Request</html>");
+
+        var ex = await Assert.ThrowsAsync<InvalidRequestException>(() => Client(transport).Actors().CreateAsync(new { name = "x" }));
+        Assert.Contains("<html>Bad Request</html>", ex.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task CatchingApifyClientExceptionCatchesBothFamilies()
     {
         // A single `catch (ApifyClientException)` must catch an API error...

@@ -49,8 +49,8 @@ public sealed class RequestQueueClient
         return new RequestQueueClient(http, ctx, options?.ClientKey, timeout);
     }
 
-    internal static RequestQueueClient Nested(HttpClientCore http, string baseUrl, string subPath, QueryParams? inheritedParams = null)
-        => new(http, ResourceContext.NestedSingleton(http, baseUrl, subPath, inheritedParams), null, null);
+    internal static RequestQueueClient Nested(HttpClientCore http, string baseUrl, string subPath, QueryParams? inheritedParams = null, TimeSpan? timeout = null)
+        => new(http, ResourceContext.NestedSingleton(http, baseUrl, subPath, inheritedParams).WithTimeout(timeout), null, timeout);
 
     /// <summary>
     /// Returns a copy of the client that identifies its requests with <paramref name="clientKey"/>. A
@@ -130,8 +130,7 @@ public sealed class RequestQueueClient
         ApplyClientKey(q);
         var url = _ctx.MergedParams(q).ApplyToUrl(_ctx.SubUrl("requests/" + ResourceContext.EncodePathSegment(request.Id ?? string.Empty)));
         using var response = await _http.CallAsync(HttpMethod.Put, url, Json.Encode(request.ToJsonObject()), ResourceContext.ContentTypeJson, _timeout, tier: RequestTier.Medium, cancellationToken: cancellationToken).ConfigureAwait(false);
-        var data = Json.DecodeData(await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false));
-        return new RequestQueueOperationInfo(data as JsonObject ?? new JsonObject());
+        return new RequestQueueOperationInfo(await response.ReadDataObjectAsync(cancellationToken).ConfigureAwait(false));
     }
 
     /// <summary>Deletes a request by ID.</summary>
@@ -483,8 +482,7 @@ public sealed class RequestQueueClient
         ApplyClientKey(q);
         var url = _ctx.MergedParams(q).ApplyToUrl(_ctx.SubUrl("requests/" + ResourceContext.EncodePathSegment(id) + "/lock"));
         using var response = await _http.CallAsync(HttpMethod.Put, url, null, "", _timeout, tier: RequestTier.Medium, cancellationToken: cancellationToken).ConfigureAwait(false);
-        var data = Json.DecodeData(await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false));
-        return RequestLockInfo.FromData(data);
+        return RequestLockInfo.FromData(await response.ReadDataObjectAsync(cancellationToken).ConfigureAwait(false));
     }
 
     /// <summary>
@@ -526,7 +524,7 @@ public sealed class RequestQueueClient
     /// <remarks>
     /// With no options it fetches pages of up to <see cref="PaginateRequestsOptions.DefaultMaxPageLimit"/>
     /// requests until the queue is exhausted. The options mirror the reference client: <c>Limit</c> caps the
-    /// total number of requests yielded across all pages, <c>MaxPageLimit</c> caps the page size,
+    /// total number of requests yielded across all pages, <c>ChunkSize</c> (or its older name <c>MaxPageLimit</c>) caps the page size,
     /// <c>ExclusiveStartId</c>/<c>Cursor</c> choose the starting point (first page only), and <c>Filter</c>
     /// restricts to locked/pending requests.
     /// </remarks>
@@ -539,7 +537,7 @@ public sealed class RequestQueueClient
         options ??= new PaginateRequestsOptions();
         options.Validate();
 
-        var maxPageLimit = options.MaxPageLimit ?? PaginateRequestsOptions.DefaultMaxPageLimit;
+        var maxPageLimit = options.ChunkSize ?? options.MaxPageLimit ?? PaginateRequestsOptions.DefaultMaxPageLimit;
         var limit = options.Limit; // total across all pages; null = unbounded
         var nextCursor = options.Cursor;
         var nextExclusiveStartId = options.ExclusiveStartId; // used for the first page only

@@ -136,13 +136,12 @@ public sealed class TaskClient
     /// <summary>
     /// Fetches the task's stored input. Throws if the task does not exist (no longer resolves to <c>null</c>
     /// for that case): the input endpoint has no meaning apart from its parent task, matching the reference
-    /// client. Still returns a JSON <c>null</c> node if the task exists but has no stored input.
+    /// client. A task without stored input yields an empty JSON object.
     /// </summary>
     /// <param name="cancellationToken">A token to cancel the request.</param>
     public async Task<JsonNode?> GetInputAsync(CancellationToken cancellationToken = default)
     {
-        var body = await _ctx.GetRawRequiredAsync("input", new QueryParams(), RequestTier.Short, cancellationToken).ConfigureAwait(false);
-        return Json.Decode(body);
+        return await _ctx.GetJsonRequiredAsync("input", new QueryParams(), RequestTier.Short, cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>Replaces the task's stored input and returns the updated input.</summary>
@@ -158,14 +157,14 @@ public sealed class TaskClient
             timeout: _ctx.RequestTimeout,
             tier: RequestTier.Short,
             cancellationToken: cancellationToken).ConfigureAwait(false);
-        return Json.Decode(await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false));
+        return await response.ReadJsonAsync(cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>Returns a client for the last run of this task, optionally filtered by status and/or origin.</summary>
     /// <param name="options">Optional last-run filters.</param>
     public RunClient LastRun(LastRunOptions? options = null)
     {
-        var client = new RunClient(_http, _ctx.SubUrl(""), "runs", "last");
+        var client = new RunClient(_root, _http, _ctx.SubUrl(""), "runs", "last");
         client.SetLastRunParams(options ?? new LastRunOptions());
         return client;
     }

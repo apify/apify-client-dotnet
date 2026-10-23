@@ -50,7 +50,7 @@ public sealed class RunCollectionClient
         var q = new QueryParams();
         options.AppendTo(q);
         (filter ?? new RunListOptions()).AppendTo(q);
-        return _ctx.IterateListAsync("", q, options.Offset ?? 0, options.Limit, static d => new ActorRun(d), RequestTier.Medium, cancellationToken);
+        return _ctx.IterateListAsync("", q, options.Offset ?? 0, options.Limit, options.ChunkSize, static d => new ActorRun(d), RequestTier.Medium, cancellationToken);
     }
 
 

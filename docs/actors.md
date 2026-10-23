@@ -20,6 +20,7 @@ Access the Actor collection with `client.Actors()` and a specific Actor with `cl
 | `Desc` | `bool?` | Sort newest-first when `true`. |
 | `My` | `bool?` | Return only Actors owned by the current account when `true`. |
 | `SortBy` | `string?` | Field to sort by (e.g. `createdAt`, `lastRunStartedAt`). |
+| `ChunkSize` | `int?` | Page size used by `IterateAsync` (positive; the smaller of this and the remaining `Limit` is requested per call). Never sent to the API. |
 
 ```csharp
 using System;

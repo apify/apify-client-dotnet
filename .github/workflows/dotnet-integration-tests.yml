@@ -10,6 +10,9 @@ on:
       - '**/*.cs'
       - '**/*.csproj'
       - '**/*.sln'
+      # The embedded response schemas change the validation of every response, and the script generates them.
+      - 'src/Apify.Client/Internal/ResponseSchemas.json'
+      - 'tools/**'
       - 'Directory.Build.props'
       - '.editorconfig'
       # The "Test examples" step validates the in-documentation snippets, so doc changes must re-run
@@ -69,8 +72,8 @@ jobs:
           APIFY_TOKEN: ${{ secrets.APIFY_TOKEN }}
         run: dotnet test --configuration Release --no-build --filter Category=Integration
 
-      # Standalone CI step that verifies the documentation examples work end-to-end against the live
-      # API (the Examples suite runs each example).
+      # Standalone CI step that verifies the documentation examples: the Examples suite runs each example
+      # end-to-end against the live API and compiles every C# snippet in the README and docs/.
       - name: Test examples
         env:
           APIFY_TOKEN: ${{ secrets.APIFY_TOKEN }}

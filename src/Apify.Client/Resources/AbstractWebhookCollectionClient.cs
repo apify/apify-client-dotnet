@@ -41,7 +41,7 @@ public abstract class AbstractWebhookCollectionClient
         options ??= new ListOptions();
         var q = new QueryParams();
         options.AppendTo(q);
-        return Ctx.IterateListAsync("", q, options.Offset ?? 0, options.Limit, static d => new Webhook(d), RequestTier.Medium, cancellationToken);
+        return Ctx.IterateListAsync("", q, options.Offset ?? 0, options.Limit, options.ChunkSize, static d => new Webhook(d), RequestTier.Medium, cancellationToken);
     }
 
 }

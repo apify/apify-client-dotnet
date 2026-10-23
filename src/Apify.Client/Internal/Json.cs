@@ -25,7 +25,11 @@ internal static class Json
     public static string Encode(JsonNode? value) =>
         value?.ToJsonString(SerializerOptions) ?? "null";
 
-    /// <summary>Decodes a JSON string into a <see cref="JsonNode"/> (<c>null</c> for an empty body).</summary>
+    /// <summary>
+    /// Decodes a JSON string into a <see cref="JsonNode"/> (<c>null</c> for an empty body). Throws
+    /// <see cref="JsonException"/> when it is not valid JSON; response bodies go through
+    /// <see cref="ResponseReader"/>, which turns that into an <see cref="Apify.Client.Exceptions.InvalidResponseBodyException"/>.
+    /// </summary>
     public static JsonNode? Decode(string body)
     {
         if (string.IsNullOrEmpty(body))
@@ -34,20 +38,6 @@ internal static class Json
         }
 
         return JsonNode.Parse(body);
-    }
-
-    /// <summary>
-    /// Decodes a JSON response body wrapped in a <c>{"data": ...}</c> envelope, returning the unwrapped
-    /// <c>data</c> value (or <c>null</c> if it is absent/null).
-    /// </summary>
-    public static JsonNode? DecodeData(string body)
-    {
-        if (Decode(body) is JsonObject obj && obj.TryGetPropertyValue("data", out var data))
-        {
-            return data;
-        }
-
-        return null;
     }
 
     /// <summary>Attempts to decode a body, returning <c>null</c> on any parse error.</summary>

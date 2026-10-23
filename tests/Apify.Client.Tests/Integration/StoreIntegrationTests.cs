@@ -20,7 +20,7 @@ public sealed class StoreIntegrationTests : IntegrationTestBase
     {
         var client = RequireClient();
         var count = 0;
-        await foreach (var item in client.Store().IterateAsync(new StoreListOptions { Limit = 5 }))
+        await foreach (var item in client.Store().IterateAsync(new StoreListOptions { ChunkSize = 5 }))
         {
             Assert.False(string.IsNullOrEmpty(item.Id));
             if (++count >= 12)
@@ -30,5 +30,19 @@ public sealed class StoreIntegrationTests : IntegrationTestBase
         }
 
         Assert.True(count >= 12, "expected to iterate at least 12 store actors");
+    }
+
+    [SkippableFact]
+    public async Task IterateStoreStopsAtLimit()
+    {
+        var client = RequireClient();
+        var count = 0;
+        await foreach (var unused in client.Store().IterateAsync(new StoreListOptions { Limit = 7, ChunkSize = 3 }))
+        {
+            _ = unused;
+            count++;
+        }
+
+        Assert.Equal(7, count);
     }
 }

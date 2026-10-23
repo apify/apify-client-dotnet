@@ -9,19 +9,20 @@ Browse public Actors in the [Apify Store](https://apify.com/store).
 
 - `ListAsync(StoreListOptions? options = null)` → `PaginationList<ActorStoreListItem>` (one page).
 - `IterateAsync(StoreListOptions? options = null)` → `IAsyncEnumerable<ActorStoreListItem>` (lazy, all
-  pages; `Limit` is the page size).
+  pages; `Limit` caps the total number of Actors yielded and `ChunkSize` sets the page size).
 
 `StoreListOptions` fields:
 
 | Field | Type | Description |
 |---|---|---|
 | `Offset` | `int?` | Number of Actors to skip from the start. |
-| `Limit` | `int?` | Maximum number of Actors to return in the page. |
+| `Limit` | `int?` | Maximum number of Actors to return (for `IterateAsync`, in total across all pages). |
+| `ChunkSize` | `int?` | Page size used by `IterateAsync` (positive; the smaller of this and the remaining `Limit` is requested per call). Never sent to the API. |
 | `Search` | `string?` | Full-text search string to filter Actors by. |
 | `SortBy` | `string?` | Field to sort by (e.g. `popularity`, `newest`). |
 | `Category` | `string?` | Restrict results to a Store category. |
 | `Username` | `string?` | Restrict results to a given owner's Actors. |
-| `PricingModel` | `string?` | Filter by pricing model (`FREE`, `FLAT_PRICE_PER_MONTH`, `PRICE_PER_DATASET_ITEM`, …). |
+| `PricingModel` | `string?` | Filter by pricing model (`FREE`, `PRICE_PER_DATASET_ITEM`, `PAY_PER_EVENT`; the rental model `FLAT_PRICE_PER_MONTH` is no longer supported). |
 | `IncludeUnrunnableActors` | `bool?` | Include Actors that cannot currently be run. |
 | `AllowsAgenticUsers` | `bool?` | Only Actors that permit agentic (automated) users. |
 | `ResponseFormat` | `string?` | Requested response format. |

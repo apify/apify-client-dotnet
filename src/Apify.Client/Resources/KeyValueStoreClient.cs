@@ -26,8 +26,8 @@ public sealed class KeyValueStoreClient
     internal static KeyValueStoreClient ForId(HttpClientCore http, string baseUrl, string id)
         => new(http, ResourceContext.Single(http, baseUrl, "key-value-stores", id));
 
-    internal static KeyValueStoreClient Nested(HttpClientCore http, string baseUrl, string subPath, QueryParams? inheritedParams = null)
-        => new(http, ResourceContext.NestedSingleton(http, baseUrl, subPath, inheritedParams));
+    internal static KeyValueStoreClient Nested(HttpClientCore http, string baseUrl, string subPath, QueryParams? inheritedParams = null, TimeSpan? timeout = null)
+        => new(http, ResourceContext.NestedSingleton(http, baseUrl, subPath, inheritedParams).WithTimeout(timeout));
 
     internal KeyValueStoreClient WithPublicBase(string publicBaseUrl)
     {
@@ -74,13 +74,13 @@ public sealed class KeyValueStoreClient
     /// until the store is exhausted. <c>Limit</c> caps the total number of keys yielded across all pages —
     /// <c>0</c> yields none, without issuing any request (the API itself reads a literal <c>limit=0</c> as
     /// unbounded, not zero, so this is checked before building the request rather than left to the API), and
-    /// must not be negative. <c>MaxPageLimit</c> caps the page size (never sent to the API itself) and must
-    /// be positive, and <c>ExclusiveStartKey</c> chooses the starting point (first page only).
+    /// must not be negative. <c>ChunkSize</c> caps the page size (never sent to the API itself) and must
+    /// be positive (<c>MaxPageLimit</c> is its older name), and <c>ExclusiveStartKey</c> chooses the starting point (first page only).
     /// </remarks>
     /// <param name="options">Optional iteration options.</param>
     /// <param name="cancellationToken">A token to cancel the iteration.</param>
     /// <exception cref="ArgumentException">
-    /// <see cref="IterateKeysOptions.MaxPageLimit"/> is zero or negative, or <see cref="IterateKeysOptions.Limit"/>
+    /// <see cref="IterateKeysOptions.ChunkSize"/> or <see cref="IterateKeysOptions.MaxPageLimit"/> is zero or negative, or <see cref="IterateKeysOptions.Limit"/>
     /// is negative.
     /// </exception>
     public async IAsyncEnumerable<KeyValueStoreKey> IterateKeysAsync(
@@ -88,17 +88,15 @@ public sealed class KeyValueStoreClient
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
         options ??= new IterateKeysOptions();
-        if (options.MaxPageLimit is <= 0)
-        {
-            throw new ArgumentException("IterateKeysOptions.MaxPageLimit must be positive.", nameof(options));
-        }
+        PageSizing.ValidateChunkSize(options.ChunkSize, nameof(IterateKeysOptions.ChunkSize));
+        PageSizing.ValidateChunkSize(options.MaxPageLimit, nameof(IterateKeysOptions.MaxPageLimit));
 
         if (options.Limit is < 0)
         {
             throw new ArgumentException("IterateKeysOptions.Limit must not be negative.", nameof(options));
         }
 
-        var maxPageLimit = options.MaxPageLimit ?? IterateKeysOptions.DefaultMaxPageLimit;
+        var maxPageLimit = options.ChunkSize ?? options.MaxPageLimit ?? IterateKeysOptions.DefaultMaxPageLimit;
         var limit = options.Limit; // total across all pages; null = unbounded
         var nextExclusiveStartKey = options.ExclusiveStartKey;
         var iterated = 0;

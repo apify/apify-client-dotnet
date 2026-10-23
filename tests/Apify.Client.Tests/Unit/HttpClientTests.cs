@@ -20,7 +20,7 @@ public sealed class HttpClientTests
     [Fact]
     public async Task AuthAndUserAgentHeadersAreSent()
     {
-        var transport = new MockTransport().QueueResponse(200, "{\"data\":{\"id\":\"abc\"}}");
+        var transport = new MockTransport().QueueResponse(200, SpecFixtures.Actor("abc"));
         await Client(transport).Actor("abc").GetAsync();
 
         Assert.Equal("Bearer test-token", transport.LastRequest.Header("Authorization"));
@@ -30,7 +30,7 @@ public sealed class HttpClientTests
     [Fact]
     public async Task DataEnvelopeIsUnwrapped()
     {
-        var transport = new MockTransport().QueueResponse(200, "{\"data\":{\"id\":\"act1\",\"name\":\"my-actor\"}}");
+        var transport = new MockTransport().QueueResponse(200, SpecFixtures.Actor("act1", "my-actor"));
         var actor = await Client(transport).Actor("act1").GetAsync();
 
         Assert.NotNull(actor);
@@ -50,7 +50,7 @@ public sealed class HttpClientTests
     {
         var transport = new MockTransport()
             .QueueResponse(500, "{\"error\":{\"type\":\"server\",\"message\":\"boom\"}}")
-            .QueueResponse(200, "{\"data\":{\"id\":\"ok\"}}");
+            .QueueResponse(200, SpecFixtures.Actor("ok"));
 
         var actor = await Client(transport).Actor("x").GetAsync();
         Assert.Equal("ok", actor!.Id);
@@ -76,7 +76,7 @@ public sealed class HttpClientTests
     {
         var transport = new MockTransport()
             .QueueError()
-            .QueueResponse(200, "{\"data\":{\"id\":\"recovered\"}}");
+            .QueueResponse(200, SpecFixtures.Actor("recovered"));
         var actor = await Client(transport).Actor("x").GetAsync();
         Assert.Equal("recovered", actor!.Id);
         Assert.Equal(2, transport.CallCount);
@@ -85,7 +85,7 @@ public sealed class HttpClientTests
     [Fact]
     public async Task BooleanQueryParamsEncodedAsOneZero()
     {
-        var transport = new MockTransport().QueueResponse(200, "{\"data\":{\"items\":[],\"total\":0}}");
+        var transport = new MockTransport().QueueResponse(200, SpecFixtures.Page(0));
         await Client(transport).Actors().ListAsync(new ActorListOptions { My = true, Limit = 5 });
 
         var uri = transport.LastRequest.Uri;
@@ -96,8 +96,7 @@ public sealed class HttpClientTests
     [Fact]
     public async Task ListUnwrapsPaginationEnvelope()
     {
-        const string body = "{\"data\":{\"total\":2,\"offset\":0,\"limit\":10,\"count\":2,\"desc\":false,\"items\":[{\"id\":\"a\"},{\"id\":\"b\"}]}}";
-        var transport = new MockTransport().QueueResponse(200, body);
+        var transport = new MockTransport().QueueResponse(200, SpecFixtures.ActorPage(2, "a", "b"));
         var page = await Client(transport).Actors().ListAsync();
 
         Assert.Equal(2, page.Total);
@@ -111,7 +110,7 @@ public sealed class HttpClientTests
         // Server reports total/count larger than the items actually returned in this page. Count and the
         // indexer must operate on the item array so `for (i < Count) page[i]` cannot throw; Total keeps the
         // API's reported total.
-        const string body = "{\"data\":{\"total\":100,\"offset\":0,\"limit\":2,\"count\":100,\"desc\":false,\"items\":[{\"id\":\"a\"},{\"id\":\"b\"}]}}";
+        var body = SpecFixtures.ActorPage(2, "a", "b").Replace("\"total\":2", "\"total\":100", StringComparison.Ordinal).Replace("\"count\":2", "\"count\":100", StringComparison.Ordinal);
         var transport = new MockTransport().QueueResponse(200, body);
         var page = await Client(transport).Actors().ListAsync();
 
@@ -151,7 +150,7 @@ public sealed class HttpClientTests
     [Fact]
     public async Task SafeIdReplacesFirstSlashWithTilde()
     {
-        var transport = new MockTransport().QueueResponse(200, "{\"data\":{\"id\":\"x\"}}");
+        var transport = new MockTransport().QueueResponse(200, SpecFixtures.Actor("x"));
         await Client(transport).Actor("apify/hello-world").GetAsync();
         Assert.Contains("/actors/apify~hello-world", transport.LastRequest.Uri, StringComparison.Ordinal);
     }
@@ -162,7 +161,7 @@ public sealed class HttpClientTests
         // 429 (rate limit) must be retried just like a 5xx, then succeed on the next attempt.
         var transport = new MockTransport()
             .QueueResponse(429, "{\"error\":{\"type\":\"rate-limit-exceeded\",\"message\":\"slow down\"}}")
-            .QueueResponse(200, "{\"data\":{\"id\":\"ok\"}}");
+            .QueueResponse(200, SpecFixtures.Actor("ok"));
 
         var actor = await Client(transport).Actor("x").GetAsync();
         Assert.Equal("ok", actor!.Id);
@@ -244,7 +243,7 @@ public sealed class HttpClientTests
     {
         // ActorClient.GetAsync is a Short-tier call (simple metadata read). With no explicit per-call/
         // per-context override, its attempt timeout is TimeoutShortSecs, not the overall TimeoutSecs.
-        var transport = new MockTransport().QueueResponse(200, "{\"data\":{\"id\":\"x\"}}");
+        var transport = new MockTransport().QueueResponse(200, SpecFixtures.Actor("x"));
         var client = new ApifyClient(new ApifyClientOptions
         {
             Token = "t",
@@ -264,7 +263,7 @@ public sealed class HttpClientTests
     public async Task MediumTierCallUsesConfiguredMediumTimeoutByDefault()
     {
         // ActorCollectionClient.ListAsync is a Medium-tier call (collection listing).
-        var transport = new MockTransport().QueueResponse(200, "{\"data\":{\"total\":0,\"items\":[]}}");
+        var transport = new MockTransport().QueueResponse(200, SpecFixtures.Page(0));
         var client = new ApifyClient(new ApifyClientOptions
         {
             Token = "t",
@@ -335,7 +334,7 @@ public sealed class HttpClientTests
     public async Task NullQueryParamsAreOmitted()
     {
         // Only Limit is set; every other (null) option must be absent from the query string entirely.
-        var transport = new MockTransport().QueueResponse(200, "{\"data\":{\"items\":[],\"total\":0}}");
+        var transport = new MockTransport().QueueResponse(200, SpecFixtures.Page(0));
         await Client(transport).Actors().ListAsync(new ActorListOptions { Limit = 5 });
 
         var uri = transport.LastRequest.Uri;

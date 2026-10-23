@@ -26,10 +26,12 @@ using Apify.Client;
 using Apify.Client.Options;
 
 var client = new ApifyClient("my-api-token");
+// The webhook condition needs the Actor's ID, not its "username/name" slug.
+var actor = await client.Actor("apify/hello-world").GetAsync();
 var webhook = await client.Webhooks().CreateAsync(new
 {
     eventTypes = new[] { "ACTOR.RUN.SUCCEEDED" },
-    condition = new { actorId = "apify/hello-world" },
+    condition = new { actorId = actor!.Id },
     requestUrl = "https://example.com/webhook",
 });
 
