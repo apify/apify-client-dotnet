@@ -22,7 +22,7 @@ collections).
 - `AbortAsync(bool? gracefully = null)` → `ActorRun`.
 - `MetamorphAsync(string targetActorId, object? input = null, MetamorphOptions? options = null)` → `ActorRun`.
 - `RebootAsync()` → `ActorRun`.
-- `ResurrectAsync(RunResurrectOptions? options = null)` → `ActorRun`.
+- `ResurrectAsync(RunResurrectOptions? options = null)` → `ActorRun`. Resurrects a finished run (status `SUCCEEDED`, `FAILED`, `ABORTED` or `TIMED-OUT`) and restarts it with the same storages.
 - `ChargeAsync(RunChargeOptions options)` → `Task` — record pay-per-event charges (idempotent).
 - `WaitForFinishAsync(int? waitSecs = null)` → `ActorRun` — client-side polling until terminal (`null`
   waits indefinitely). A run id that keeps answering 404 for 3 seconds straight (replica lag resolves
@@ -75,7 +75,7 @@ await foreach (var item in client.Run(run.Id!).IterateDatasetItemsAsync(new RunI
 | Property | Type | Description |
 |---|---|---|
 | `EventName` | `string` | Name of the pay-per-event event to charge for (required, non-empty). |
-| `Count` | `int?` | Number of event occurrences to charge (defaults to 1 server-side). |
+| `Count` | `int?` | Number of event occurrences to charge (defaults to 1). |
 | `IdempotencyKey` | `string?` | Key that deduplicates retried charges; auto-generated when omitted. |
 | `RequestId` | `string?` | ID of the Server Actor request being charged (the `X-Actor-Request-ID` header of the incoming request); required for multi-tenant Server Actor runs. Set via object initializer. |
 
