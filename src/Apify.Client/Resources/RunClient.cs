@@ -131,7 +131,10 @@ public sealed class RunClient
         return new ActorRun(await _ctx.PostWithBodyAsync("reboot", new QueryParams(), null, "", RequestTier.Medium, cancellationToken).ConfigureAwait(false));
     }
 
-    /// <summary>Resurrects a finished run, starting it again from the beginning.</summary>
+    /// <summary>
+    /// Resurrects a finished run (status <c>SUCCEEDED</c>, <c>FAILED</c>, <c>ABORTED</c> or <c>TIMED-OUT</c>) and
+    /// restarts its container with the same storages.
+    /// </summary>
     /// <param name="options">Optional resurrect options.</param>
     /// <param name="cancellationToken">A token to cancel the request.</param>
     public async Task<ActorRun> ResurrectAsync(RunResurrectOptions? options = null, CancellationToken cancellationToken = default)
