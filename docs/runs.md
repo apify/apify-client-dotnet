@@ -22,7 +22,7 @@ collections).
 - `AbortAsync(bool? gracefully = null)` → `ActorRun`.
 - `MetamorphAsync(string targetActorId, object? input = null, MetamorphOptions? options = null)` → `ActorRun`.
 - `RebootAsync()` → `ActorRun`.
-- `ResurrectAsync(RunResurrectOptions? options = null)` → `ActorRun`. Resurrects a finished run (status `SUCCEEDED`, `FAILED`, `ABORTED` or `TIMED-OUT`) and restarts it with the same storages.
+- `ResurrectAsync(RunResurrectOptions? options = null)` → `ActorRun` — resurrects a finished run (status `SUCCEEDED`, `FAILED`, `ABORTED` or `TIMED-OUT`) and restarts it with the same storages.
 - `ChargeAsync(RunChargeOptions options)` → `Task` — record pay-per-event charges (idempotent).
 - `WaitForFinishAsync(int? waitSecs = null)` → `ActorRun` — client-side polling until terminal (`null`
   waits indefinitely). A run id that keeps answering 404 for 3 seconds straight (replica lag resolves
