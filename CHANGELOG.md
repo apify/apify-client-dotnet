@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.7.1
+
+- Bumped `ApifyClientVersion.ApiSpecVersion` to the Apify OpenAPI spec `v2-2026-10-26T112451Z` and
+  the project version to `0.7.1`.
+- Regenerated the embedded response schemas: the Actor definition accepts the new optional `title`,
+  `description`, `meta`, `output`, `storages.datasets`, `storages.keyValueStore`, `webServerSchema` and
+  `webServerMcpPath` properties.
+- Documented the run statuses (`SUCCEEDED`, `FAILED`, `ABORTED`, `TIMED-OUT`) that `RunClient.ResurrectAsync`
+  accepts.
+
 ## 0.7.0
 
 - Bumped `ApifyClientVersion.ApiSpecVersion` to the Apify OpenAPI spec `v2-2026-10-20T121847Z` and
