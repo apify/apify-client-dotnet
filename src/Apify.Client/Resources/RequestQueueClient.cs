@@ -352,6 +352,13 @@ public sealed class RequestQueueClient
             processed.AddRange(response.ProcessedRequests);
             // Only requests the API reports as unprocessed in this SUCCESSFUL response are retried.
             unprocessed = new List<RequestQueueRequest>(response.UnprocessedRequests);
+            if (unprocessed.Count != 0)
+            {
+                // As in the reference client, a response with unprocessed requests counts as rate limited: the
+                // SDK reads these counts to scale down.
+                _http.Stats.AddRateLimitError(attempt + 1);
+            }
+
             remaining = RequestsNotYetProcessed(chunk, processed);
             if (remaining.Count == 0)
             {

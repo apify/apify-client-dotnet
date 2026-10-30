@@ -115,6 +115,9 @@ internal sealed class HttpClientCore
         UserAgent = FindHeader(defaultHeaders, "User-Agent") ?? userAgent;
     }
 
+    /// <summary>The request statistics shared with <see cref="ApifyClient.Stats"/>.</summary>
+    public Statistics Stats => _stats;
+
     /// <summary>The <c>User-Agent</c> header value this client sends (a <c>User-Agent</c> default header wins over the built-in one).</summary>
     public string UserAgent { get; }
 

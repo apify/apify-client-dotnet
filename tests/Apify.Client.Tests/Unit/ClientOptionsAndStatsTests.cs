@@ -1,5 +1,8 @@
 using System;
 using System.Collections.Generic;
+using System.Net;
+using System.Net.Http;
+using System.Threading;
 using System.IO;
 using System.IO.Compression;
 using System.Threading.Tasks;
@@ -14,6 +17,7 @@ namespace Apify.Client.Tests.Unit;
 /// maximum timeouts, the public base URL default, the User-Agent override and non-retried dataset pushes.
 /// </summary>
 [Trait("Category", "Unit")]
+[Collection("Console")]
 public sealed class ClientOptionsAndStatsTests
 {
     private const string NotFoundBody = "{\"error\":{\"type\":\"record-not-found\",\"message\":\"missing\"}}";
@@ -182,8 +186,49 @@ public sealed class ClientOptionsAndStatsTests
         var key = await Assert.ThrowsAsync<ArgumentException>(() => client.KeyValueStore("s1").GetRecordAsync(string.Empty));
         var id = await Assert.ThrowsAsync<ArgumentException>(() => client.RequestQueue("q1").DeleteRequestAsync(".."));
 
+        var log = Assert.Throws<ArgumentException>(() => client.Log(".."));
+        var envVar = Assert.Throws<ArgumentException>(() => client.Actor("a").Version("0.1").EnvVar(".."));
+
         Assert.Equal("key", key.ParamName);
         Assert.Equal("id", id.ParamName);
+        Assert.Equal("buildOrRunId", log.ParamName);
+        Assert.Equal("name", envVar.ParamName);
         Assert.Equal(0, transport.CallCount);
+    }
+
+    /// <summary>Answers by URL so the concurrent log stream and the run polling cannot race on a queue.</summary>
+    private sealed class RoutingTransport : IHttpTransport
+    {
+        public Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, TimeSpan timeout, bool streaming, CancellationToken cancellationToken)
+        {
+            var url = request.RequestUri!.AbsolutePath;
+            var body = url switch
+            {
+                _ when url.EndsWith("/log", StringComparison.Ordinal) => "2024-01-02T03:04:05.678Z hello from the run\n",
+                _ when url.EndsWith("/runs", StringComparison.Ordinal) => SpecFixtures.Run("run1", "RUNNING"),
+                _ when url.Contains("/actor-runs/", StringComparison.Ordinal) => SpecFixtures.Run("run1"),
+                _ => SpecFixtures.Actor("a", "my-actor"),
+            };
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(body) });
+        }
+    }
+
+    [Fact]
+    public async Task CallAsyncWithTheDefaultConsoleSinkRedirectsTheLogWithTheReferencePrefix()
+    {
+        var client = new ApifyClient(new ApifyClientOptions { Token = "t", HttpTransport = new RoutingTransport() });
+        var original = Console.Out;
+        var writer = new StringWriter { NewLine = "\n" };
+        Console.SetOut(writer);
+        try
+        {
+            await client.Actor("a").CallAsync(log: StreamedLog.DefaultConsole);
+        }
+        finally
+        {
+            Console.SetOut(original);
+        }
+
+        Assert.Equal("my-actor runId:run1 -> 2024-01-02T03:04:05.678Z hello from the run\n", writer.ToString());
     }
 }

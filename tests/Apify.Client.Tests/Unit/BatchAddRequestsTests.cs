@@ -101,6 +101,20 @@ public sealed class BatchAddRequestsTests
     }
 
     [Fact]
+    public async Task UnprocessedRequestsCountAsARateLimitErrorInStats()
+    {
+        var transport = new MockTransport()
+            .QueueResponse(200, BatchResponse(new[] { "r0" }, new[] { "r1" }))
+            .QueueResponse(200, BatchResponse(new[] { "r1" }));
+        var client = Client(transport);
+        var requests = new List<RequestQueueRequest> { new("https://x/r0", "r0"), new("https://x/r1", "r1") };
+
+        await client.RequestQueue("q1").BatchAddRequestsAsync(requests, false, FastOptions());
+
+        Assert.Equal(new long[] { 1 }, client.Stats.RateLimitErrors);
+    }
+
+    [Fact]
     public async Task RetriesOnlyUnprocessedFromSuccessfulResponse()
     {
         var transport = new MockTransport()

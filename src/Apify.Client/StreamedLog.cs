@@ -60,10 +60,18 @@ public sealed class StreamedLog : IAsyncDisposable
     }
 
     /// <summary>
+    /// Pass this as the <c>log</c> argument of <c>ActorClient.CallAsync</c> or <c>TaskClient.CallAsync</c> to get
+    /// the reference client's default redirection: once the run has started, its log is written to the
+    /// standard output with the prefix <c>&lt;Actor name&gt; runId:&lt;id&gt; -&gt; </c> (the run and its Actor are
+    /// fetched to build it, as the reference client does). Invoked directly, it writes the message as it is.
+    /// </summary>
+    public static readonly Action<string> DefaultConsole = static message => Console.Out.WriteLine(message);
+
+    /// <summary>
     /// Creates a ready-made sink that writes every message with the reference client's default prefix,
-    /// <c>&lt;Actor name&gt; runId:&lt;id&gt; -&gt; </c>, one message per line. Pass it as the <c>log</c> argument
-    /// of <c>CallAsync</c> or to <see cref="RunClient.GetStreamedLog"/> to get what the reference client
-    /// redirects by default.
+    /// <c>&lt;Actor name&gt; runId:&lt;id&gt; -&gt; </c>, one message per line, for a run that is already known (for
+    /// <see cref="RunClient.GetStreamedLog"/>). <c>CallAsync</c> creates the run itself, so pass
+    /// <see cref="DefaultConsole"/> there instead.
     /// </summary>
     /// <param name="runId">The run ID shown in the prefix.</param>
     /// <param name="actorName">The Actor name shown in the prefix; omitted from it when <c>null</c> or empty.</param>

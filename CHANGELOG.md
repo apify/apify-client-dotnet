@@ -10,13 +10,16 @@
 - Added `ApifyClient.Stats` (`Statistics`: `Calls`, `Requests`, `RateLimitErrors`).
 - Added `ApifyClientOptions.TimeoutLongSecs`, the base of the `Long` timeout tier (default `TimeoutSecs`).
   `TimeoutSecs` stays the overall cap, the reference client's `timeoutMaxSecs`.
-- Added `StreamedLog.CreatePrefixedSink`, a console sink with the reference client's
-  `<Actor name> runId:<id> -> ` prefix, and documented that omitting `log` in `CallAsync` does not redirect
-  the run log, unlike the reference client.
+- Added `StreamedLog.DefaultConsole`: pass it as `log` to `CallAsync` to redirect the run log to the console
+  with the reference client's `<Actor name> runId:<id> -> ` prefix, and `StreamedLog.CreatePrefixedSink` for
+  a run that is already known. Documented that omitting `log` does not redirect the run log, unlike the
+  reference client.
 - `ApifyClient.UserAgent` reports a `User-Agent` entry of `ApifyClientOptions.Headers`.
 - `GzipHttpCompressor` throws `ArgumentOutOfRangeException` for an undefined `CompressionLevel`.
-- Invalid record keys and request IDs now report the caller's parameter name in the `ArgumentException`.
-
+- Invalid record keys, request IDs and resource IDs now report the caller's parameter name in the
+  `ArgumentException`.
+- A batch add with unprocessed requests counts as a rate limit error in `ApifyClient.Stats`, as in the
+  reference client.
 - Bumped `ApifyClientVersion.ApiSpecVersion` to the Apify OpenAPI spec `v2-2026-10-29T100357Z` and
   the project version to `0.8.0`.
 - Regenerated the embedded response schemas; `Schedule.uiState` accepts `null`, which the API returns.

@@ -93,8 +93,8 @@ internal sealed class ResourceContext
     }
 
     /// <summary>Creates a context for a single resource: <c>{base}/{resourcePath}/{safeId}</c>.</summary>
-    public static ResourceContext Single(HttpClientCore http, string baseUrl, string resourcePath, string id)
-        => new(http, baseUrl + "/" + resourcePath + "/" + ToSafeId(id), baseUrl);
+    public static ResourceContext Single(HttpClientCore http, string baseUrl, string resourcePath, string id, string paramName = "id")
+        => new(http, baseUrl + "/" + resourcePath + "/" + ToSafeId(id, paramName), baseUrl);
 
     /// <summary>
     /// Creates a context for a resource addressed without its own id: a run/build's nested default dataset,
@@ -577,8 +577,10 @@ internal sealed class ResourceContext
     /// so every <c>/</c> of an id is replaced with <c>~</c>; the result is then percent-encoded by
     /// <see cref="EncodePathSegment"/>, so a hostile id cannot restructure the request path.
     /// </summary>
+    /// <param name="id">The raw resource id.</param>
+    /// <param name="paramName">The name of the caller's parameter, reported by the argument exception.</param>
     /// <exception cref="ArgumentException">The id is empty or a dot segment.</exception>
-    public static string ToSafeId(string id) => EncodePathSegment(id.Replace('/', '~'), nameof(id));
+    public static string ToSafeId(string id, string paramName = "id") => EncodePathSegment(id.Replace('/', '~'), paramName);
 
     /// <summary>
     /// Percent-encodes a single URL path segment, so values interpolated into the path (resource ids, record

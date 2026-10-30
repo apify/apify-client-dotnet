@@ -27,7 +27,7 @@ public sealed class LogClient
     }
 
     internal static LogClient ForId(HttpClientCore http, string baseUrl, string id)
-        => new(http, ResourceContext.Single(http, baseUrl, "logs", id), ambiguousNotFound: false);
+        => new(http, ResourceContext.Single(http, baseUrl, "logs", id, "buildOrRunId"), ambiguousNotFound: false);
 
     /// <summary>
     /// Creates a log client nested under a run or build that has no id of its own (<c>run.Log()</c>,
