@@ -44,8 +44,8 @@ foreach (var actor in page.Items)
 - `CallAsync(object? input = null, ActorStartOptions? options = null, int? waitSecs = null, Action<string>? log = null)`
   → `ActorRun` (starts then waits; `waitSecs` bounds the wait, `null` waits indefinitely; `log`, if set,
   redirects the run's live log to that sink for the duration of the wait; unlike the reference client,
-  omitting it does not redirect the log, and pass `StreamedLog.DefaultConsole` to get the reference's default redirection to the console, with its
-  `<Actor name> runId:<id> -> ` prefix). Time spent retrying
+  omitting it does not redirect the log, so pass `StreamedLog.DefaultConsole` to get the reference's
+  default redirection to the console, with its `<Actor name> runId:<id> -> ` prefix). Time spent retrying
   `ActorStartOptions.WaitForResources` does not count toward `waitSecs`.
 - `ValidateInputAsync(object? input = null, ValidateInputOptions? options = null)` → `bool`.
 

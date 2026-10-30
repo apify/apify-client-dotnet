@@ -419,7 +419,11 @@ public sealed class RunClient
     /// <see cref="StreamedLog.StopAsync"/> (or dispose it) to end. Consistent with the reference client's
     /// run-log redirection convenience.
     /// </summary>
-    /// <param name="toLog">The sink each complete log message is written to.</param>
+    /// <param name="toLog">
+    /// The sink each complete log message is written to, used as it is: unlike in <c>CallAsync</c>,
+    /// <see cref="StreamedLog.DefaultConsole"/> is not resolved here and adds no prefix; use
+    /// <see cref="StreamedLog.CreatePrefixedSink"/> for the reference's <c>&lt;Actor name&gt; runId:&lt;id&gt; -&gt; </c> prefix.
+    /// </param>
     /// <param name="fromStart">
     /// If <c>true</c> (default), redirect the whole log including messages from before this call; if
     /// <c>false</c>, skip messages older than the moment the helper is created.

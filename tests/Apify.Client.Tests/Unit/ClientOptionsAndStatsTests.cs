@@ -1,10 +1,10 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
+using System.IO.Compression;
 using System.Net;
 using System.Net.Http;
 using System.Threading;
-using System.IO;
-using System.IO.Compression;
 using System.Threading.Tasks;
 using Apify.Client.Exceptions;
 using Apify.Client.Http;
@@ -13,11 +13,22 @@ using Xunit;
 namespace Apify.Client.Tests.Unit;
 
 /// <summary>
+/// Tests that swap the process-wide <see cref="Console.Out"/> run alone: xUnit runs a collection that disables
+/// parallelization after all the parallel ones have finished, so no other test writes to the captured writer.
+/// </summary>
+[CollectionDefinition(Name, DisableParallelization = true)]
+public sealed class ProcessConsoleTests
+{
+    /// <summary>The collection name.</summary>
+    public const string Name = "Console";
+}
+
+/// <summary>
 /// Client-level behaviour that mirrors the reference client: request statistics, the separate long and
 /// maximum timeouts, the public base URL default, the User-Agent override and non-retried dataset pushes.
 /// </summary>
 [Trait("Category", "Unit")]
-[Collection("Console")]
+[Collection(ProcessConsoleTests.Name)]
 public sealed class ClientOptionsAndStatsTests
 {
     private const string NotFoundBody = "{\"error\":{\"type\":\"record-not-found\",\"message\":\"missing\"}}";

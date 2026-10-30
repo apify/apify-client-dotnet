@@ -63,7 +63,9 @@ public sealed class StreamedLog : IAsyncDisposable
     /// Pass this as the <c>log</c> argument of <c>ActorClient.CallAsync</c> or <c>TaskClient.CallAsync</c> to get
     /// the reference client's default redirection: once the run has started, its log is written to the
     /// standard output with the prefix <c>&lt;Actor name&gt; runId:&lt;id&gt; -&gt; </c> (the run and its Actor are
-    /// fetched to build it, as the reference client does). Invoked directly, it writes the message as it is.
+    /// fetched to build it, as the reference client does). Only <c>CallAsync</c> recognizes it:
+    /// <see cref="RunClient.GetStreamedLog"/> uses a sink as it is, so there it writes the messages without the
+    /// prefix; use <see cref="CreatePrefixedSink"/> for a known run.
     /// </summary>
     public static readonly Action<string> DefaultConsole = static message => Console.Out.WriteLine(message);
 
