@@ -27,10 +27,10 @@ public sealed class ModelAccessorTests
     public void RunExposesItsConsoleUrlNormalizedAndItsStandbyConfiguration()
     {
         var run = new ActorRun(JsonNode.Parse(
-            "{\"consoleUrl\":\"HTTPS://Console.Apify.com:443/view/runs/r1\",\"standby\":{\"tenancy\":\"MULTI_TENANT\"}}")!.AsObject());
+            "{\"consoleUrl\":\"HTTPS://Console.Apify.com:443/view/runs/r1\",\"standby\":{\"deployment\":\"MULTI_TENANT_PAYING_USERS\"}}")!.AsObject());
 
         Assert.Equal("https://console.apify.com/view/runs/r1", run.ConsoleUrl);
-        Assert.Equal("MULTI_TENANT", run.Standby!["tenancy"]!.GetValue<string>());
+        Assert.Equal("MULTI_TENANT_PAYING_USERS", run.Standby!["deployment"]!.GetValue<string>());
     }
 
     [Fact]

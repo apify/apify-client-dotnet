@@ -13,9 +13,9 @@ namespace Apify.Client.Resources;
 /// </summary>
 /// <remarks>
 /// It also exposes the user's monthly usage and account limits. Besides <c>me</c>, the API accepts the account's
-/// ID or username, but only for your own account or the organization your API token belongs to, and API
-/// tokens with limited permissions cannot use these endpoints. Updating an organization's limits also needs
-/// the permission to manage the organization.
+/// ID or username, but only for your own account or the organization your API token belongs to. API tokens
+/// with limited permissions cannot use these by-ID endpoints (<c>me</c> is not affected by that), and updating
+/// an organization's limits also needs the permission to manage the organization.
 /// </remarks>
 public sealed class UserClient
 {

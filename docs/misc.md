@@ -50,7 +50,8 @@ await foreach (var item in client.Store().IterateAsync(new StoreListOptions { Se
 
 The usage and limits methods work on `Me()` and on `User(id)` with the account's ID or username, but only for
 your own account or the organization your API token belongs to. API tokens with limited permissions cannot
-use them, and updating an organization's limits also needs the permission to manage it.
+use the by-ID form (`Me()` is not affected), and updating an organization's limits also needs the permission to
+manage it.
 
 ```csharp
 using System;

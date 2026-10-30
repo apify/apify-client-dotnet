@@ -68,9 +68,9 @@ public sealed class ActorRun : ApifyResource
     public string? ConsoleUrl => GetUrlString("consoleUrl");
 
     /// <summary>
-    /// The Actor Standby configuration the run was started with (for example its <c>tenancy</c>, which tells a
-    /// single-tenant run from a multi-tenant Server Actor run), or <c>null</c> if the run was not started in
-    /// Standby mode.
+    /// The Server Actor deployment of the run: an object whose <c>deployment</c> names the pool serving the run
+    /// (<c>SINGLE_TENANT</c>, <c>MULTI_TENANT_OWNER_PAID</c>, <c>MULTI_TENANT_FREE_USERS</c> or
+    /// <c>MULTI_TENANT_PAYING_USERS</c>), or <c>null</c> for a run not started by a Server Actor request.
     /// </summary>
     public JsonObject? Standby => Get("standby") as JsonObject;
 }

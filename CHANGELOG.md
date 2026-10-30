@@ -6,7 +6,7 @@
   the project version to `0.8.0`.
 - Regenerated the embedded response schemas; `Schedule.uiState` accepts `null`, which the API returns.
 - Added typed accessors: `Build.Changelog`/`ExitCode`/`GitBranchName`/`GitCommitId`,
-  `ActorRun.ConsoleUrl`/`Standby`, `Title` on `Dataset`/`KeyValueStore`/`RequestQueue`/`Webhook`/`Schedule`,
+  `ActorRun.ConsoleUrl`/`Standby` (the Server Actor deployment), `Title` on `Dataset`/`KeyValueStore`/`RequestQueue`/`Webhook`/`Schedule`,
   `Webhook.IsEnabled`/`IsApifyIntegration`, `Schedule.Description`/`UiState`, and
   `RequestQueueRequest.LockByClient`/`HandledAt`.
 - Added `RunListOptions.Deployment` (filters Standby runs) and `StoreListOptions.IncludeInputSchema`.

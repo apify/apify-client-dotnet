@@ -60,7 +60,7 @@ Base class for every JSON-backed model below.
 | `DefaultRequestQueueId` | `string?` | ID of the run's default request queue. |
 | `ContainerUrl` | `string?` | URL of the run's container (for live access while running). Normalized to its absolute-URI form. |
 | `ConsoleUrl` | `string?` | URL of the run's page in Apify Console. Normalized to its absolute-URI form. |
-| `Standby` | `JsonObject?` | The Actor Standby configuration the run was started with (e.g. `tenancy`); `null` outside Standby mode. |
+| `Standby` | `JsonObject?` | Server Actor deployment of the run: its `deployment` names the serving pool (`SINGLE_TENANT`, `MULTI_TENANT_OWNER_PAID`, `MULTI_TENANT_FREE_USERS` or `MULTI_TENANT_PAYING_USERS`); `null` for a run not started by a Server Actor request. |
 | `IsTerminal` | `bool` | `true` if `Status` is a terminal state (succeeded/failed/aborted/timed-out). |
 
 ## `Build`

@@ -17,7 +17,11 @@ public sealed class ActorRunIntegrationTests : IntegrationTestBase
             new ListOptions { Limit = 5 },
             new RunListOptions { Status = new[] { "READY", "RUNNING" }, Deployment = new[] { "SINGLE_TENANT" } });
 
-        Assert.All(page.Items, static run => Assert.Contains(run.Status, new[] { "READY", "RUNNING" }));
+        Assert.All(page.Items, static run =>
+        {
+            Assert.Contains(run.Status, new[] { "READY", "RUNNING" });
+            Assert.Equal("SINGLE_TENANT", run.Standby?["deployment"]?.GetValue<string>());
+        });
     }
 
     [SkippableFact]
