@@ -1,3 +1,4 @@
+using System;
 using System.IO;
 using System.IO.Compression;
 using System.Threading;
@@ -19,8 +20,14 @@ public sealed class GzipHttpCompressor : HttpCompressor
     /// is level 1, <see cref="CompressionLevel.Optimal"/> level 6 (the default, as in the reference client) and
     /// <see cref="CompressionLevel.SmallestSize"/> level 9.
     /// </param>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="level"/> is not a defined <see cref="CompressionLevel"/>.</exception>
     public GzipHttpCompressor(CompressionLevel level = CompressionLevel.Optimal)
     {
+        if (!Enum.IsDefined(level))
+        {
+            throw new ArgumentOutOfRangeException(nameof(level), level, "the compression level is not a defined CompressionLevel");
+        }
+
         _level = level;
     }
 

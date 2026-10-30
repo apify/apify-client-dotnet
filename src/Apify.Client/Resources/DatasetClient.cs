@@ -7,6 +7,7 @@ using System.Net.Http;
 using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Text.Json;
 using System.Text.Json.Nodes;
 using Apify.Client.Internal;
 using Apify.Client.Models;
@@ -209,14 +210,16 @@ public sealed class DatasetClient
     /// The API only accepts a JSON object or an array of JSON objects, so any other shape (a bare number, a
     /// plain string, an array holding anything but objects) is rejected before a request is sent. A
     /// <see cref="string"/> is treated as already-serialized JSON and sent as it is, so it has to hold such an
-    /// object or array.
+    /// object or array. A push that times out is not retried, because the API may already have stored the
+    /// items and a retry would store them twice; the <see cref="Exceptions.ApifyTransportException"/> is thrown instead.
     /// </remarks>
     /// <param name="items">A single item, an array of items, or the JSON serialization of either.</param>
     /// <param name="cancellationToken">A token to cancel the request.</param>
     /// <exception cref="ArgumentException"><paramref name="items"/> serializes to anything but a JSON object or an array of objects.</exception>
     public async Task PushItemsAsync(object items, CancellationToken cancellationToken = default)
     {
-        var body = items is string json ? json : SerializeItems(items);
+        var body = items as string;
+        var bodyBytes = body is null ? SerializeItems(items) : null;
         var url = _ctx.MergedParams(new QueryParams()).ApplyToUrl(_ctx.SubUrl("items"));
         using var response = await _http.CallAsync(
             HttpMethod.Post,
@@ -224,21 +227,56 @@ public sealed class DatasetClient
             body,
             ResourceContext.ContentTypeJsonCharset,
             timeout: _ctx.RequestTimeout,
+            doNotRetryTimeouts: true,
+            bodyBytes: bodyBytes,
             tier: RequestTier.Medium,
             cancellationToken: cancellationToken).ConfigureAwait(false);
     }
 
-    /// <summary>Serializes the items to JSON, requiring an object or an array of objects.</summary>
-    private static string SerializeItems(object items)
+    /// <summary>
+    /// Serializes the items to UTF-8 JSON once, requiring an object or an array of objects. The shape is
+    /// checked by reading the tokens of the serialized bytes, so no document tree is built.
+    /// </summary>
+    private static byte[] SerializeItems(object items)
     {
-        var node = Json.ToNode(items);
-        var valid = node is JsonObject || (node is JsonArray array && array.All(static item => item is JsonObject));
-        if (!valid)
+        var bytes = Json.EncodeToUtf8(items);
+        if (!IsObjectOrArrayOfObjects(bytes))
         {
             throw new ArgumentException("items must serialize to a JSON object or an array of JSON objects", nameof(items));
         }
 
-        return Json.Encode(node);
+        return bytes;
+    }
+
+    private static bool IsObjectOrArrayOfObjects(ReadOnlySpan<byte> json)
+    {
+        var reader = new Utf8JsonReader(json);
+        if (!reader.Read())
+        {
+            return false;
+        }
+
+        if (reader.TokenType == JsonTokenType.StartObject)
+        {
+            return true;
+        }
+
+        if (reader.TokenType != JsonTokenType.StartArray)
+        {
+            return false;
+        }
+
+        while (reader.Read() && reader.TokenType != JsonTokenType.EndArray)
+        {
+            if (reader.TokenType != JsonTokenType.StartObject)
+            {
+                return false;
+            }
+
+            reader.Skip();
+        }
+
+        return true;
     }
 
     /// <summary>Returns statistical information about the dataset.</summary>

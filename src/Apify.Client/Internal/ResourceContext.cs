@@ -578,7 +578,7 @@ internal sealed class ResourceContext
     /// <see cref="EncodePathSegment"/>, so a hostile id cannot restructure the request path.
     /// </summary>
     /// <exception cref="ArgumentException">The id is empty or a dot segment.</exception>
-    public static string ToSafeId(string id) => EncodePathSegment(id.Replace('/', '~'));
+    public static string ToSafeId(string id) => EncodePathSegment(id.Replace('/', '~'), nameof(id));
 
     /// <summary>
     /// Percent-encodes a single URL path segment, so values interpolated into the path (resource ids, record
@@ -587,17 +587,18 @@ internal sealed class ResourceContext
     /// <c>%2E%2E</c> would collapse to the parent endpoint just like <c>..</c>.
     /// </summary>
     /// <param name="input">The raw, caller-supplied path segment.</param>
+    /// <param name="paramName">The name of the caller's parameter, reported by the argument exception.</param>
     /// <exception cref="ArgumentException">The segment is empty or a dot segment.</exception>
-    public static string EncodePathSegment(string input)
+    public static string EncodePathSegment(string input, string paramName)
     {
         if (input.Length == 0)
         {
-            throw new ArgumentException("URL path segment must not be empty", nameof(input));
+            throw new ArgumentException("URL path segment must not be empty", paramName);
         }
 
         if (input is CurrentDirectorySegment or ParentDirectorySegment)
         {
-            throw new ArgumentException("URL path segment must not be a dot segment", nameof(input));
+            throw new ArgumentException("URL path segment must not be a dot segment", paramName);
         }
 
         return Uri.EscapeDataString(input);

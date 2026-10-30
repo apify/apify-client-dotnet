@@ -59,6 +59,22 @@ public sealed class StreamedLog : IAsyncDisposable
         _relevancyTimeLimit = fromStart ? null : DateTimeOffset.UtcNow;
     }
 
+    /// <summary>
+    /// Creates a ready-made sink that writes every message with the reference client's default prefix,
+    /// <c>&lt;Actor name&gt; runId:&lt;id&gt; -&gt; </c>, one message per line. Pass it as the <c>log</c> argument
+    /// of <c>CallAsync</c> or to <see cref="RunClient.GetStreamedLog"/> to get what the reference client
+    /// redirects by default.
+    /// </summary>
+    /// <param name="runId">The run ID shown in the prefix.</param>
+    /// <param name="actorName">The Actor name shown in the prefix; omitted from it when <c>null</c> or empty.</param>
+    /// <param name="writer">Where the lines are written (default: the standard output).</param>
+    public static Action<string> CreatePrefixedSink(string runId, string? actorName = null, TextWriter? writer = null)
+    {
+        var name = string.IsNullOrEmpty(actorName) ? "runId:" + runId : actorName + " runId:" + runId;
+        var prefix = name + " -> ";
+        return message => (writer ?? Console.Out).WriteLine(prefix + message);
+    }
+
     /// <summary>Starts redirecting the log on a background task. Throws if already started.</summary>
     public void Start()
     {

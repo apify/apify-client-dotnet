@@ -94,6 +94,7 @@ internal sealed class HttpClientCore
     private readonly RetryConfig _retry;
     private readonly HttpCompressor _compressor;
     private readonly IReadOnlyDictionary<string, string>? _defaultHeaders;
+    private readonly Statistics _stats;
 
     public HttpClientCore(
         IHttpTransport transport,
@@ -101,19 +102,39 @@ internal sealed class HttpClientCore
         string userAgent,
         RetryConfig retry,
         HttpCompressor compressor,
+        Statistics stats,
         IReadOnlyDictionary<string, string>? defaultHeaders = null)
     {
         _transport = transport;
         _token = token;
-        UserAgent = userAgent;
         _retry = retry;
         _compressor = compressor;
+        _stats = stats;
         ValidateDefaultHeaders(defaultHeaders);
         _defaultHeaders = defaultHeaders;
+        UserAgent = FindHeader(defaultHeaders, "User-Agent") ?? userAgent;
     }
 
-    /// <summary>The <c>User-Agent</c> header value this client sends.</summary>
+    /// <summary>The <c>User-Agent</c> header value this client sends (a <c>User-Agent</c> default header wins over the built-in one).</summary>
     public string UserAgent { get; }
+
+    private static string? FindHeader(IReadOnlyDictionary<string, string>? headers, string name)
+    {
+        if (headers is null)
+        {
+            return null;
+        }
+
+        foreach (var header in headers)
+        {
+            if (string.Equals(header.Key, name, StringComparison.OrdinalIgnoreCase))
+            {
+                return header.Value;
+            }
+        }
+
+        return null;
+    }
 
     /// <summary>The configured overall per-request timeout budget, in seconds.</summary>
     public double RequestTimeoutSecs => _retry.TimeoutSecs;
@@ -135,6 +156,7 @@ internal sealed class HttpClientCore
         string? explicitContentEncoding = null,
         CancellationToken cancellationToken = default)
     {
+        _stats.AddCall();
         var delayMillis = _retry.MinDelayMillis;
         var maxAttempts = _retry.MaxRetries + 1;
         var path = ExtractPath(url);
@@ -159,6 +181,7 @@ internal sealed class HttpClientCore
             bool retryable;
             try
             {
+                _stats.AddRequest();
                 var response = await SendOnceAsync(
                     method, url, prepared, extraHeaders,
                     AttemptTimeout(baseTimeout, overallCap, attempt), cancellationToken).ConfigureAwait(false);
@@ -170,6 +193,11 @@ internal sealed class HttpClientCore
                     // report the method and path in the errors they raise.
                     response.RequestMessage = new HttpRequestMessage(method, url);
                     return response;
+                }
+
+                if (status == RateLimitExceeded)
+                {
+                    _stats.AddRateLimitError(attempt);
                 }
 
                 var errorBody = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
@@ -201,8 +229,10 @@ internal sealed class HttpClientCore
     /// <summary>Opens a live streaming response (single attempt, no retry). Used by log streaming.</summary>
     public Task<HttpResponseMessage> StreamAsync(string url, CancellationToken cancellationToken)
     {
+        _stats.AddCall();
+        _stats.AddRequest();
         var request = BuildRequest(HttpMethod.Get, url, default, null);
-        return _transport.SendAsync(request, TimeSpan.FromSeconds(_retry.TimeoutSecs), streaming: true, cancellationToken);
+        return _transport.SendAsync(request, TimeSpan.FromSeconds(Math.Min(_retry.LongTimeoutSecs, _retry.TimeoutSecs)), streaming: true, cancellationToken);
     }
 
     private async Task<HttpResponseMessage> SendOnceAsync(

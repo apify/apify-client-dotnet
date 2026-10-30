@@ -2,6 +2,21 @@
 
 ## 0.8.0
 
+- `PushItemsAsync` no longer retries a request that timed out, because the API may already have stored the
+  items and a retry would store them twice. It also serializes the items once, without building a document
+  tree.
+- `ApifyClientOptions.PublicBaseUrl` now defaults to `https://api.apify.com` instead of `BaseUrl`, as in
+  the reference client.
+- Added `ApifyClient.Stats` (`Statistics`: `Calls`, `Requests`, `RateLimitErrors`).
+- Added `ApifyClientOptions.TimeoutLongSecs`, the base of the `Long` timeout tier (default `TimeoutSecs`).
+  `TimeoutSecs` stays the overall cap, the reference client's `timeoutMaxSecs`.
+- Added `StreamedLog.CreatePrefixedSink`, a console sink with the reference client's
+  `<Actor name> runId:<id> -> ` prefix, and documented that omitting `log` in `CallAsync` does not redirect
+  the run log, unlike the reference client.
+- `ApifyClient.UserAgent` reports a `User-Agent` entry of `ApifyClientOptions.Headers`.
+- `GzipHttpCompressor` throws `ArgumentOutOfRangeException` for an undefined `CompressionLevel`.
+- Invalid record keys and request IDs now report the caller's parameter name in the `ArgumentException`.
+
 - Bumped `ApifyClientVersion.ApiSpecVersion` to the Apify OpenAPI spec `v2-2026-10-29T100357Z` and
   the project version to `0.8.0`.
 - Regenerated the embedded response schemas; `Schedule.uiState` accepts `null`, which the API returns.

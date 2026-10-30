@@ -21,8 +21,10 @@ public sealed class ApifyClientOptions
     public string BaseUrl { get; set; } = ApifyClient.DefaultBaseUrl;
 
     /// <summary>
-    /// Base URL for building public, shareable resource URLs (defaults to <see cref="BaseUrl"/>). Like
-    /// <see cref="BaseUrl"/>, accepted with or without the <c>/v2</c> API version path.
+    /// Base URL for building public, shareable resource URLs (defaults to <see cref="ApifyClient.DefaultBaseUrl"/>,
+    /// whatever <see cref="BaseUrl"/> is, as in the reference client, so a client behind an internal or proxied
+    /// <see cref="BaseUrl"/> does not hand out internal links). Like <see cref="BaseUrl"/>, accepted with or
+    /// without the <c>/v2</c> API version path.
     /// </summary>
     public string? PublicBaseUrl { get; set; }
 
@@ -36,12 +38,19 @@ public sealed class ApifyClientOptions
     public int? MaxDelayBetweenRetriesMillis { get; set; }
 
     /// <summary>
-    /// Base duration of the <c>Long</c> timeout tier, in seconds (default 360): downloads, uploads and
-    /// streaming. Also the overall per-request cap every attempt's growing timeout is clamped to,
-    /// regardless of tier, matching the reference client's <c>timeoutLongSecs</c>/<c>timeoutMaxSecs</c>
-    /// (which share the same 360s default for the same reason).
+    /// The overall per-request cap, in seconds (default 360), matching the reference client's
+    /// <c>timeoutMaxSecs</c>: every attempt's growing timeout, including one set with <c>WithTimeout</c>, is
+    /// clamped to it, regardless of tier. It is also the base of the <c>Long</c> tier unless
+    /// <see cref="TimeoutLongSecs"/> is set.
     /// </summary>
     public int TimeoutSecs { get; set; } = ApifyClient.DefaultTimeoutSecs;
+
+    /// <summary>
+    /// Base duration of the <c>Long</c> timeout tier, in seconds: downloads, uploads and streaming. Defaults to
+    /// <see cref="TimeoutSecs"/>. Matches the reference client's <c>timeoutLongSecs</c>; the cap
+    /// <see cref="TimeoutSecs"/> still applies to it.
+    /// </summary>
+    public int? TimeoutLongSecs { get; set; }
 
     /// <summary>
     /// Base duration of the <c>Short</c> timeout tier, in seconds (default 5): simple metadata reads and

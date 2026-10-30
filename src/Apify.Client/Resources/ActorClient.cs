@@ -90,8 +90,10 @@ public sealed class ActorClient
     /// <param name="waitSecs">Bounds the wait; <c>null</c> waits indefinitely.</param>
     /// <param name="log">
     /// If provided, the run's live log is redirected to this sink (one complete message per call) for the
-    /// duration of the wait, matching the reference client's <c>log</c> call option. <c>null</c> disables
-    /// redirection.
+    /// duration of the wait, matching the reference client's <c>log</c> call option. Unlike the reference
+    /// client, which redirects the log by default when the option is omitted, <c>null</c> (the default) does
+    /// not redirect anything; use <see cref="StreamedLog.CreatePrefixedSink"/> to get the reference's default
+    /// prefix.
     /// </param>
     /// <param name="cancellationToken">A token to cancel the request.</param>
     public async Task<ActorRun> CallAsync(
