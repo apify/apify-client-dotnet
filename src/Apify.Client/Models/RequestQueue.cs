@@ -29,4 +29,7 @@ public sealed class RequestQueue : ApifyResource
 
     /// <summary>The total number of requests ever added.</summary>
     public long? TotalRequestCount => GetInt("totalRequestCount");
+
+    /// <summary>The human-readable title of the request queue, if one was set.</summary>
+    public string? Title => GetString("title");
 }

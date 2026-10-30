@@ -10,6 +10,21 @@ namespace Apify.Client.Tests.Integration;
 public sealed class ActorRunIntegrationTests : IntegrationTestBase
 {
     [SkippableFact]
+    public async Task ListRunsByDeployment()
+    {
+        var client = RequireClient();
+        var page = await client.Runs().ListAsync(
+            new ListOptions { Limit = 5 },
+            new RunListOptions { Status = new[] { "READY", "RUNNING" }, Deployment = new[] { "SINGLE_TENANT" } });
+
+        Assert.All(page.Items, static run =>
+        {
+            Assert.Contains(run.Status, new[] { "READY", "RUNNING" });
+            Assert.Equal("SINGLE_TENANT", run.Standby?["deployment"]?.GetValue<string>());
+        });
+    }
+
+    [SkippableFact]
     public async Task ListRuns()
     {
         var client = RequireClient();

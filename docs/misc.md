@@ -25,6 +25,7 @@ Browse public Actors in the [Apify Store](https://apify.com/store).
 | `PricingModel` | `string?` | Filter by pricing model (`FREE`, `PRICE_PER_DATASET_ITEM`, `PAY_PER_EVENT`; the rental model `FLAT_PRICE_PER_MONTH` is no longer supported). |
 | `IncludeUnrunnableActors` | `bool?` | Include Actors that cannot currently be run. |
 | `AllowsAgenticUsers` | `bool?` | Only Actors that permit agentic (automated) users. |
+| `IncludeInputSchema` | `bool?` | Include each Actor's compact `inputSchema` (read it with `Get("inputSchema")`). The API then caps `limit` at 10, so iteration requests pages of at most 10. |
 | `ResponseFormat` | `string?` | Requested response format. |
 
 ```csharp
@@ -43,9 +44,14 @@ await foreach (var item in client.Store().IterateAsync(new StoreListOptions { Se
 
 - `GetAsync()` → `User?`. For `Me()` the raw payload includes private account details
   (`ToJsonObject()`); for `User(id)` it returns the public profile.
-- `MonthlyUsageAsync(string? date = null)` → `JsonObject` (only for `Me()`; `date` is `YYYY-MM-DD`, and
-  `null` reports the current month).
-- `LimitsAsync()` → `JsonObject` / `UpdateLimitsAsync(object newLimits)` (only for `Me()`).
+- `MonthlyUsageAsync(string? date = null)` → `JsonObject` (`date` is `YYYY-MM-DD`, and `null` reports the
+  current month).
+- `LimitsAsync()` → `JsonObject` / `UpdateLimitsAsync(object newLimits)`.
+
+The usage and limits methods work on `Me()` and on `User(id)` with the account's ID or username, but only for
+your own account or the organization your API token belongs to. API tokens with limited permissions cannot
+use the by-ID form (`Me()` is not affected), and updating an organization's limits also needs the permission to
+manage it.
 
 ```csharp
 using System;
@@ -56,7 +62,7 @@ var me = await client.Me().GetAsync();
 Console.WriteLine(me?.Username);
 var usage = await client.Me().MonthlyUsageAsync();
 
-// Any user's public profile by id (no private fields, and no account-only methods).
+// Any user's public profile by id (no private fields).
 var otherUser = await client.User("some-user-id").GetAsync();
 Console.WriteLine(otherUser?.Username);
 ```

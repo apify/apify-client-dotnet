@@ -45,4 +45,14 @@ public sealed class StoreIntegrationTests : IntegrationTestBase
 
         Assert.Equal(7, count);
     }
+
+    [SkippableFact]
+    public async Task ListStoreWithInputSchema()
+    {
+        var client = RequireClient();
+        var page = await client.Store().ListAsync(new StoreListOptions { IncludeInputSchema = true, Limit = StoreListOptions.MaxPageLimitWithInputSchema });
+
+        Assert.NotEmpty(page.Items);
+        Assert.Contains(page.Items, static item => item.Get("inputSchema") is not null);
+    }
 }

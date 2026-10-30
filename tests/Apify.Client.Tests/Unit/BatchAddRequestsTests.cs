@@ -101,6 +101,20 @@ public sealed class BatchAddRequestsTests
     }
 
     [Fact]
+    public async Task UnprocessedRequestsCountAsARateLimitErrorInStats()
+    {
+        var transport = new MockTransport()
+            .QueueResponse(200, BatchResponse(new[] { "r0" }, new[] { "r1" }))
+            .QueueResponse(200, BatchResponse(new[] { "r1" }));
+        var client = Client(transport);
+        var requests = new List<RequestQueueRequest> { new("https://x/r0", "r0"), new("https://x/r1", "r1") };
+
+        await client.RequestQueue("q1").BatchAddRequestsAsync(requests, false, FastOptions());
+
+        Assert.Equal(new long[] { 1 }, client.Stats.RateLimitErrors);
+    }
+
+    [Fact]
     public async Task RetriesOnlyUnprocessedFromSuccessfulResponse()
     {
         var transport = new MockTransport()
@@ -270,5 +284,59 @@ public sealed class BatchAddRequestsTests
         var requests = new List<RequestQueueRequest> { new("https://a.com", "big") { UserData = new JsonObject { ["blob"] = huge } } };
 
         await Assert.ThrowsAsync<ArgumentException>(() => Client(new MockTransport()).RequestQueue("q1").BatchAddRequestsAsync(requests));
+    }
+
+    [Fact]
+    public async Task BatchBodyIsTheSerializedRequestsJoinedIntoACompactArray()
+    {
+        var transport = new MockTransport().QueueResponse(200, BatchResponse(new[] { "k0", "k1" }));
+        var requests = new List<RequestQueueRequest> { new("https://x/0", "k0"), new("https://x/1", "k1") };
+
+        await Client(transport).RequestQueue("q1").BatchAddRequestsAsync(requests, false, FastOptions());
+
+        Assert.Equal(
+            "[" + requests[0].ToJsonObject().ToJsonString() + "," + requests[1].ToJsonObject().ToJsonString() + "]",
+            transport.Received[0].Body);
+    }
+
+    [Fact]
+    public async Task OversizedRequestIsRejectedBeforeAnyBatchIsSent()
+    {
+        var transport = new MockTransport().QueueResponse(200, BatchResponse(new[] { "small" }));
+        var huge = new string('x', 10 * 1024 * 1024);
+        var requests = new List<RequestQueueRequest>
+        {
+            new("https://x/small", "small"),
+            new("https://x/big", "big") { UserData = new JsonObject { ["blob"] = huge } },
+        };
+
+        var error = await Assert.ThrowsAsync<ArgumentException>(
+            () => Client(transport).RequestQueue("q1").BatchAddRequestsAsync(requests, false, FastOptions()));
+
+        Assert.Contains("index 1", error.Message, StringComparison.Ordinal);
+        Assert.Equal(0, transport.CallCount);
+    }
+
+    [Fact]
+    public async Task BatchBoundaryCountsTheBracketsAndCommas()
+    {
+        // The payload limit is 9 MiB minus the 0.01% safety margin the client subtracts (rounded up).
+        const int nineMiB = 9 * 1024 * 1024;
+        var limit = nineMiB - (int)Math.Ceiling(nineMiB * 0.0001);
+        var emptyBlobSize = new RequestQueueRequest("https://x/a", "a") { UserData = new JsonObject { ["blob"] = string.Empty } }
+            .ToJsonObject().ToJsonString().Length;
+        // Each request is just under half the limit, so the two bare objects fit together. Only the brackets
+        // and the comma of the array body push the pair over the limit, so the two requests must be split.
+        var blobLength = ((limit - 2) / 2) - emptyBlobSize;
+        var requests = new List<RequestQueueRequest>
+        {
+            new("https://x/a", "a") { UserData = new JsonObject { ["blob"] = new string('x', blobLength) } },
+            new("https://x/b", "b") { UserData = new JsonObject { ["blob"] = new string('x', blobLength) } },
+        };
+        var transport = new MockTransport().QueueResponse(200, BatchResponse(new[] { "a" })).QueueResponse(200, BatchResponse(new[] { "b" }));
+
+        await Client(transport).RequestQueue("q1").BatchAddRequestsAsync(requests, false, FastOptions());
+
+        Assert.Equal(2, transport.CallCount);
     }
 }

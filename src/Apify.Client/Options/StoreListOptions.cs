@@ -1,3 +1,4 @@
+using System;
 using Apify.Client.Internal;
 
 namespace Apify.Client.Options;
@@ -42,8 +43,22 @@ public sealed class StoreListOptions
     /// <summary>Filter to Actors that allow agentic users.</summary>
     public bool? AllowsAgenticUsers { get; init; }
 
+    /// <summary>
+    /// Include each Actor's <c>inputSchema</c>: a compact version of the input schema of its default build
+    /// (property types and required properties only). With it, the API's <c>limit</c> defaults to and cannot
+    /// exceed <see cref="MaxPageLimitWithInputSchema"/>, so iteration requests pages of at most that size.
+    /// </summary>
+    public bool? IncludeInputSchema { get; init; }
+
+    /// <summary>The API's maximum page size while <see cref="IncludeInputSchema"/> is set.</summary>
+    public const int MaxPageLimitWithInputSchema = 10;
+
     /// <summary>The response format (<c>full</c>, <c>agent</c>).</summary>
     public string? ResponseFormat { get; init; }
+
+    /// <summary>The page size iteration requests: the caller's <see cref="ChunkSize"/>, capped at the API's maximum while the input schema is included.</summary>
+    internal int? IterationChunkSize()
+        => IncludeInputSchema is true ? Math.Min(ChunkSize ?? MaxPageLimitWithInputSchema, MaxPageLimitWithInputSchema) : ChunkSize;
 
     internal void AppendTo(QueryParams q)
     {
@@ -56,6 +71,7 @@ public sealed class StoreListOptions
             .AddString("pricingModel", PricingModel)
             .AddBool("includeUnrunnableActors", IncludeUnrunnableActors)
             .AddBool("allowsAgenticUsers", AllowsAgenticUsers)
+            .AddBool("includeInputSchema", IncludeInputSchema)
             .AddString("responseFormat", ResponseFormat);
     }
 }

@@ -23,7 +23,9 @@ a specific task with `client.Task(id)`.
   the task's Actor. Unpublishing a task that is not published does nothing.
 - `StartAsync(object? input = null, TaskStartOptions? options = null)` → `ActorRun`.
 - `CallAsync(object? input = null, TaskStartOptions? options = null, int? waitSecs = null, Action<string>? log = null)`
-  → `ActorRun` (`log`, if set, redirects the run's live log to that sink for the duration of the wait).
+  → `ActorRun` (`log`, if set, redirects the run's live log to that sink for the duration of the wait;
+  unlike the reference client, omitting it does not redirect the log, so pass `StreamedLog.DefaultConsole`
+  to get the reference's default redirection to the console, with its `<Actor name> runId:<id> -> ` prefix).
 - `GetInputAsync()` → `JsonNode?` (throws if the task does not exist; a task without stored input
   yields an empty JSON object) / `UpdateInputAsync(object input)` → `JsonNode?`.
 - `LastRun(LastRunOptions? options = null)` → `RunClient`; `Runs()` → `RunCollectionClient`.

@@ -50,9 +50,10 @@ jobs:
       - name: Build (warnings as errors)
         run: dotnet build --configuration Release --no-restore
 
-      # Offline unit tests (mock transport): prove the retry/error/signature logic without the API.
+      # Offline unit tests (mock transport): prove the retry/error/signature logic without the API. Every test step
+      # sets TreatNoTestsAsError, so a filter that matches no tests fails the workflow instead of passing.
       - name: Unit tests
-        run: dotnet test --configuration Release --no-build --filter Category=Unit
+        run: dotnet test --configuration Release --no-build --filter Category=Unit -- RunConfiguration.TreatNoTestsAsError=true
 
       # Fail fast if the integration-test secret is missing or empty. Without this guard the
       # integration tests silently skip (they self-skip when APIFY_TOKEN is unset), so a green run
@@ -70,11 +71,11 @@ jobs:
         env:
           # The integration-test token is stored as a repository secret.
           APIFY_TOKEN: ${{ secrets.APIFY_TOKEN }}
-        run: dotnet test --configuration Release --no-build --filter Category=Integration
+        run: dotnet test --configuration Release --no-build --filter Category=Integration -- RunConfiguration.TreatNoTestsAsError=true
 
       # Standalone CI step that verifies the documentation examples: the Examples suite runs each example
       # end-to-end against the live API and compiles every C# snippet in the README and docs/.
       - name: Test examples
         env:
           APIFY_TOKEN: ${{ secrets.APIFY_TOKEN }}
-        run: dotnet test --configuration Release --no-build --filter Category=Examples
+        run: dotnet test --configuration Release --no-build --filter Category=Examples -- RunConfiguration.TreatNoTestsAsError=true

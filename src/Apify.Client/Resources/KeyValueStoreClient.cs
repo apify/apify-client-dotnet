@@ -155,12 +155,18 @@ public sealed class KeyValueStoreClient
     /// <param name="key">The record key.</param>
     /// <param name="cancellationToken">A token to cancel the request.</param>
     public Task<bool> RecordExistsAsync(string key, CancellationToken cancellationToken = default)
-        => _ctx.HeadExistsAsync("records/" + ResourceContext.EncodePathSegment(key), new QueryParams(), RequestTier.Long, cancellationToken);
+        => _ctx.HeadExistsAsync("records/" + ResourceContext.EncodePathSegment(key, nameof(key)), new QueryParams(), RequestTier.Long, cancellationToken);
 
     /// <summary>
     /// Fetches a record by key, or <c>null</c> if it does not exist. Like the reference client, it requests
     /// the record as an attachment so the API returns the raw bytes directly.
     /// </summary>
+    /// <remarks>
+    /// The body is never parsed: <see cref="KeyValueStoreRecord.Value"/> holds the raw bytes whatever the
+    /// content type, so a truncated JSON body cannot fail here, and the caller decodes it according to
+    /// <see cref="KeyValueStoreRecord.ContentType"/>. (The reference client parses JSON, text and XML records
+    /// by content type; its <c>buffer</c> option returns the raw bytes like this method does.)
+    /// </remarks>
     /// <param name="key">The record key.</param>
     /// <param name="options">Optional fetch options.</param>
     /// <param name="cancellationToken">A token to cancel the request.</param>
@@ -169,7 +175,7 @@ public sealed class KeyValueStoreClient
         options ??= new GetRecordOptions { Attachment = true };
         var q = new QueryParams();
         options.AppendTo(q);
-        var url = _ctx.MergedParams(q).ApplyToUrl(_ctx.SubUrl("records/" + ResourceContext.EncodePathSegment(key)));
+        var url = _ctx.MergedParams(q).ApplyToUrl(_ctx.SubUrl("records/" + ResourceContext.EncodePathSegment(key, nameof(key))));
         try
         {
             using var response = await _http.CallAsync(HttpMethod.Get, url, timeout: _ctx.RequestTimeout, tier: RequestTier.Long, cancellationToken: cancellationToken).ConfigureAwait(false);
@@ -219,7 +225,7 @@ public sealed class KeyValueStoreClient
         }
 
         return _ctx.PutRawAsync(
-            "records/" + ResourceContext.EncodePathSegment(key),
+            "records/" + ResourceContext.EncodePathSegment(key, nameof(key)),
             new QueryParams(),
             value,
             contentType,
@@ -241,7 +247,7 @@ public sealed class KeyValueStoreClient
     /// <param name="key">The record key.</param>
     /// <param name="cancellationToken">A token to cancel the request.</param>
     public Task DeleteRecordAsync(string key, CancellationToken cancellationToken = default)
-        => _ctx.DeleteResourceAsync("records/" + ResourceContext.EncodePathSegment(key), RequestTier.Short, cancellationToken);
+        => _ctx.DeleteResourceAsync("records/" + ResourceContext.EncodePathSegment(key, nameof(key)), RequestTier.Short, cancellationToken);
 
     /// <summary>
     /// Builds a public URL for fetching the given record. It fetches the store, and if the store exposes a
@@ -263,7 +269,7 @@ public sealed class KeyValueStoreClient
             }
         }
 
-        return q.ApplyToUrl(_ctx.PublicUrl("records/" + ResourceContext.EncodePathSegment(key)));
+        return q.ApplyToUrl(_ctx.PublicUrl("records/" + ResourceContext.EncodePathSegment(key, nameof(key))));
     }
 
     /// <summary>

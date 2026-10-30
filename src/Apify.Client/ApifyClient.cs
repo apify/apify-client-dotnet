@@ -61,6 +61,7 @@ public sealed class ApifyClient
     private const string MeUserPlaceholder = "me";
 
     private readonly HttpClientCore _http;
+    private readonly Statistics _stats = new();
     private readonly string _baseUrl;
     private readonly string _publicBaseUrl;
 
@@ -84,14 +85,29 @@ public sealed class ApifyClient
             options.MinDelayBetweenRetriesMillis,
             maxDelayMillis,
             options.TimeoutSecs,
+            options.TimeoutLongSecs ?? options.TimeoutSecs,
             options.TimeoutShortSecs,
             options.TimeoutMediumSecs);
 
         var userAgent = BuildUserAgent(options.UserAgentSuffix, options.IsAtHome ?? DefaultIsAtHome);
-        _http = new HttpClientCore(transport, options.Token, userAgent, retry, options.RequestCompression);
+        _http = new HttpClientCore(transport, options.Token, userAgent, retry, ResolveCompressor(options), _stats, options.Headers);
 
         _baseUrl = ToApiBaseUrl(options.BaseUrl);
-        _publicBaseUrl = ToApiBaseUrl(options.PublicBaseUrl ?? options.BaseUrl);
+        _publicBaseUrl = ToApiBaseUrl(options.PublicBaseUrl ?? DefaultBaseUrl);
+    }
+
+    /// <summary>
+    /// The compressor for large request bodies: the explicit <see cref="ApifyClientOptions.Compressor"/>, or the
+    /// built-in one for <see cref="ApifyClientOptions.RequestCompression"/> with its default quality.
+    /// </summary>
+    private static HttpCompressor ResolveCompressor(ApifyClientOptions options)
+    {
+        if (options.Compressor is not null)
+        {
+            return options.Compressor;
+        }
+
+        return options.RequestCompression == RequestCompression.Gzip ? new GzipHttpCompressor() : new BrotliHttpCompressor();
     }
 
     /// <summary>The <c>/v2</c> API version path, appended to a base URL that does not already end with it.</summary>
@@ -110,8 +126,17 @@ public sealed class ApifyClient
         return trimmed.EndsWith(ApiVersionPath, StringComparison.Ordinal) ? trimmed : trimmed + ApiVersionPath;
     }
 
-    /// <summary>The <c>User-Agent</c> header value this client sends.</summary>
+    /// <summary>
+    /// The <c>User-Agent</c> header value this client sends: the built-in one, or the <c>User-Agent</c> entry of
+    /// <see cref="ApifyClientOptions.Headers"/> (matched case-insensitively) when it overrides it.
+    /// </summary>
     public string UserAgent => _http.UserAgent;
+
+    /// <summary>
+    /// Counters of the calls and requests this client has made and of the rate limit errors it has met, as in
+    /// the reference client's <c>stats</c>.
+    /// </summary>
+    public Statistics Stats => _stats;
 
     /// <summary>The fully-qualified API base URL this client targets (including the <c>/v2</c> suffix).</summary>
     public string ApiBaseUrl => _baseUrl;

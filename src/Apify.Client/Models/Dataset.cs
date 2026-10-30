@@ -29,4 +29,7 @@ public sealed class Dataset : ApifyResource
 
     /// <summary>The number of items currently stored.</summary>
     public long? ItemCount => GetInt("itemCount");
+
+    /// <summary>The human-readable title of the dataset, if one was set.</summary>
+    public string? Title => GetString("title");
 }

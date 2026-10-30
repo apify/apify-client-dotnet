@@ -216,6 +216,18 @@ public sealed class RunClient
     }
 
     /// <summary>
+    /// Builds the reference client's default sink: the run and its Actor are fetched for the
+    /// <c>&lt;Actor name&gt; runId:&lt;id&gt; -&gt; </c> prefix.
+    /// </summary>
+    private async Task<Action<string>> CreateDefaultSinkAsync(CancellationToken cancellationToken)
+    {
+        var run = await GetAsync(cancellationToken: cancellationToken).ConfigureAwait(false);
+        var actorId = run?.ActId ?? string.Empty;
+        var actor = actorId.Length == 0 ? null : await _root.Actor(actorId).GetAsync(cancellationToken).ConfigureAwait(false);
+        return StreamedLog.CreatePrefixedSink(run?.Id ?? _id, actor?.Name);
+    }
+
+    /// <summary>
     /// Waits for the run to finish, optionally redirecting its live log to <paramref name="log"/> for the
     /// duration of the wait. Shared by <c>Actor.Call</c>/<c>Task.Call</c>'s log option.
     /// </summary>
@@ -224,6 +236,11 @@ public sealed class RunClient
         if (log is null)
         {
             return await WaitForFinishAsync(waitSecs, cancellationToken).ConfigureAwait(false);
+        }
+
+        if (ReferenceEquals(log, StreamedLog.DefaultConsole))
+        {
+            log = await CreateDefaultSinkAsync(cancellationToken).ConfigureAwait(false);
         }
 
         var streamedLog = GetStreamedLog(log);
@@ -402,7 +419,11 @@ public sealed class RunClient
     /// <see cref="StreamedLog.StopAsync"/> (or dispose it) to end. Consistent with the reference client's
     /// run-log redirection convenience.
     /// </summary>
-    /// <param name="toLog">The sink each complete log message is written to.</param>
+    /// <param name="toLog">
+    /// The sink each complete log message is written to, used as it is: unlike in <c>CallAsync</c>,
+    /// <see cref="StreamedLog.DefaultConsole"/> is not resolved here and adds no prefix; use
+    /// <see cref="StreamedLog.CreatePrefixedSink"/> for the reference's <c>&lt;Actor name&gt; runId:&lt;id&gt; -&gt; </c> prefix.
+    /// </param>
     /// <param name="fromStart">
     /// If <c>true</c> (default), redirect the whole log including messages from before this call; if
     /// <c>false</c>, skip messages older than the moment the helper is created.
