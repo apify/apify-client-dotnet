@@ -108,6 +108,7 @@ internal sealed class HttpClientCore
         UserAgent = userAgent;
         _retry = retry;
         _compressor = compressor;
+        ValidateDefaultHeaders(defaultHeaders);
         _defaultHeaders = defaultHeaders;
     }
 
@@ -214,6 +215,30 @@ internal sealed class HttpClientCore
     {
         using var request = BuildRequest(method, url, prepared, extraHeaders);
         return await _transport.SendAsync(request, timeout, streaming: false, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Rejects a default header that is not a request header. Content headers (<c>Content-Type</c>,
+    /// <c>Content-Encoding</c>, <c>Content-Length</c>, ...) describe the body, which the client sets per
+    /// request, so they cannot be defaults.
+    /// </summary>
+    /// <exception cref="ArgumentException">A header name is not a valid request header name.</exception>
+    private static void ValidateDefaultHeaders(IReadOnlyDictionary<string, string>? headers)
+    {
+        if (headers is null)
+        {
+            return;
+        }
+
+        using var probe = new HttpRequestMessage();
+        foreach (var name in headers.Keys)
+        {
+            if (!probe.Headers.TryAddWithoutValidation(name, string.Empty))
+            {
+                throw new ArgumentException(
+                    $"'{name}' cannot be a default header: only request headers are allowed, not content headers such as Content-Type", nameof(headers));
+            }
+        }
     }
 
     /// <summary>Sets each header on the request, replacing any value already set under the same name.</summary>

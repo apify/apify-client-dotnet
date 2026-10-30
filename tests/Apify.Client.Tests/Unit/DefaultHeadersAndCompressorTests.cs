@@ -165,4 +165,29 @@ public sealed class DefaultHeadersAndCompressorTests
         public override Task<byte[]> CompressAsync(byte[] data, CancellationToken cancellationToken = default)
             => Task.FromResult(Encoding.UTF8.GetBytes("MARK:" + Encoding.UTF8.GetString(data)));
     }
+
+    [Theory]
+    [InlineData("Content-Type")]
+    [InlineData("content-encoding")]
+    [InlineData("Content-Length")]
+    public void ContentHeadersAreRejectedAsDefaultHeaders(string name)
+    {
+        var transport = new MockTransport();
+
+        var error = Assert.Throws<ArgumentException>(
+            () => Client(transport, o => o.Headers = new Dictionary<string, string> { [name] = "x" }));
+
+        Assert.Contains(name, error.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task GzipCompressorDefaultsToTheOptimalLevel()
+    {
+        var data = Encoding.UTF8.GetBytes(LargeItem);
+
+        var byDefault = await new GzipHttpCompressor().CompressAsync(data);
+        var optimal = await new GzipHttpCompressor(CompressionLevel.Optimal).CompressAsync(data);
+
+        Assert.Equal(optimal, byDefault);
+    }
 }

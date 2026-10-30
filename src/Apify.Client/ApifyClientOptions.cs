@@ -1,5 +1,5 @@
-using System.Collections.Generic;
 using System;
+using System.Collections.Generic;
 using Apify.Client.Http;
 
 namespace Apify.Client;
@@ -76,7 +76,9 @@ public sealed class ApifyClientOptions
     /// <summary>
     /// Additional headers sent with every request, such as an integration platform marker. They win over the
     /// client's built-in defaults (<c>User-Agent</c>, <c>Authorization</c>); header names are compared
-    /// case-insensitively.
+    /// case-insensitively. Only request headers are allowed: a content header such as <c>Content-Type</c>
+    /// makes the <see cref="ApifyClient"/> constructor throw <see cref="ArgumentException"/>, because the client
+    /// sets those per request.
     /// </summary>
     public IReadOnlyDictionary<string, string>? Headers { get; set; }
 

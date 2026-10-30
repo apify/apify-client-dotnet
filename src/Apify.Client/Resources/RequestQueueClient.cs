@@ -287,9 +287,12 @@ public sealed class RequestQueueClient
         }
     }
 
+    /// <summary>A request together with its JSON serialization and that serialization's UTF-8 size.</summary>
+    private readonly record struct SerializedRequest(RequestQueueRequest Request, string Json, int ByteLength);
+
     /// <summary>
     /// Splits serialized requests into batches of at most <see cref="MaxRequestsPerBatch"/> requests whose JSON
-    /// array bodies stay under <paramref name="maxByteLength"/>, always keeping at least one request per batch
+    /// array bodies are at most <paramref name="maxByteLength"/> bytes, always keeping at least one request per batch
     /// so the split makes progress. Ports the reference client's <c>splitIntoJsonArrayBatches</c>.
     /// </summary>
     private static List<List<SerializedRequest>> SplitIntoJsonArrayBatches(List<SerializedRequest> requests, int maxByteLength)
@@ -451,9 +454,6 @@ public sealed class RequestQueueClient
     }
 
     /// <summary>Encodes a list of requests as their raw JSON objects, for a batch request body.</summary>
-    /// <summary>A request together with its JSON serialization and that serialization's UTF-8 size.</summary>
-    private readonly record struct SerializedRequest(RequestQueueRequest Request, string Json, int ByteLength);
-
     private static List<JsonObject> ToPayload(IReadOnlyCollection<RequestQueueRequest> requests)
     {
         var payload = new List<JsonObject>(requests.Count);

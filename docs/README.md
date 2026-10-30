@@ -156,8 +156,8 @@ carries its own compression (images, audio, video, archives). Brotli is used by 
 
 For a different quality, pass a compressor: `BrotliHttpCompressor` takes a quality from 0 (the fastest) to 11
 (the best compression, default 6) and `GzipHttpCompressor` a `System.IO.Compression.CompressionLevel`
-(default `SmallestSize`). Derive from `HttpCompressor` to use another algorithm the API accepts (`deflate`,
-`identity`): set `ContentEncoding` and implement `CompressAsync`.
+(`Fastest`, `Optimal` or `SmallestSize`; default `Optimal`). Derive from `HttpCompressor` to use another
+algorithm the API accepts (`deflate`, `identity`): set `ContentEncoding` and implement `CompressAsync`.
 
 ```csharp
 using Apify.Client;
@@ -174,7 +174,8 @@ var client = new ApifyClient(new ApifyClientOptions
 
 `ApifyClientOptions.Headers` adds headers to every request, for example an integration platform marker. They
 replace the built-in `User-Agent` and `Authorization` headers when named the same, compared
-case-insensitively.
+case-insensitively. Only request headers are allowed; a content header such as `Content-Type` makes the
+`ApifyClient` constructor throw, because the client sets those per request.
 
 ### Replaceable HTTP transport
 

@@ -306,12 +306,14 @@ public sealed class BatchAddRequestsTests
     [Fact]
     public async Task BatchBoundaryCountsTheBracketsAndCommas()
     {
-        // The batch limit is 9 MiB minus a 0.01% safety margin. Two requests sized so that their bare JSON
-        // objects fit the limit but the array body (brackets and the comma) does not have to be split.
-        const int limit = 9 * 1024 * 1024 - 944;
-        var baseSize = new RequestQueueRequest("https://x/a", "a") { UserData = new JsonObject { ["blob"] = string.Empty } }
+        // The payload limit is 9 MiB minus the 0.01% safety margin the client subtracts (rounded up).
+        const int nineMiB = 9 * 1024 * 1024;
+        var limit = nineMiB - (int)Math.Ceiling(nineMiB * 0.0001);
+        var emptyBlobSize = new RequestQueueRequest("https://x/a", "a") { UserData = new JsonObject { ["blob"] = string.Empty } }
             .ToJsonObject().ToJsonString().Length;
-        var blobLength = ((limit - 2) / 2) - baseSize;
+        // Each request is just under half the limit, so the two bare objects fit together. Only the brackets
+        // and the comma of the array body push the pair over the limit, so the two requests must be split.
+        var blobLength = ((limit - 2) / 2) - emptyBlobSize;
         var requests = new List<RequestQueueRequest>
         {
             new("https://x/a", "a") { UserData = new JsonObject { ["blob"] = new string('x', blobLength) } },

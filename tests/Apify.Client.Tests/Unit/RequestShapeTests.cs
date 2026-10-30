@@ -775,4 +775,47 @@ public sealed class RequestShapeTests
         Assert.Equal("r1", request.Id);
         Assert.Null(request.HandledAt);
     }
+
+    [Fact]
+    public async Task UserByIdServesLimitsAndMonthlyUsage()
+    {
+        var transport = new MockTransport()
+            .QueueResponse(200, SpecFixtures.AccountLimits())
+            .QueueResponse(200, SpecFixtures.MonthlyUsage())
+            .QueueResponse(200, string.Empty);
+        var user = Client(transport).User("abc");
+
+        await user.LimitsAsync();
+        Assert.Equal("GET", transport.LastRequest.Method);
+        Assert.EndsWith("/users/abc/limits", transport.LastRequest.Uri, StringComparison.Ordinal);
+
+        await user.MonthlyUsageAsync("2026-06-01");
+        Assert.Contains("/users/abc/usage/monthly?date=2026-06-01", transport.LastRequest.Uri, StringComparison.Ordinal);
+
+        await user.UpdateLimitsAsync(new { maxMonthlyUsageUsd = 5 });
+        Assert.Equal("PUT", transport.LastRequest.Method);
+        Assert.EndsWith("/users/abc/limits", transport.LastRequest.Uri, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task RunListSendsTheDeploymentFilterAsACommaSeparatedList()
+    {
+        var transport = new MockTransport().QueueResponse(200, SpecFixtures.Page(0));
+
+        await Client(transport).Runs().ListAsync(
+            new ListOptions(),
+            new RunListOptions { Status = new[] { "READY", "RUNNING" }, Deployment = new[] { "SINGLE_TENANT", "MULTI_TENANT_OWNER_PAID" } });
+
+        Assert.Contains("deployment=SINGLE_TENANT%2CMULTI_TENANT_OWNER_PAID", transport.LastRequest.Uri, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task StoreListSendsIncludeInputSchema()
+    {
+        var transport = new MockTransport().QueueResponse(200, SpecFixtures.Page(0));
+
+        await Client(transport).Store().ListAsync(new StoreListOptions { IncludeInputSchema = true });
+
+        Assert.Contains("includeInputSchema=1", transport.LastRequest.Uri, StringComparison.Ordinal);
+    }
 }

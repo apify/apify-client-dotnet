@@ -15,10 +15,11 @@ public sealed class GzipHttpCompressor : HttpCompressor
 
     /// <summary>Creates a gzip compressor.</summary>
     /// <param name="level">
-    /// The compression level. The default, <see cref="CompressionLevel.SmallestSize"/>, is the strongest gzip
-    /// compression (level 9), the reference client's default.
+    /// The compression level. .NET exposes zlib's levels as three named values: <see cref="CompressionLevel.Fastest"/>
+    /// is level 1, <see cref="CompressionLevel.Optimal"/> level 6 (the default, as in the reference client) and
+    /// <see cref="CompressionLevel.SmallestSize"/> level 9.
     /// </param>
-    public GzipHttpCompressor(CompressionLevel level = CompressionLevel.SmallestSize)
+    public GzipHttpCompressor(CompressionLevel level = CompressionLevel.Optimal)
     {
         _level = level;
     }
