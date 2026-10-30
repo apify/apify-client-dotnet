@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System;
 using Apify.Client.Http;
 
@@ -58,10 +59,26 @@ public sealed class ApifyClientOptions
     public string? UserAgentSuffix { get; set; }
 
     /// <summary>
-    /// Algorithm used to compress large request bodies (default <see cref="RequestCompression.Brotli"/>).
-    /// Set it to <see cref="RequestCompression.Gzip"/> to send gzip-compressed bodies instead.
+    /// Algorithm used to compress large request bodies (default <see cref="RequestCompression.Brotli"/>) with
+    /// its default quality. Set it to <see cref="RequestCompression.Gzip"/> to send gzip-compressed bodies
+    /// instead. Use <see cref="Compressor"/> to tune the quality or plug in another algorithm.
     /// </summary>
     public RequestCompression RequestCompression { get; set; } = RequestCompression.Brotli;
+
+    /// <summary>
+    /// A custom request body compressor, for a non-default quality (<see cref="BrotliHttpCompressor"/>,
+    /// <see cref="GzipHttpCompressor"/>) or another algorithm (derive from <see cref="HttpCompressor"/>).
+    /// When set, it takes precedence over <see cref="RequestCompression"/>. Bodies are compressed only when
+    /// they are large enough to benefit and their content type does not already carry its own compression.
+    /// </summary>
+    public HttpCompressor? Compressor { get; set; }
+
+    /// <summary>
+    /// Additional headers sent with every request, such as an integration platform marker. They win over the
+    /// client's built-in defaults (<c>User-Agent</c>, <c>Authorization</c>); header names are compared
+    /// case-insensitively.
+    /// </summary>
+    public IReadOnlyDictionary<string, string>? Headers { get; set; }
 
     /// <summary>Replaces the default transport (<see cref="HttpClientTransport"/>).</summary>
     public IHttpTransport? HttpTransport { get; set; }

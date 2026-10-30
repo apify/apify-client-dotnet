@@ -21,6 +21,9 @@ internal static class Json
     /// <summary>Serializes a value to a JSON string.</summary>
     public static string Encode(object? value) => JsonSerializer.Serialize(value, SerializerOptions);
 
+    /// <summary>Serializes a value to a <see cref="JsonNode"/> (<c>null</c> for a <c>null</c> value).</summary>
+    public static JsonNode? ToNode(object? value) => JsonSerializer.SerializeToNode(value, SerializerOptions);
+
     /// <summary>Serializes a <see cref="JsonNode"/> to a JSON string.</summary>
     public static string Encode(JsonNode? value) =>
         value?.ToJsonString(SerializerOptions) ?? "null";

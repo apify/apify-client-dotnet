@@ -27,6 +27,14 @@ SCHEMA_REF_PREFIX = "#/components/schemas/"
 SCHEMA_LIST_KEYWORDS = ("allOf", "anyOf", "oneOf")
 # Scalar constraints copied as they are.
 CONSTRAINT_KEYWORDS = ("format", "pattern", "minimum", "maximum", "minLength", "maxLength")
+# Properties the API returns as `null` although the specification declares them non-nullable. The generator
+# widens each of them to accept `null`, and fails once the specification itself allows `null` there, so a
+# stale entry is removed instead of lingering. Mirrors the reference client's `ScheduleSpecNarrowings`.
+NULLABLE_OVERRIDES = {
+    # `uiState` is `null` once an API update has changed the schedule's `cronExpression` or `timezone` and the
+    # Console editor state was dropped.
+    "Schedule": ("uiState",),
+}
 
 
 def load_spec(source):
@@ -59,6 +67,41 @@ def slim(schema):
         if keyword in schema:
             result[keyword] = [slim(value) for value in schema[keyword]]
     return result
+
+
+def find_property(schema, name):
+    """Returns the (properties dict) declaring `name` in a schema or in its allOf/anyOf/oneOf parts, or None."""
+    if not isinstance(schema, dict):
+        return None
+    if name in schema.get("properties", {}):
+        return schema["properties"]
+    for keyword in SCHEMA_LIST_KEYWORDS:
+        for part in schema.get(keyword, []):
+            found = find_property(part, name)
+            if found is not None:
+                return found
+    return None
+
+
+def allows_null(schema):
+    if not isinstance(schema, dict):
+        return False
+    declared_type = schema.get("type")
+    if declared_type == "null" or (isinstance(declared_type, list) and "null" in declared_type):
+        return True
+    return any(allows_null(part) for keyword in ("anyOf", "oneOf") for part in schema.get(keyword, []))
+
+
+def apply_nullable_overrides(schemas):
+    for schema_name, property_names in NULLABLE_OVERRIDES.items():
+        for property_name in property_names:
+            properties = find_property(schemas.get(schema_name), property_name)
+            if properties is None:
+                raise SystemExit("nullable override targets a missing property: %s.%s" % (schema_name, property_name))
+            if allows_null(properties[property_name]):
+                raise SystemExit(
+                    "stale nullable override: the specification already allows null in %s.%s" % (schema_name, property_name))
+            properties[property_name] = {"anyOf": [properties[property_name], {"type": "null"}]}
 
 
 def collect_refs(node, found):
@@ -107,6 +150,7 @@ def main():
         schemas[name] = slim(spec["components"]["schemas"][name])
         collect_refs(schemas[name], pending)
 
+    apply_nullable_overrides(schemas)
     document = {"specVersion": spec["info"]["version"], "operations": operations, "schemas": dict(sorted(schemas.items()))}
     OUTPUT.write_text(json.dumps(document, separators=(",", ":"), sort_keys=True) + "\n", encoding="utf-8")
     print("wrote", OUTPUT, "(%d operations, %d schemas)" % (len(operations), len(schemas)))

@@ -161,6 +161,12 @@ public sealed class KeyValueStoreClient
     /// Fetches a record by key, or <c>null</c> if it does not exist. Like the reference client, it requests
     /// the record as an attachment so the API returns the raw bytes directly.
     /// </summary>
+    /// <remarks>
+    /// The body is never parsed: <see cref="KeyValueStoreRecord.Value"/> holds the raw bytes whatever the
+    /// content type, so a truncated JSON body cannot fail here, and the caller decodes it according to
+    /// <see cref="KeyValueStoreRecord.ContentType"/>. (The reference client parses JSON, text and XML records
+    /// by content type; its <c>buffer</c> option returns the raw bytes like this method does.)
+    /// </remarks>
     /// <param name="key">The record key.</param>
     /// <param name="options">Optional fetch options.</param>
     /// <param name="cancellationToken">A token to cancel the request.</param>

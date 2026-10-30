@@ -121,6 +121,8 @@ var configured = new ApifyClient(new ApifyClientOptions
 | `TimeoutMediumSecs` | `30` | Base duration of the `Medium` timeout tier: listing, batch and trigger calls. |
 | `UserAgentSuffix` | `null` | Custom suffix appended to the `User-Agent` header. |
 | `RequestCompression` | `RequestCompression.Brotli` | Algorithm used to compress request bodies ≥ 1024 bytes: `Brotli` (`Content-Encoding: br`) or `Gzip` (`Content-Encoding: gzip`). |
+| `Compressor` | `null` | A custom `HttpCompressor` for a non-default compression quality or another algorithm; takes precedence over `RequestCompression`. |
+| `Headers` | `null` | Additional headers sent with every request, such as an integration platform marker. They win over the built-in `User-Agent` and `Authorization`; header names are case-insensitive. |
 | `HttpTransport` | `HttpClientTransport` | The replaceable transport (`Apify.Client.Http.IHttpTransport`). |
 
 Requests are retried on network errors, HTTP 429 (rate limit) and 5xx responses, with exponential
@@ -146,8 +148,33 @@ itself for a longer per-call timeout; a shorter override still narrows the cap, 
 TimeoutSecs = ... })`) and `SetRecordAsync` (via `SetRecordOptions.TimeoutSecs`) already had their own
 equivalent, narrower overrides before `WithTimeout` existed and keep them instead.
 
-Request bodies of at least 1024 bytes are compressed before sending. Brotli is used by default; set
+### Request body compression
+
+Request bodies of at least 1024 bytes are compressed before sending, unless their content type already
+carries its own compression (images, audio, video, archives). Brotli is used by default; set
 `RequestCompression = RequestCompression.Gzip` to send gzip-compressed bodies instead.
+
+For a different quality, pass a compressor: `BrotliHttpCompressor` takes a quality from 0 (the fastest) to 11
+(the best compression, default 6) and `GzipHttpCompressor` a `System.IO.Compression.CompressionLevel`
+(default `SmallestSize`). Derive from `HttpCompressor` to use another algorithm the API accepts (`deflate`,
+`identity`): set `ContentEncoding` and implement `CompressAsync`.
+
+```csharp
+using Apify.Client;
+using Apify.Client.Http;
+
+var client = new ApifyClient(new ApifyClientOptions
+{
+    Token = "<TOKEN>",
+    Compressor = new BrotliHttpCompressor(quality: 11),
+});
+```
+
+### Default headers
+
+`ApifyClientOptions.Headers` adds headers to every request, for example an integration platform marker. They
+replace the built-in `User-Agent` and `Authorization` headers when named the same, compared
+case-insensitively.
 
 ### Replaceable HTTP transport
 

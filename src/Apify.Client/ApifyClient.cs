@@ -88,10 +88,24 @@ public sealed class ApifyClient
             options.TimeoutMediumSecs);
 
         var userAgent = BuildUserAgent(options.UserAgentSuffix, options.IsAtHome ?? DefaultIsAtHome);
-        _http = new HttpClientCore(transport, options.Token, userAgent, retry, options.RequestCompression);
+        _http = new HttpClientCore(transport, options.Token, userAgent, retry, ResolveCompressor(options), options.Headers);
 
         _baseUrl = ToApiBaseUrl(options.BaseUrl);
         _publicBaseUrl = ToApiBaseUrl(options.PublicBaseUrl ?? options.BaseUrl);
+    }
+
+    /// <summary>
+    /// The compressor for large request bodies: the explicit <see cref="ApifyClientOptions.Compressor"/>, or the
+    /// built-in one for <see cref="ApifyClientOptions.RequestCompression"/> with its default quality.
+    /// </summary>
+    private static HttpCompressor ResolveCompressor(ApifyClientOptions options)
+    {
+        if (options.Compressor is not null)
+        {
+            return options.Compressor;
+        }
+
+        return options.RequestCompression == RequestCompression.Gzip ? new GzipHttpCompressor() : new BrotliHttpCompressor();
     }
 
     /// <summary>The <c>/v2</c> API version path, appended to a base URL that does not already end with it.</summary>

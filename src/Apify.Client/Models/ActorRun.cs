@@ -60,4 +60,17 @@ public sealed class ActorRun : ApifyResource
 
     /// <summary>Whether the run has reached a terminal (finished) status.</summary>
     public bool IsTerminal => Statuses.IsTerminal(Status);
+
+    /// <summary>
+    /// The URL of the run's page in Apify Console. Normalized to its RFC 3986 absolute-URI form (see
+    /// <see cref="ApifyResource.GetUrlString"/>), matching the reference client.
+    /// </summary>
+    public string? ConsoleUrl => GetUrlString("consoleUrl");
+
+    /// <summary>
+    /// The Actor Standby configuration the run was started with (for example its <c>tenancy</c>, which tells a
+    /// single-tenant run from a multi-tenant Server Actor run), or <c>null</c> if the run was not started in
+    /// Standby mode.
+    /// </summary>
+    public JsonObject? Standby => Get("standby") as JsonObject;
 }

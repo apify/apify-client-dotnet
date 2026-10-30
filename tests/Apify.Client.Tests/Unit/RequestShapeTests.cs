@@ -761,4 +761,18 @@ public sealed class RequestShapeTests
 
         return output.ToArray();
     }
+
+    [Fact]
+    public async Task GetRequestAcceptsAPendingRequestWithANullHandledAt()
+    {
+        // A pending stored request carries only the required fields and handledAt: null; the response
+        // validation must accept it and the model must expose no handled time.
+        var transport = new MockTransport().QueueResponse(200, "{\"data\":{\"id\":\"r1\",\"uniqueKey\":\"k\",\"url\":\"https://a.com\",\"handledAt\":null}}");
+
+        var request = await Client(transport).RequestQueue("q1").GetRequestAsync("r1");
+
+        Assert.NotNull(request);
+        Assert.Equal("r1", request.Id);
+        Assert.Null(request.HandledAt);
+    }
 }

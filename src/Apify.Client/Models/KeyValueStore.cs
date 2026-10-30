@@ -26,4 +26,7 @@ public sealed class KeyValueStore : ApifyResource
 
     /// <summary>When the store was last modified (ISO-8601 string).</summary>
     public string? ModifiedAt => GetString("modifiedAt");
+
+    /// <summary>The human-readable title of the key-value store, if one was set.</summary>
+    public string? Title => GetString("title");
 }

@@ -1,5 +1,40 @@
 # Changelog
 
+## 0.8.0
+
+- Bumped `ApifyClientVersion.ApiSpecVersion` to the Apify OpenAPI spec `v2-2026-10-29T100357Z` and
+  the project version to `0.8.0`.
+- Regenerated the embedded response schemas. The spec now documents `ScheduleUiState`, which the API
+  returns as `null` once an update changed the schedule's cron expression or timezone; the generator
+  widens that one property to accept `null` (`NULLABLE_OVERRIDES` in `tools/generate_response_schemas.py`)
+  and fails when the spec itself starts allowing it.
+- Added typed accessors for newly documented fields: `Build.Changelog`, `ExitCode`, `GitBranchName` and
+  `GitCommitId`; `ActorRun.ConsoleUrl` (normalized like the other `format: uri` fields) and `Standby`
+  (carries the Server Actor `tenancy`); `Title` on `Dataset`, `KeyValueStore`, `RequestQueue`, `Webhook`
+  and `Schedule`; `Webhook.IsEnabled` and `IsApifyIntegration`; `Schedule.Description` and `UiState`;
+  `RequestQueueRequest.LockByClient` and `HandledAt` (`null` for a pending request).
+- Resource ids, record keys and request IDs can no longer restructure the request path. Every `/` of a
+  resource id is replaced with `~` (not just the first), ids are percent-encoded, and an empty value or the
+  dot segments `.` and `..` throw `ArgumentException` (URL parsers resolve `%2E%2E` to the parent
+  endpoint, so encoding alone is not enough). Matches the reference client.
+- `RequestQueueClient.UpdateRequestAsync` throws `ArgumentException` for a request without an `Id`
+  instead of sending a request to the collection path.
+- `RequestQueueClient.BatchAddRequestsAsync` serializes every request once: the byte lengths decide the
+  batch boundaries (the brackets and commas of the array are counted now) and the same strings are joined
+  into the batch bodies. A request too large for the payload limit is rejected before any batch is sent.
+- `DatasetClient.PushItemsAsync` rejects anything but a JSON object or an array of objects with
+  `ArgumentException` before sending a request, and sends a `string` as already-serialized JSON, matching
+  the reference client's narrowed `pushItems()`.
+- Added `ApifyClientOptions.Headers`, additional headers sent with every request that win over the
+  built-in ones.
+- Added `ApifyClientOptions.Compressor` and the `HttpCompressor` base class with `BrotliHttpCompressor`
+  (quality 0 to 11, default 6) and `GzipHttpCompressor` (a `CompressionLevel`, default `SmallestSize`),
+  for a custom quality or algorithm. `ApifyClientOptions.RequestCompression` keeps working and selects the
+  built-in compressor with its default quality.
+- Documented that `KeyValueStoreClient.GetRecordAsync` never parses a record body, whatever its content type.
+- The integration tests wait up to 90 seconds for a freshly created resource to appear in a listing,
+  covering the replica lag of the listing endpoints.
+
 ## 0.7.1
 
 - Bumped `ApifyClientVersion.ApiSpecVersion` to the Apify OpenAPI spec `v2-2026-10-26T112451Z` and

@@ -19,6 +19,12 @@ internal sealed class ResourceContext
     public const string ContentTypeJson = "application/json";
     public const string ContentTypeJsonCharset = "application/json; charset=utf-8";
 
+    /// <summary>The URL path segment that refers to the current directory; never a valid resource id or key.</summary>
+    private const string CurrentDirectorySegment = ".";
+
+    /// <summary>The URL path segment that refers to the parent directory; never a valid resource id or key.</summary>
+    private const string ParentDirectorySegment = "..";
+
     /// <summary>How long to wait between polls while waiting for a run/build to finish, in seconds.</summary>
     private const double WaitPollIntervalSecs = 0.25;
 
@@ -567,20 +573,35 @@ internal sealed class ResourceContext
     // ---- URL / id helpers -----------------------------------------------------
 
     /// <summary>
-    /// Encodes a resource id so it is safe to embed in a URL path. Apify uses the
-    /// <c>username~resourcename</c> form, so the first <c>/</c> of an id is replaced with <c>~</c>.
+    /// Turns a resource id into a single URL path segment. Apify uses the <c>username~resourcename</c> form,
+    /// so every <c>/</c> of an id is replaced with <c>~</c>; the result is then percent-encoded by
+    /// <see cref="EncodePathSegment"/>, so a hostile id cannot restructure the request path.
     /// </summary>
-    public static string ToSafeId(string id)
-    {
-        var slash = id.IndexOf('/', StringComparison.Ordinal);
-        return slash < 0 ? id : string.Concat(id.AsSpan(0, slash), "~", id.AsSpan(slash + 1));
-    }
+    /// <exception cref="ArgumentException">The id is empty or a dot segment.</exception>
+    public static string ToSafeId(string id) => EncodePathSegment(id.Replace('/', '~'));
 
     /// <summary>
-    /// Percent-encodes a single URL path segment, so values interpolated into the path (record keys,
-    /// request IDs) cannot break out of the segment.
+    /// Percent-encodes a single URL path segment, so values interpolated into the path (resource ids, record
+    /// keys, request IDs) cannot break out of the segment. Empty values and the dot segments <c>.</c> and
+    /// <c>..</c> are rejected instead of encoded, because URL parsers resolve dot segments after decoding, so
+    /// <c>%2E%2E</c> would collapse to the parent endpoint just like <c>..</c>.
     /// </summary>
-    public static string EncodePathSegment(string input) => Uri.EscapeDataString(input);
+    /// <param name="input">The raw, caller-supplied path segment.</param>
+    /// <exception cref="ArgumentException">The segment is empty or a dot segment.</exception>
+    public static string EncodePathSegment(string input)
+    {
+        if (input.Length == 0)
+        {
+            throw new ArgumentException("URL path segment must not be empty", nameof(input));
+        }
+
+        if (input is CurrentDirectorySegment or ParentDirectorySegment)
+        {
+            throw new ArgumentException("URL path segment must not be a dot segment", nameof(input));
+        }
+
+        return Uri.EscapeDataString(input);
+    }
 
     /// <summary>Extracts the origin (<c>scheme://host[:port]</c>) from a URL, dropping any path.</summary>
     public static string OriginOf(string rawUrl)

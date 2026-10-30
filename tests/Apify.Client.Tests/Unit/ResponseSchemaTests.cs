@@ -66,6 +66,24 @@ public sealed class ResponseSchemaTests
     }
 
     [Fact]
+    public void ScheduleUiStateMayBeNullAlthoughTheSpecTypesItAsAnObject()
+    {
+        // The API returns uiState as null once an update changed the cron expression or timezone and the
+        // Console editor state was dropped; the generator widens the spec for it (NULLABLE_OVERRIDES).
+        var schedule = SpecFixtures.ScheduleItem("s1").Replace("\"actions\":[]", "\"actions\":[],\"uiState\":null", StringComparison.Ordinal);
+
+        Assert.Empty(Issues("GET", "/v2/schedules/s1", "{\"data\":" + schedule + "}"));
+    }
+
+    [Fact]
+    public void ScheduleUiStateStillHasToBeAnObjectWhenPresent()
+    {
+        var schedule = SpecFixtures.ScheduleItem("s1").Replace("\"actions\":[]", "\"actions\":[],\"uiState\":5", StringComparison.Ordinal);
+
+        Assert.Contains(Issues("GET", "/v2/schedules/s1", "{\"data\":" + schedule + "}"), issue => issue.StartsWith("$.data.uiState:", StringComparison.Ordinal));
+    }
+
+    [Fact]
     public void NullIsRejectedWhereTheSpecDoesNotAllowIt()
     {
         var issues = Issues("GET", "/v2/actor-builds/b1", "{\"data\":{" + Build + ",\"actVersion\":{\"versionNumber\":null}}}");

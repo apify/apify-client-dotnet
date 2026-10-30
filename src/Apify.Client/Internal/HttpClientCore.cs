@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
-using System.IO.Compression;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Text;
@@ -38,12 +37,6 @@ internal sealed class HttpClientCore
     /// matching the reference client's minimum-compression size.
     /// </summary>
     private const int MinCompressBytes = 1024;
-
-    /// <summary>The <c>Content-Encoding</c> token used for brotli-compressed request bodies.</summary>
-    private const string BrotliEncoding = "br";
-
-    /// <summary>The <c>Content-Encoding</c> token used for gzip-compressed request bodies.</summary>
-    private const string GzipEncoding = "gzip";
 
     /// <summary>Media type prefixes whose payloads carry their own compression (e.g. <c>image/png</c>).</summary>
     private static readonly string[] AlreadyCompressedMediaTypePrefixes = { "audio/", "image/", "video/" };
@@ -99,20 +92,23 @@ internal sealed class HttpClientCore
     private readonly IHttpTransport _transport;
     private readonly string? _token;
     private readonly RetryConfig _retry;
-    private readonly RequestCompression _compression;
+    private readonly HttpCompressor _compressor;
+    private readonly IReadOnlyDictionary<string, string>? _defaultHeaders;
 
     public HttpClientCore(
         IHttpTransport transport,
         string? token,
         string userAgent,
         RetryConfig retry,
-        RequestCompression compression)
+        HttpCompressor compressor,
+        IReadOnlyDictionary<string, string>? defaultHeaders = null)
     {
         _transport = transport;
         _token = token;
         UserAgent = userAgent;
         _retry = retry;
-        _compression = compression;
+        _compressor = compressor;
+        _defaultHeaders = defaultHeaders;
     }
 
     /// <summary>The <c>User-Agent</c> header value this client sends.</summary>
@@ -154,7 +150,7 @@ internal sealed class HttpClientCore
         // skips this: the bytes are already in their final, encoded form and must reach the API unchanged.
         var prepared = explicitContentEncoding is not null
             ? new PreparedBody(bodyBytes ?? (body is not null ? Encoding.UTF8.GetBytes(body) : null), contentType, explicitContentEncoding)
-            : PrepareBody(body, bodyBytes, contentType);
+            : await PrepareBodyAsync(body, bodyBytes, contentType, cancellationToken).ConfigureAwait(false);
         Exception? lastError = null;
 
         for (var attempt = 1; attempt <= maxAttempts; attempt++)
@@ -220,6 +216,21 @@ internal sealed class HttpClientCore
         return await _transport.SendAsync(request, timeout, streaming: false, cancellationToken).ConfigureAwait(false);
     }
 
+    /// <summary>Sets each header on the request, replacing any value already set under the same name.</summary>
+    private static void SetHeaders(HttpRequestMessage request, IReadOnlyDictionary<string, string>? headers)
+    {
+        if (headers is null)
+        {
+            return;
+        }
+
+        foreach (var header in headers)
+        {
+            request.Headers.Remove(header.Key);
+            request.Headers.TryAddWithoutValidation(header.Key, header.Value);
+        }
+    }
+
     /// <summary>Builds a fully-prepared request with auth, User-Agent, content type and extra headers.</summary>
     private HttpRequestMessage BuildRequest(
         HttpMethod method,
@@ -234,13 +245,10 @@ internal sealed class HttpClientCore
             request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _token);
         }
 
-        if (extraHeaders is not null)
-        {
-            foreach (var header in extraHeaders)
-            {
-                request.Headers.TryAddWithoutValidation(header.Key, header.Value);
-            }
-        }
+        // The client-wide default headers win over the built-in ones above, and a header set for this single call
+        // wins over both.
+        SetHeaders(request, _defaultHeaders);
+        SetHeaders(request, extraHeaders);
 
         if (prepared.Bytes is not null)
         {
@@ -267,14 +275,11 @@ internal sealed class HttpClientCore
     /// the size threshold (see the remarks).
     /// </summary>
     /// <remarks>
-    /// Bodies at or above <see cref="MinCompressBytes"/> are compressed with the configured
-    /// <see cref="RequestCompression"/> algorithm: brotli (<c>Content-Encoding: br</c>) by default, matching
-    /// the reference client's preference, or gzip (<c>Content-Encoding: gzip</c>) when
-    /// <see cref="RequestCompression.Gzip"/> is selected. Both encodings match the reference client's, though
-    /// the reference only reaches gzip when brotli is unavailable; since .NET always ships brotli, gzip here
-    /// is a .NET-only opt-in.
+    /// Bodies at or above <see cref="MinCompressBytes"/> whose content type is compressible are compressed with
+    /// the configured <see cref="HttpCompressor"/>: brotli (<c>Content-Encoding: br</c>) by default, matching
+    /// the reference client's preference.
     /// </remarks>
-    private PreparedBody PrepareBody(string? body, byte[]? bodyBytes, string contentType)
+    private async Task<PreparedBody> PrepareBodyAsync(string? body, byte[]? bodyBytes, string contentType, CancellationToken cancellationToken)
     {
         var raw = bodyBytes ?? (body is not null ? Encoding.UTF8.GetBytes(body) : null);
         if (raw is null)
@@ -287,9 +292,8 @@ internal sealed class HttpClientCore
             return new PreparedBody(raw, contentType, null);
         }
 
-        return _compression == RequestCompression.Gzip
-            ? new PreparedBody(GzipCompress(raw), contentType, GzipEncoding)
-            : new PreparedBody(BrotliCompress(raw), contentType, BrotliEncoding);
+        var compressed = await _compressor.CompressAsync(raw, cancellationToken).ConfigureAwait(false);
+        return new PreparedBody(compressed, contentType, _compressor.ContentEncoding);
     }
 
     /// <summary>
@@ -345,30 +349,6 @@ internal sealed class HttpClientCore
         }
 
         return true;
-    }
-
-    /// <summary>Brotli-compresses a payload into a self-contained byte array.</summary>
-    private static byte[] BrotliCompress(byte[] data)
-    {
-        using var output = new MemoryStream();
-        using (var brotli = new BrotliStream(output, CompressionMode.Compress))
-        {
-            brotli.Write(data, 0, data.Length);
-        }
-
-        return output.ToArray();
-    }
-
-    /// <summary>Gzip-compresses a payload into a self-contained byte array.</summary>
-    private static byte[] GzipCompress(byte[] data)
-    {
-        using var output = new MemoryStream();
-        using (var gzip = new GZipStream(output, CompressionMode.Compress))
-        {
-            gzip.Write(data, 0, data.Length);
-        }
-
-        return output.ToArray();
     }
 
     /// <summary>

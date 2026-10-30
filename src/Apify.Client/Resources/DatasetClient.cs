@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
+using System.Linq;
 using System.Net.Http;
 using System.Runtime.CompilerServices;
 using System.Threading;
@@ -204,19 +205,40 @@ public sealed class DatasetClient
     }
 
     /// <summary>Pushes one or more items to the dataset.</summary>
-    /// <param name="items">Must serialize to a JSON object or an array of objects.</param>
+    /// <remarks>
+    /// The API only accepts a JSON object or an array of JSON objects, so any other shape (a bare number, a
+    /// plain string, an array holding anything but objects) is rejected before a request is sent. A
+    /// <see cref="string"/> is treated as already-serialized JSON and sent as it is, so it has to hold such an
+    /// object or array.
+    /// </remarks>
+    /// <param name="items">A single item, an array of items, or the JSON serialization of either.</param>
     /// <param name="cancellationToken">A token to cancel the request.</param>
+    /// <exception cref="ArgumentException"><paramref name="items"/> serializes to anything but a JSON object or an array of objects.</exception>
     public async Task PushItemsAsync(object items, CancellationToken cancellationToken = default)
     {
+        var body = items is string json ? json : SerializeItems(items);
         var url = _ctx.MergedParams(new QueryParams()).ApplyToUrl(_ctx.SubUrl("items"));
         using var response = await _http.CallAsync(
             HttpMethod.Post,
             url,
-            Json.Encode(items),
+            body,
             ResourceContext.ContentTypeJsonCharset,
             timeout: _ctx.RequestTimeout,
             tier: RequestTier.Medium,
             cancellationToken: cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>Serializes the items to JSON, requiring an object or an array of objects.</summary>
+    private static string SerializeItems(object items)
+    {
+        var node = Json.ToNode(items);
+        var valid = node is JsonObject || (node is JsonArray array && array.All(static item => item is JsonObject));
+        if (!valid)
+        {
+            throw new ArgumentException("items must serialize to a JSON object or an array of JSON objects", nameof(items));
+        }
+
+        return Json.Encode(node);
     }
 
     /// <summary>Returns statistical information about the dataset.</summary>

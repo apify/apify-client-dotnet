@@ -58,7 +58,9 @@ Base class for every JSON-backed model below.
 | `DefaultDatasetId` | `string?` | ID of the run's default dataset. |
 | `DefaultKeyValueStoreId` | `string?` | ID of the run's default key-value store. |
 | `DefaultRequestQueueId` | `string?` | ID of the run's default request queue. |
-| `ContainerUrl` | `string?` | URL of the run's container (for live access while running). |
+| `ContainerUrl` | `string?` | URL of the run's container (for live access while running). Normalized to its absolute-URI form. |
+| `ConsoleUrl` | `string?` | URL of the run's page in Apify Console. Normalized to its absolute-URI form. |
+| `Standby` | `JsonObject?` | The Actor Standby configuration the run was started with (e.g. `tenancy`); `null` outside Standby mode. |
 | `IsTerminal` | `bool` | `true` if `Status` is a terminal state (succeeded/failed/aborted/timed-out). |
 
 ## `Build`
@@ -72,6 +74,10 @@ Base class for every JSON-backed model below.
 | `FinishedAt` | `string?` | ISO 8601 finish timestamp (`null` while building). |
 | `BuildNumber` | `string?` | The semantic build number. |
 | `ImageDigest` | `string?` | Digest of the built Docker image manifest (no `sha256:` prefix); compare two builds' digests to tell whether their image contents differ. |
+| `Changelog` | `string?` | The changelog the Actor's source provided for the build. |
+| `ExitCode` | `long?` | Exit code of the build process (`0` on success); absent while building. |
+| `GitBranchName` | `string?` | Git branch the build's source was taken from, for Git-based sources. |
+| `GitCommitId` | `string?` | Git commit the build's source was taken from, for Git-based sources. |
 | `IsTerminal` | `bool` | `true` if `Status` is a terminal state. |
 
 ## `ActorVersion`
@@ -141,6 +147,7 @@ An entry returned when browsing the Apify Store.
 | `CreatedAt` | `string?` | ISO 8601 creation timestamp. |
 | `ModifiedAt` | `string?` | ISO 8601 last-modification timestamp. |
 | `ItemCount` | `long?` | Number of items stored in the dataset. |
+| `Title` | `string?` | The dataset's human-readable title, if set. |
 
 ## `KeyValueStore`
 
@@ -151,6 +158,7 @@ An entry returned when browsing the Apify Store.
 | `UserId` | `string?` | ID of the owning user. |
 | `CreatedAt` | `string?` | ISO 8601 creation timestamp. |
 | `ModifiedAt` | `string?` | ISO 8601 last-modification timestamp. |
+| `Title` | `string?` | The store's human-readable title, if set. |
 
 ## `KeyValueStoreRecord`
 
@@ -192,6 +200,7 @@ One page of key listings (returned by `ListKeysAsync`).
 | `CreatedAt` | `string?` | ISO 8601 creation timestamp. |
 | `ModifiedAt` | `string?` | ISO 8601 last-modification timestamp. |
 | `TotalRequestCount` | `long?` | Total number of requests ever added to the queue. |
+| `Title` | `string?` | The queue's human-readable title, if set. |
 
 ## `RequestQueueRequest`
 
@@ -207,6 +216,8 @@ A read/write model (request input and response). Fields set to `null` are omitte
 | `UserData` | `JsonNode?` | Arbitrary user-defined JSON payload attached to the request. |
 | `RetryCount` | `long?` | Number of times the request has been retried (assigned by the queue). |
 | `LockExpiresAt` | `string?` | ISO 8601 lock expiry; only set on requests returned by `ListAndLockHeadAsync`. |
+| `LockByClient` | `string?` | Client key of the client holding the request's lock; only set on locked requests. |
+| `HandledAt` | `string?` | ISO 8601 time the request was handled; `null` while it is still pending. |
 
 ## `RequestQueueHead`
 
@@ -300,6 +311,9 @@ The aggregate result of a batch add-requests operation.
 | `Name` | `string?` | The schedule's name. |
 | `CronExpression` | `string?` | The cron expression controlling when it fires. |
 | `IsEnabled` | `bool?` | Whether the schedule is currently enabled. |
+| `Title` | `string?` | The schedule's human-readable title, if set. |
+| `Description` | `string?` | The schedule's description, if set. |
+| `UiState` | `JsonObject?` | State of the Console's schedule editor; `null` once an API update changed the cron expression or timezone and the state was dropped. |
 
 ## `Webhook`
 
@@ -309,6 +323,9 @@ The aggregate result of a batch add-requests operation.
 | `UserId` | `string?` | ID of the owning user. |
 | `RequestUrl` | `string?` | URL the webhook posts to when triggered. |
 | `EventTypes` | `IReadOnlyList<string>?` | The event types that trigger the webhook. |
+| `Title` | `string?` | The webhook's human-readable title, if set. |
+| `IsEnabled` | `bool?` | Whether the webhook is enabled; a disabled webhook is not dispatched. |
+| `IsApifyIntegration` | `bool?` | Whether an Apify integration created the webhook rather than the user directly. |
 
 ## `WebhookDispatch`
 
