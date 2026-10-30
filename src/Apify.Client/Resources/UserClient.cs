@@ -12,8 +12,10 @@ namespace Apify.Client.Resources;
 /// A client for accessing user data (<c>/v2/users/{userId}</c> or <c>/v2/users/me</c>).
 /// </summary>
 /// <remarks>
-/// It also exposes the user's monthly usage and account limits. The API serves those for <c>me</c> and for
-/// the authenticated user's own ID; asking for another user's data is rejected by the API.
+/// It also exposes the user's monthly usage and account limits. Besides <c>me</c>, the API accepts the account's
+/// ID or username, but only for your own account or the organization your API token belongs to, and API
+/// tokens with limited permissions cannot use these endpoints. Updating an organization's limits also needs
+/// the permission to manage the organization.
 /// </remarks>
 public sealed class UserClient
 {

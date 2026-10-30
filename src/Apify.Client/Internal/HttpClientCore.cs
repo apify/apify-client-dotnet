@@ -218,11 +218,11 @@ internal sealed class HttpClientCore
     }
 
     /// <summary>
-    /// Rejects a default header that is not a request header. Content headers (<c>Content-Type</c>,
+    /// Rejects a default header that is not a valid request header. Content headers (<c>Content-Type</c>,
     /// <c>Content-Encoding</c>, <c>Content-Length</c>, ...) describe the body, which the client sets per
-    /// request, so they cannot be defaults.
+    /// request, so they cannot be defaults; any other rejected name is not a valid HTTP header name.
     /// </summary>
-    /// <exception cref="ArgumentException">A header name is not a valid request header name.</exception>
+    /// <exception cref="ArgumentException">A header name is a content header or not a valid header name.</exception>
     private static void ValidateDefaultHeaders(IReadOnlyDictionary<string, string>? headers)
     {
         if (headers is null)
@@ -231,13 +231,18 @@ internal sealed class HttpClientCore
         }
 
         using var probe = new HttpRequestMessage();
+        using var contentProbe = new ByteArrayContent(Array.Empty<byte>());
         foreach (var name in headers.Keys)
         {
-            if (!probe.Headers.TryAddWithoutValidation(name, string.Empty))
+            if (probe.Headers.TryAddWithoutValidation(name, string.Empty))
             {
-                throw new ArgumentException(
-                    $"'{name}' cannot be a default header: only request headers are allowed, not content headers such as Content-Type", nameof(headers));
+                continue;
             }
+
+            var reason = contentProbe.Headers.TryAddWithoutValidation(name, string.Empty)
+                ? "it is a content header, which the client sets per request"
+                : "it is not a valid HTTP header name";
+            throw new ArgumentException($"ApifyClientOptions.Headers: '{name}' cannot be a default header: {reason}");
         }
     }
 

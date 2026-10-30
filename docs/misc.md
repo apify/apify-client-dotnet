@@ -48,8 +48,9 @@ await foreach (var item in client.Store().IterateAsync(new StoreListOptions { Se
   current month).
 - `LimitsAsync()` → `JsonObject` / `UpdateLimitsAsync(object newLimits)`.
 
-The usage and limits methods work on `Me()` and on `User(id)` with your own user ID; the API rejects another
-user's.
+The usage and limits methods work on `Me()` and on `User(id)` with the account's ID or username, but only for
+your own account or the organization your API token belongs to. API tokens with limited permissions cannot
+use them, and updating an organization's limits also needs the permission to manage it.
 
 ```csharp
 using System;

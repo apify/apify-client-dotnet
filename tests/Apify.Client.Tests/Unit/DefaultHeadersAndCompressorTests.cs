@@ -178,6 +178,21 @@ public sealed class DefaultHeadersAndCompressorTests
             () => Client(transport, o => o.Headers = new Dictionary<string, string> { [name] = "x" }));
 
         Assert.Contains(name, error.Message, StringComparison.Ordinal);
+        Assert.Contains("content header", error.Message, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData("X Bad Name")]
+    [InlineData("X:Bad")]
+    public void MalformedHeaderNamesAreRejectedAsInvalidNotAsContentHeaders(string name)
+    {
+        var transport = new MockTransport();
+
+        var error = Assert.Throws<ArgumentException>(
+            () => Client(transport, o => o.Headers = new Dictionary<string, string> { [name] = "x" }));
+
+        Assert.Contains("not a valid HTTP header name", error.Message, StringComparison.Ordinal);
+        Assert.Contains("ApifyClientOptions.Headers", error.Message, StringComparison.Ordinal);
     }
 
     [Fact]

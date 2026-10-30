@@ -5,7 +5,7 @@ namespace Apify.Client.Options;
 
 /// <summary>
 /// Run-specific filters for listing runs. The <c>StartedAfter</c>/<c>StartedBefore</c> filters are only
-/// honoured by the Actor-scoped and task-scoped run collections.
+/// honoured by the account-wide and Actor-scoped run collections, not by task runs.
 /// </summary>
 public sealed class RunListOptions
 {
