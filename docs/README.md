@@ -45,9 +45,9 @@ using Apify.Client;
 
 var client = new ApifyClient("my-api-token");
 
-// Start an Actor and wait for it to finish. The last argument is the wait budget in seconds;
-// pass a value (e.g. 120) to bound the wait, or null to wait indefinitely (as here).
-var run = await client.Actor("apify/hello-world").CallAsync(null, null, null);
+// Start an Actor and wait for it to finish. Pass waitSecs (e.g. 120) to bound the wait;
+// by default it waits indefinitely.
+var run = await client.Actor("apify/hello-world").CallAsync();
 
 // Read items from the run's default dataset.
 var items = await client.Dataset(run.DefaultDatasetId!).ListItemsAsync();
@@ -112,19 +112,28 @@ var configured = new ApifyClient(new ApifyClientOptions
 |---|---|---|
 | `Token` | `null` | API token, sent as a Bearer token. |
 | `BaseUrl` | `https://api.apify.com` | API base URL, with or without the `/v2` version path — it's appended only when not already present. |
-| `PublicBaseUrl` | `BaseUrl` | Base URL used when building public, shareable resource URLs. Also accepted with or without `/v2`. |
+| `PublicBaseUrl` | `https://api.apify.com` | Base URL used when building public, shareable resource URLs, whatever `BaseUrl` is (as in the reference client). Also accepted with or without `/v2`. |
 | `MaxRetries` | `8` | Maximum retries for failed requests. |
 | `MinDelayBetweenRetriesMillis` | `500` | Minimum delay between retries (exponential backoff). |
 | `MaxDelayBetweenRetriesMillis` | request timeout | Upper bound on the growing inter-retry delay. |
-| `TimeoutSecs` | `360` | Base duration of the `Long` timeout tier (downloads, uploads, streaming); also the overall per-request cap every attempt's growing timeout is clamped to, regardless of tier. |
+| `TimeoutSecs` | `360` | The overall per-request cap (the reference client's `timeoutMaxSecs`): every attempt's growing timeout, including a `WithTimeout` override, is clamped to it, regardless of tier. Also the base of the `Long` tier unless `TimeoutLongSecs` is set. |
+| `TimeoutLongSecs` | `TimeoutSecs` | Base duration of the `Long` timeout tier: downloads, uploads, streaming. Matches the reference client's `timeoutLongSecs`. |
 | `TimeoutShortSecs` | `5` | Base duration of the `Short` timeout tier: simple metadata reads/writes (get/update/delete a resource). |
 | `TimeoutMediumSecs` | `30` | Base duration of the `Medium` timeout tier: listing, batch and trigger calls. |
 | `UserAgentSuffix` | `null` | Custom suffix appended to the `User-Agent` header. |
 | `RequestCompression` | `RequestCompression.Brotli` | Algorithm used to compress request bodies ≥ 1024 bytes: `Brotli` (`Content-Encoding: br`) or `Gzip` (`Content-Encoding: gzip`). |
+| `Compressor` | `null` | A custom `HttpCompressor` for a non-default compression quality or another algorithm; takes precedence over `RequestCompression`. |
+| `Headers` | `null` | Additional headers sent with every request, such as an integration platform marker. They win over the built-in `User-Agent` and `Authorization`; header names are case-insensitive, and `client.UserAgent` reports a `User-Agent` override. |
 | `HttpTransport` | `HttpClientTransport` | The replaceable transport (`Apify.Client.Http.IHttpTransport`). |
 
 Requests are retried on network errors, HTTP 429 (rate limit) and 5xx responses, with exponential
 backoff and jitter. 4xx responses (other than 429) are thrown immediately as `ApifyApiException`.
+
+### Request statistics
+
+`client.Stats` counts what the client has done, as the reference client's `stats` does: `Calls` (client calls),
+`Requests` (HTTP requests, including retries) and `RateLimitErrors` (a snapshot list of the `429` answers per
+attempt: index 0 holds the first-attempt errors, index 1 the first retry's, and so on).
 
 ### Timeout tiers
 
@@ -132,7 +141,7 @@ Each method internally picks the timeout tier that fits the expected duration of
 for metadata reads and writes, `Medium` for listing/batch/trigger calls, `Long` for downloads, uploads
 and streaming — so the default wait before giving up is consistent across the client instead of a
 single one-size-fits-all budget. The three tiers' durations are configured once, on the options above
-(`TimeoutShortSecs`/`TimeoutMediumSecs`/`TimeoutSecs`).
+(`TimeoutShortSecs`/`TimeoutMediumSecs`/`TimeoutLongSecs`); `TimeoutSecs` is the cap that none of them can exceed.
 
 Every resource client (`client.Actor(id)`, `client.Dataset(id)`, `client.Actors()`, and so on — the
 return value of every accessor on `ApifyClient`) exposes `WithTimeout(TimeSpan timeout)`, a general
@@ -146,8 +155,34 @@ itself for a longer per-call timeout; a shorter override still narrows the cap, 
 TimeoutSecs = ... })`) and `SetRecordAsync` (via `SetRecordOptions.TimeoutSecs`) already had their own
 equivalent, narrower overrides before `WithTimeout` existed and keep them instead.
 
-Request bodies of at least 1024 bytes are compressed before sending. Brotli is used by default; set
+### Request body compression
+
+Request bodies of at least 1024 bytes are compressed before sending, unless their content type already
+carries its own compression (images, audio, video, archives). Brotli is used by default; set
 `RequestCompression = RequestCompression.Gzip` to send gzip-compressed bodies instead.
+
+For a different quality, pass a compressor: `BrotliHttpCompressor` takes a quality from 0 (the fastest) to 11
+(the best compression, default 6) and `GzipHttpCompressor` a `System.IO.Compression.CompressionLevel`
+(`Fastest`, `Optimal` or `SmallestSize`; default `Optimal`). Derive from `HttpCompressor` to use another
+algorithm the API accepts (`deflate`, `identity`): set `ContentEncoding` and implement `CompressAsync`.
+
+```csharp
+using Apify.Client;
+using Apify.Client.Http;
+
+var client = new ApifyClient(new ApifyClientOptions
+{
+    Token = "<TOKEN>",
+    Compressor = new BrotliHttpCompressor(quality: 11),
+});
+```
+
+### Default headers
+
+`ApifyClientOptions.Headers` adds headers to every request, for example an integration platform marker. They
+replace the built-in `User-Agent` and `Authorization` headers when named the same, compared
+case-insensitively. Only request headers are allowed; a content header such as `Content-Type` makes the
+`ApifyClient` constructor throw, because the client sets those per request.
 
 ### Replaceable HTTP transport
 

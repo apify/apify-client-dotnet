@@ -96,4 +96,18 @@ internal static class SpecFixtures
     /// <summary>A page of request queue requests (<c>GET /v2/request-queues/{queueId}/requests</c>) with the given raw request items.</summary>
     public static string ListRequestsPage(int limit, params string[] items)
         => "{\"data\":{\"items\":[" + string.Join(",", items) + "],\"limit\":" + limit.ToString(CultureInfo.InvariantCulture) + "}}";
+
+    /// <summary>The account and usage limits (<c>GET /v2/users/{userId}/limits</c>).</summary>
+    public static string AccountLimits()
+        => "{\"data\":{\"monthlyUsageCycle\":{\"startAt\":\"" + Timestamp + "\",\"endAt\":\"" + Timestamp + "\"},"
+            + "\"limits\":{\"maxMonthlyUsageUsd\":1,\"maxMonthlyActorComputeUnits\":1,\"maxMonthlyExternalDataTransferGbytes\":1,\"maxMonthlyProxySerps\":1,"
+            + "\"maxMonthlyResidentialProxyGbytes\":1,\"maxActorMemoryGbytes\":1,\"maxActorCount\":1,\"maxActorTaskCount\":1,\"maxConcurrentActorJobs\":1,"
+            + "\"maxTeamAccountSeatCount\":1,\"dataRetentionDays\":1},"
+            + "\"current\":{\"monthlyUsageUsd\":1,\"monthlyActorComputeUnits\":1,\"monthlyExternalDataTransferGbytes\":1,\"monthlyProxySerps\":1,"
+            + "\"monthlyResidentialProxyGbytes\":1,\"actorMemoryGbytes\":1,\"actorCount\":1,\"actorTaskCount\":1,\"activeActorJobCount\":1,\"teamAccountSeatCount\":1}}}";
+
+    /// <summary>The monthly usage (<c>GET /v2/users/{userId}/usage/monthly</c>).</summary>
+    public static string MonthlyUsage()
+        => "{\"data\":{\"usageCycle\":{\"startAt\":\"" + Timestamp + "\",\"endAt\":\"" + Timestamp + "\"},\"monthlyServiceUsage\":{},\"dailyServiceUsages\":[],"
+            + "\"totalUsageCreditsUsdBeforeVolumeDiscount\":1,\"totalUsageCreditsUsdAfterVolumeDiscount\":1}}";
 }

@@ -1,5 +1,47 @@
 # Changelog
 
+## 0.8.0
+
+- `PushItemsAsync` no longer retries a request that timed out, because the API may already have stored the
+  items and a retry would store them twice. It also serializes the items once, without building a document
+  tree.
+- `ApifyClientOptions.PublicBaseUrl` now defaults to `https://api.apify.com` instead of `BaseUrl`, as in
+  the reference client.
+- Added `ApifyClient.Stats` (`Statistics`: `Calls`, `Requests`, `RateLimitErrors`).
+- Added `ApifyClientOptions.TimeoutLongSecs`, the base of the `Long` timeout tier (default `TimeoutSecs`).
+  `TimeoutSecs` stays the overall cap, the reference client's `timeoutMaxSecs`.
+- Added `StreamedLog.DefaultConsole`: pass it as `log` to `CallAsync` to redirect the run log to the console
+  with the reference client's `<Actor name> runId:<id> -> ` prefix, and `StreamedLog.CreatePrefixedSink` for
+  a run that is already known. Documented that omitting `log` does not redirect the run log, unlike the
+  reference client.
+- `ApifyClient.UserAgent` reports a `User-Agent` entry of `ApifyClientOptions.Headers`.
+- `GzipHttpCompressor` throws `ArgumentOutOfRangeException` for an undefined `CompressionLevel`.
+- Invalid record keys, request IDs and resource IDs now report the caller's parameter name in the
+  `ArgumentException`.
+- A batch add with unprocessed requests counts as a rate limit error in `ApifyClient.Stats`, as in the
+  reference client.
+- Bumped `ApifyClientVersion.ApiSpecVersion` to the Apify OpenAPI spec `v2-2026-10-29T100357Z` and
+  the project version to `0.8.0`.
+- Regenerated the embedded response schemas; `Schedule.uiState` accepts `null`, which the API returns.
+- Added typed accessors: `Build.Changelog`/`ExitCode`/`GitBranchName`/`GitCommitId`,
+  `ActorRun.ConsoleUrl`/`Standby` (the Server Actor deployment), `Title` on `Dataset`/`KeyValueStore`/`RequestQueue`/`Webhook`/`Schedule`,
+  `Webhook.IsEnabled`/`IsApifyIntegration`, `Schedule.Description`/`UiState`, and
+  `RequestQueueRequest.LockByClient`/`HandledAt`.
+- Added `RunListOptions.Deployment` (filters Standby runs) and `StoreListOptions.IncludeInputSchema`.
+- `UserClient.MonthlyUsageAsync`, `LimitsAsync` and `UpdateLimitsAsync` now also work on `User(id)`.
+- Resource ids, record keys and request IDs are percent-encoded; every `/` of a resource id becomes `~`, and
+  an empty value or a `.`/`..` segment throws `ArgumentException`.
+- `UpdateRequestAsync` throws `ArgumentException` for a request without an `Id`.
+- `BatchAddRequestsAsync` serializes each request once and rejects an oversized request before sending
+  any batch.
+- `PushItemsAsync` throws `ArgumentException` for anything but an object or an array of objects, and sends
+  a `string` as serialized JSON.
+- Added `ApifyClientOptions.Headers`, headers sent with every request.
+- Added `ApifyClientOptions.Compressor`, `HttpCompressor`, `BrotliHttpCompressor` (quality 0 to 11) and
+  `GzipHttpCompressor` for a custom compression quality or algorithm.
+- Documented that `GetRecordAsync` never parses a record body.
+- The integration tests wait up to 90 seconds for a new resource to appear in a listing.
+
 ## 0.7.1
 
 - Bumped `ApifyClientVersion.ApiSpecVersion` to the Apify OpenAPI spec `v2-2026-10-26T112451Z` and

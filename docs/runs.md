@@ -11,8 +11,11 @@ Access the account-wide run collection with `client.Runs()`, an Actor's or task'
 
 `ListOptions` fields: `Offset`, `Limit`, `Desc` (standard pagination; `Limit` `0` or unset means no cap) and `ChunkSize` (the page size `IterateAsync` requests; the smaller of it and the remaining `Limit` is used per call). `RunListOptions` fields:
 `Status` (`IReadOnlyList<string>?`, filter by one or more run statuses such as `SUCCEEDED`/`RUNNING`),
-`StartedAfter` and `StartedBefore` (ISO 8601 bounds, honoured only by the Actor- and task-scoped run
-collections).
+`Deployment` (`IReadOnlyList<string>?`, filters Actor Standby runs by the pool serving them: `SINGLE_TENANT`,
+`MULTI_TENANT_FREE_USERS`, `MULTI_TENANT_PAYING_USERS` or `MULTI_TENANT_OWNER_PAID`; requires `Status` with only
+non-terminal statuses and is honoured only by the account-wide and Actor-scoped run collections),
+`StartedAfter` and `StartedBefore` (ISO 8601 bounds, honoured only by the account-wide and Actor-scoped run
+collections, not by task runs).
 
 ## Single run — `client.Run(runId)`
 

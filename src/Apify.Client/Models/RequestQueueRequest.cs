@@ -92,6 +92,25 @@ public sealed class RequestQueueRequest : ApifyResource
         set => SetString("lockExpiresAt", value);
     }
 
+    /// <summary>
+    /// The client key of the client that currently holds this request's processing lock. Only present on
+    /// locked requests returned by <see cref="Resources.RequestQueueClient.ListAndLockHeadAsync"/>.
+    /// </summary>
+    public string? LockByClient
+    {
+        get => GetString("lockByClient");
+        set => SetString("lockByClient", value);
+    }
+
+    /// <summary>
+    /// When this request was handled (ISO-8601 string); <c>null</c> while the request is still pending.
+    /// </summary>
+    public string? HandledAt
+    {
+        get => GetString("handledAt");
+        set => SetString("handledAt", value);
+    }
+
     /// <summary>Arbitrary user-attached metadata.</summary>
     public JsonNode? UserData
     {

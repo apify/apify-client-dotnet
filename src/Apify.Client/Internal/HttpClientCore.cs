@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
-using System.IO.Compression;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Text;
@@ -38,12 +37,6 @@ internal sealed class HttpClientCore
     /// matching the reference client's minimum-compression size.
     /// </summary>
     private const int MinCompressBytes = 1024;
-
-    /// <summary>The <c>Content-Encoding</c> token used for brotli-compressed request bodies.</summary>
-    private const string BrotliEncoding = "br";
-
-    /// <summary>The <c>Content-Encoding</c> token used for gzip-compressed request bodies.</summary>
-    private const string GzipEncoding = "gzip";
 
     /// <summary>Media type prefixes whose payloads carry their own compression (e.g. <c>image/png</c>).</summary>
     private static readonly string[] AlreadyCompressedMediaTypePrefixes = { "audio/", "image/", "video/" };
@@ -99,24 +92,52 @@ internal sealed class HttpClientCore
     private readonly IHttpTransport _transport;
     private readonly string? _token;
     private readonly RetryConfig _retry;
-    private readonly RequestCompression _compression;
+    private readonly HttpCompressor _compressor;
+    private readonly IReadOnlyDictionary<string, string>? _defaultHeaders;
+    private readonly Statistics _stats;
 
     public HttpClientCore(
         IHttpTransport transport,
         string? token,
         string userAgent,
         RetryConfig retry,
-        RequestCompression compression)
+        HttpCompressor compressor,
+        Statistics stats,
+        IReadOnlyDictionary<string, string>? defaultHeaders = null)
     {
         _transport = transport;
         _token = token;
-        UserAgent = userAgent;
         _retry = retry;
-        _compression = compression;
+        _compressor = compressor;
+        _stats = stats;
+        ValidateDefaultHeaders(defaultHeaders);
+        _defaultHeaders = defaultHeaders;
+        UserAgent = FindHeader(defaultHeaders, "User-Agent") ?? userAgent;
     }
 
-    /// <summary>The <c>User-Agent</c> header value this client sends.</summary>
+    /// <summary>The request statistics shared with <see cref="ApifyClient.Stats"/>.</summary>
+    public Statistics Stats => _stats;
+
+    /// <summary>The <c>User-Agent</c> header value this client sends (a <c>User-Agent</c> default header wins over the built-in one).</summary>
     public string UserAgent { get; }
+
+    private static string? FindHeader(IReadOnlyDictionary<string, string>? headers, string name)
+    {
+        if (headers is null)
+        {
+            return null;
+        }
+
+        foreach (var header in headers)
+        {
+            if (string.Equals(header.Key, name, StringComparison.OrdinalIgnoreCase))
+            {
+                return header.Value;
+            }
+        }
+
+        return null;
+    }
 
     /// <summary>The configured overall per-request timeout budget, in seconds.</summary>
     public double RequestTimeoutSecs => _retry.TimeoutSecs;
@@ -138,6 +159,7 @@ internal sealed class HttpClientCore
         string? explicitContentEncoding = null,
         CancellationToken cancellationToken = default)
     {
+        _stats.AddCall();
         var delayMillis = _retry.MinDelayMillis;
         var maxAttempts = _retry.MaxRetries + 1;
         var path = ExtractPath(url);
@@ -154,7 +176,7 @@ internal sealed class HttpClientCore
         // skips this: the bytes are already in their final, encoded form and must reach the API unchanged.
         var prepared = explicitContentEncoding is not null
             ? new PreparedBody(bodyBytes ?? (body is not null ? Encoding.UTF8.GetBytes(body) : null), contentType, explicitContentEncoding)
-            : PrepareBody(body, bodyBytes, contentType);
+            : await PrepareBodyAsync(body, bodyBytes, contentType, cancellationToken).ConfigureAwait(false);
         Exception? lastError = null;
 
         for (var attempt = 1; attempt <= maxAttempts; attempt++)
@@ -162,6 +184,7 @@ internal sealed class HttpClientCore
             bool retryable;
             try
             {
+                _stats.AddRequest();
                 var response = await SendOnceAsync(
                     method, url, prepared, extraHeaders,
                     AttemptTimeout(baseTimeout, overallCap, attempt), cancellationToken).ConfigureAwait(false);
@@ -173,6 +196,11 @@ internal sealed class HttpClientCore
                     // report the method and path in the errors they raise.
                     response.RequestMessage = new HttpRequestMessage(method, url);
                     return response;
+                }
+
+                if (status == RateLimitExceeded)
+                {
+                    _stats.AddRateLimitError(attempt);
                 }
 
                 var errorBody = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
@@ -204,8 +232,10 @@ internal sealed class HttpClientCore
     /// <summary>Opens a live streaming response (single attempt, no retry). Used by log streaming.</summary>
     public Task<HttpResponseMessage> StreamAsync(string url, CancellationToken cancellationToken)
     {
+        _stats.AddCall();
+        _stats.AddRequest();
         var request = BuildRequest(HttpMethod.Get, url, default, null);
-        return _transport.SendAsync(request, TimeSpan.FromSeconds(_retry.TimeoutSecs), streaming: true, cancellationToken);
+        return _transport.SendAsync(request, TimeSpan.FromSeconds(Math.Min(_retry.LongTimeoutSecs, _retry.TimeoutSecs)), streaming: true, cancellationToken);
     }
 
     private async Task<HttpResponseMessage> SendOnceAsync(
@@ -218,6 +248,50 @@ internal sealed class HttpClientCore
     {
         using var request = BuildRequest(method, url, prepared, extraHeaders);
         return await _transport.SendAsync(request, timeout, streaming: false, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Rejects a default header that is not a valid request header. Content headers (<c>Content-Type</c>,
+    /// <c>Content-Encoding</c>, <c>Content-Length</c>, ...) describe the body, which the client sets per
+    /// request, so they cannot be defaults; any other rejected name is not a valid HTTP header name.
+    /// </summary>
+    /// <exception cref="ArgumentException">A header name is a content header or not a valid header name.</exception>
+    private static void ValidateDefaultHeaders(IReadOnlyDictionary<string, string>? headers)
+    {
+        if (headers is null)
+        {
+            return;
+        }
+
+        using var probe = new HttpRequestMessage();
+        using var contentProbe = new ByteArrayContent(Array.Empty<byte>());
+        foreach (var name in headers.Keys)
+        {
+            if (probe.Headers.TryAddWithoutValidation(name, string.Empty))
+            {
+                continue;
+            }
+
+            var reason = contentProbe.Headers.TryAddWithoutValidation(name, string.Empty)
+                ? "it is a content header, which the client sets per request"
+                : "it is not a valid HTTP header name";
+            throw new ArgumentException($"ApifyClientOptions.Headers: '{name}' cannot be a default header: {reason}");
+        }
+    }
+
+    /// <summary>Sets each header on the request, replacing any value already set under the same name.</summary>
+    private static void SetHeaders(HttpRequestMessage request, IReadOnlyDictionary<string, string>? headers)
+    {
+        if (headers is null)
+        {
+            return;
+        }
+
+        foreach (var header in headers)
+        {
+            request.Headers.Remove(header.Key);
+            request.Headers.TryAddWithoutValidation(header.Key, header.Value);
+        }
     }
 
     /// <summary>Builds a fully-prepared request with auth, User-Agent, content type and extra headers.</summary>
@@ -234,13 +308,10 @@ internal sealed class HttpClientCore
             request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _token);
         }
 
-        if (extraHeaders is not null)
-        {
-            foreach (var header in extraHeaders)
-            {
-                request.Headers.TryAddWithoutValidation(header.Key, header.Value);
-            }
-        }
+        // The client-wide default headers win over the built-in ones above, and a header set for this single call
+        // wins over both.
+        SetHeaders(request, _defaultHeaders);
+        SetHeaders(request, extraHeaders);
 
         if (prepared.Bytes is not null)
         {
@@ -267,14 +338,11 @@ internal sealed class HttpClientCore
     /// the size threshold (see the remarks).
     /// </summary>
     /// <remarks>
-    /// Bodies at or above <see cref="MinCompressBytes"/> are compressed with the configured
-    /// <see cref="RequestCompression"/> algorithm: brotli (<c>Content-Encoding: br</c>) by default, matching
-    /// the reference client's preference, or gzip (<c>Content-Encoding: gzip</c>) when
-    /// <see cref="RequestCompression.Gzip"/> is selected. Both encodings match the reference client's, though
-    /// the reference only reaches gzip when brotli is unavailable; since .NET always ships brotli, gzip here
-    /// is a .NET-only opt-in.
+    /// Bodies at or above <see cref="MinCompressBytes"/> whose content type is compressible are compressed with
+    /// the configured <see cref="HttpCompressor"/>: brotli (<c>Content-Encoding: br</c>) by default, matching
+    /// the reference client's preference.
     /// </remarks>
-    private PreparedBody PrepareBody(string? body, byte[]? bodyBytes, string contentType)
+    private async Task<PreparedBody> PrepareBodyAsync(string? body, byte[]? bodyBytes, string contentType, CancellationToken cancellationToken)
     {
         var raw = bodyBytes ?? (body is not null ? Encoding.UTF8.GetBytes(body) : null);
         if (raw is null)
@@ -287,9 +355,8 @@ internal sealed class HttpClientCore
             return new PreparedBody(raw, contentType, null);
         }
 
-        return _compression == RequestCompression.Gzip
-            ? new PreparedBody(GzipCompress(raw), contentType, GzipEncoding)
-            : new PreparedBody(BrotliCompress(raw), contentType, BrotliEncoding);
+        var compressed = await _compressor.CompressAsync(raw, cancellationToken).ConfigureAwait(false);
+        return new PreparedBody(compressed, contentType, _compressor.ContentEncoding);
     }
 
     /// <summary>
@@ -345,30 +412,6 @@ internal sealed class HttpClientCore
         }
 
         return true;
-    }
-
-    /// <summary>Brotli-compresses a payload into a self-contained byte array.</summary>
-    private static byte[] BrotliCompress(byte[] data)
-    {
-        using var output = new MemoryStream();
-        using (var brotli = new BrotliStream(output, CompressionMode.Compress))
-        {
-            brotli.Write(data, 0, data.Length);
-        }
-
-        return output.ToArray();
-    }
-
-    /// <summary>Gzip-compresses a payload into a self-contained byte array.</summary>
-    private static byte[] GzipCompress(byte[] data)
-    {
-        using var output = new MemoryStream();
-        using (var gzip = new GZipStream(output, CompressionMode.Compress))
-        {
-            gzip.Write(data, 0, data.Length);
-        }
-
-        return output.ToArray();
     }
 
     /// <summary>

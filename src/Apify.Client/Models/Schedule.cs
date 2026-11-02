@@ -26,4 +26,16 @@ public sealed class Schedule : ApifyResource
 
     /// <summary>Whether the schedule is currently active.</summary>
     public bool? IsEnabled => GetBool("isEnabled");
+
+    /// <summary>The human-readable title of the schedule, if one was set.</summary>
+    public string? Title => GetString("title");
+
+    /// <summary>A description of the schedule, if one was set.</summary>
+    public string? Description => GetString("description");
+
+    /// <summary>
+    /// The state of the Console's schedule editor, or <c>null</c> once an API update changed the
+    /// <see cref="CronExpression"/> or the timezone and the editor state was dropped.
+    /// </summary>
+    public JsonObject? UiState => Get("uiState") as JsonObject;
 }

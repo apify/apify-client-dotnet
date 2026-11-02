@@ -22,3 +22,9 @@ indent_size = 2
 
 [*.{yml,yaml,json,md}]
 indent_size = 2
+
+[tests/**.cs]
+# CA1861: tests state their input data inline, as literal arrays at the call site; hoisting each into a static
+# field would separate the data from the assertion that depends on it, and test code has no hot path where the
+# repeated allocation matters.
+dotnet_diagnostic.CA1861.severity = none

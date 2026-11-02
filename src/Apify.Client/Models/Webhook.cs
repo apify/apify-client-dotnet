@@ -27,4 +27,13 @@ public sealed class Webhook : ApifyResource
 
     /// <summary>The events that trigger the webhook.</summary>
     public IReadOnlyList<string>? EventTypes => GetStringList("eventTypes");
+
+    /// <summary>The human-readable title of the webhook, if one was set.</summary>
+    public string? Title => GetString("title");
+
+    /// <summary>Whether the webhook is enabled; a disabled webhook is not dispatched.</summary>
+    public bool? IsEnabled => GetBool("isEnabled");
+
+    /// <summary>Whether the webhook was created by an Apify integration rather than directly by the user.</summary>
+    public bool? IsApifyIntegration => GetBool("isApifyIntegration");
 }

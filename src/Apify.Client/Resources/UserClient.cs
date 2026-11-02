@@ -12,22 +12,20 @@ namespace Apify.Client.Resources;
 /// A client for accessing user data (<c>/v2/users/{userId}</c> or <c>/v2/users/me</c>).
 /// </summary>
 /// <remarks>
-/// For the current user (<c>me</c>), it also exposes account usage and limits. Those endpoints only exist
-/// for <c>me</c> and throw <see cref="System.InvalidOperationException"/> if called on another user's client.
+/// It also exposes the user's monthly usage and account limits. Besides <c>me</c>, the API accepts the account's
+/// ID or username, but only for your own account or the organization your API token belongs to. API tokens
+/// with limited permissions cannot use these by-ID endpoints (<c>me</c> is not affected by that), and updating
+/// an organization's limits also needs the permission to manage the organization.
 /// </remarks>
 public sealed class UserClient
 {
-    private const string Me = "me";
-
     private readonly HttpClientCore _http;
     private readonly ResourceContext _ctx;
-    private readonly bool _isMe;
 
     internal UserClient(HttpClientCore http, string baseUrl, string id)
     {
         _http = http;
         _ctx = ResourceContext.Single(http, baseUrl, "users", id);
-        _isMe = id == Me;
     }
 
     /// <summary>
@@ -43,14 +41,13 @@ public sealed class UserClient
     }
 
     /// <summary>
-    /// Fetches the current account's monthly usage for the month containing the given date (formatted as
-    /// <c>YYYY-MM-DD</c>). An empty/<c>null</c> date reports the current month. Only available for <c>me</c>.
+    /// Fetches the user's monthly usage for the month containing the given date (formatted as
+    /// <c>YYYY-MM-DD</c>). An empty/<c>null</c> date reports the current month.
     /// </summary>
     /// <param name="date">The date whose month to report, or <c>null</c> for the current month.</param>
     /// <param name="cancellationToken">A token to cancel the request.</param>
     public async Task<JsonObject> MonthlyUsageAsync(string? date = null, CancellationToken cancellationToken = default)
     {
-        RequireMe();
         var q = new QueryParams();
         if (!string.IsNullOrEmpty(date))
         {
@@ -60,20 +57,18 @@ public sealed class UserClient
         return await _ctx.GetResourceRequiredAsync("usage/monthly", q, RequestTier.Short, cancellationToken).ConfigureAwait(false);
     }
 
-    /// <summary>Fetches the current account's resource limits. Only available for <c>me</c>.</summary>
+    /// <summary>Fetches the user's account and usage limits.</summary>
     /// <param name="cancellationToken">A token to cancel the request.</param>
     public async Task<JsonObject> LimitsAsync(CancellationToken cancellationToken = default)
     {
-        RequireMe();
         return await _ctx.GetResourceRequiredAsync("limits", new QueryParams(), RequestTier.Short, cancellationToken).ConfigureAwait(false);
     }
 
-    /// <summary>Updates the current account's resource limits. Only available for <c>me</c>.</summary>
+    /// <summary>Updates the user's account limits.</summary>
     /// <param name="newLimits">Any JSON-serializable limits object.</param>
     /// <param name="cancellationToken">A token to cancel the request.</param>
     public async Task UpdateLimitsAsync(object newLimits, CancellationToken cancellationToken = default)
     {
-        RequireMe();
         using var response = await _http.CallAsync(
             HttpMethod.Put,
             _ctx.SubUrl("limits"),
@@ -82,14 +77,6 @@ public sealed class UserClient
             timeout: _ctx.RequestTimeout,
             tier: RequestTier.Short,
             cancellationToken: cancellationToken).ConfigureAwait(false);
-    }
-
-    private void RequireMe()
-    {
-        if (!_isMe)
-        {
-            throw new System.InvalidOperationException("this operation is only available for the current user (use Me())");
-        }
     }
 
     /// <summary>

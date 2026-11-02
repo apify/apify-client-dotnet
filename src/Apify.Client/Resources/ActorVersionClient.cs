@@ -20,7 +20,7 @@ public sealed class ActorVersionClient
     internal ActorVersionClient(HttpClientCore http, string actorUrl, string versionNumber)
     {
         _http = http;
-        _ctx = ResourceContext.Single(http, actorUrl, "versions", versionNumber);
+        _ctx = ResourceContext.Single(http, actorUrl, "versions", versionNumber, nameof(versionNumber));
         _versionUrl = _ctx.SubUrl("");
     }
 

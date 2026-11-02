@@ -3,9 +3,8 @@
   <PropertyGroup>
     <IsPackable>false</IsPackable>
     <IsTestProject>true</IsTestProject>
-    <!-- Test code is not shipped: skip XML docs and CA design analyzers (keep real compiler warnings). -->
+    <!-- Test code has no public API surface to document, so skip the XML documentation file; the analyzers stay on. -->
     <GenerateDocumentationFile>false</GenerateDocumentationFile>
-    <EnableNETAnalyzers>false</EnableNETAnalyzers>
   </PropertyGroup>
 
   <ItemGroup>

@@ -55,4 +55,15 @@ public sealed class UserIntegrationTests : IntegrationTestBase
         var client = RequireClient();
         Assert.NotEmpty(await client.Me().LimitsAsync());
     }
+
+    [SkippableFact]
+    public async Task GetLimitsAndMonthlyUsageByUserId()
+    {
+        var client = RequireClient();
+        var me = await client.Me().GetAsync();
+        Assert.NotNull(me);
+
+        Assert.NotEmpty(await client.User(me!.Id!).LimitsAsync());
+        Assert.NotEmpty(await client.User(me.Id!).MonthlyUsageAsync());
+    }
 }

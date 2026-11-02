@@ -43,4 +43,16 @@ public sealed class Build : ApifyResource
 
     /// <summary>Whether the build has reached a terminal (finished) status.</summary>
     public bool IsTerminal => Statuses.IsTerminal(Status);
+
+    /// <summary>The changelog the Actor's source provided for this build, if any.</summary>
+    public string? Changelog => GetString("changelog");
+
+    /// <summary>The exit code of the build process (<c>0</c> for a successful build); absent while still building.</summary>
+    public long? ExitCode => GetInt("exitCode");
+
+    /// <summary>The name of the Git branch the build's source was taken from, if it came from a Git repository.</summary>
+    public string? GitBranchName => GetString("gitBranchName");
+
+    /// <summary>The ID of the Git commit the build's source was taken from, if it came from a Git repository.</summary>
+    public string? GitCommitId => GetString("gitCommitId");
 }

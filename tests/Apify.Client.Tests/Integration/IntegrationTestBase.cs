@@ -26,14 +26,16 @@ public abstract class IntegrationTestBase
     /// Retry budget for <see cref="FindsAllEventuallyAsync{T}"/>: how many times a freshly created
     /// resource's collection listing is re-scanned before giving up on it having propagated.
     /// </summary>
-    protected const int EventualConsistencyAttempts = 16;
+    protected const int EventualConsistencyAttempts = 31;
 
     /// <summary>
     /// Delay between retries in <see cref="FindsAllEventuallyAsync{T}"/>. Combined with
     /// <see cref="EventualConsistencyAttempts"/>, the total wait budget is
-    /// <c>(EventualConsistencyAttempts - 1) * EventualConsistencyBackoff</c> = ~15s.
+    /// <c>(EventualConsistencyAttempts - 1) * EventualConsistencyBackoff</c> = ~90s. The listing endpoints read
+    /// from database secondaries that may lag by up to 90 seconds, so a shorter budget makes the listing
+    /// checks fail now and then on a resource the test has just created.
     /// </summary>
-    protected static readonly TimeSpan EventualConsistencyBackoff = TimeSpan.FromSeconds(1);
+    protected static readonly TimeSpan EventualConsistencyBackoff = TimeSpan.FromSeconds(3);
 
     /// <summary>
     /// Derives the client base URL from an optional <c>APIFY_API_URL</c>. The variable includes the

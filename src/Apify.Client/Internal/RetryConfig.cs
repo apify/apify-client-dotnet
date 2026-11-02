@@ -11,17 +11,18 @@ internal sealed class RetryConfig
     /// <param name="maxDelayMillis">Upper bound on the (exponentially growing) inter-retry delay, in ms.</param>
     /// <param name="timeoutSecs">
     /// Overall per-request timeout budget, in seconds: the cap every attempt's growing timeout is clamped
-    /// to, and the base duration of the <see cref="RequestTier.Long"/> tier (the reference client's
-    /// <c>timeoutLongSecs</c> and <c>timeoutMaxSecs</c> default to the same value, 360s, for the same reason).
+    /// to (the reference client's <c>timeoutMaxSecs</c>).
     /// </param>
+    /// <param name="longTimeoutSecs">Base duration of the <see cref="RequestTier.Long"/> tier, in seconds.</param>
     /// <param name="shortTimeoutSecs">Base duration of the <see cref="RequestTier.Short"/> tier, in seconds.</param>
     /// <param name="mediumTimeoutSecs">Base duration of the <see cref="RequestTier.Medium"/> tier, in seconds.</param>
-    public RetryConfig(int maxRetries, double minDelayMillis, double maxDelayMillis, double timeoutSecs, double shortTimeoutSecs, double mediumTimeoutSecs)
+    public RetryConfig(int maxRetries, double minDelayMillis, double maxDelayMillis, double timeoutSecs, double longTimeoutSecs, double shortTimeoutSecs, double mediumTimeoutSecs)
     {
         MaxRetries = maxRetries;
         MinDelayMillis = minDelayMillis;
         MaxDelayMillis = maxDelayMillis;
         TimeoutSecs = timeoutSecs;
+        LongTimeoutSecs = longTimeoutSecs;
         ShortTimeoutSecs = shortTimeoutSecs;
         MediumTimeoutSecs = mediumTimeoutSecs;
     }
@@ -37,9 +38,12 @@ internal sealed class RetryConfig
 
     /// <summary>
     /// Overall per-request timeout budget, in seconds (every attempt's growing timeout is capped here,
-    /// regardless of tier); also the base duration of the <see cref="RequestTier.Long"/> tier.
+    /// regardless of tier).
     /// </summary>
     public double TimeoutSecs { get; }
+
+    /// <summary>Base duration of the <see cref="RequestTier.Long"/> tier, in seconds.</summary>
+    public double LongTimeoutSecs { get; }
 
     /// <summary>Base duration of the <see cref="RequestTier.Short"/> tier, in seconds.</summary>
     public double ShortTimeoutSecs { get; }
@@ -52,6 +56,6 @@ internal sealed class RetryConfig
     {
         RequestTier.Short => ShortTimeoutSecs,
         RequestTier.Medium => MediumTimeoutSecs,
-        _ => TimeoutSecs,
+        _ => LongTimeoutSecs,
     };
 }

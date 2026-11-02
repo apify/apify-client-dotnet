@@ -23,7 +23,7 @@ dotnet add package Apify.Client
 
 ## Quick start
 
-`ImplicitUsings` is disabled in this repository, so every `using` (even `System`) is listed explicitly.
+The snippets list every `using` explicitly; a project with `ImplicitUsings` enabled can omit `using System;`.
 
 ```csharp
 using System;
@@ -31,8 +31,8 @@ using Apify.Client;
 
 var client = new ApifyClient("my-api-token");
 
-// Start an Actor and wait for it to finish (null waits indefinitely; pass seconds to bound the wait).
-var run = await client.Actor("apify/hello-world").CallAsync(null, null, null);
+// Start an Actor and wait for it to finish (pass `waitSecs` to bound the wait).
+var run = await client.Actor("apify/hello-world").CallAsync();
 
 // Read items from the run's default dataset.
 var items = await client.Dataset(run.DefaultDatasetId!).ListItemsAsync();

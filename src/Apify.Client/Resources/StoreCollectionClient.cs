@@ -33,14 +33,15 @@ public sealed class StoreCollectionClient
     /// demand.
     /// </summary>
     /// <param name="options">Optional listing filters; <c>Offset</c>/<c>Limit</c> bound where iteration
-    /// starts and the total number of Actors yielded, and <c>ChunkSize</c> sets the page size.</param>
+    /// starts and the total number of Actors yielded, and <c>ChunkSize</c> sets the page size
+    /// (at most 10 with <c>IncludeInputSchema</c>).</param>
     /// <param name="cancellationToken">A token to cancel the iteration.</param>
     public IAsyncEnumerable<ActorStoreListItem> IterateAsync(StoreListOptions? options = null, CancellationToken cancellationToken = default)
     {
         options ??= new StoreListOptions();
         var q = new QueryParams();
         options.AppendTo(q);
-        return _ctx.IterateListAsync("", q, options.Offset ?? 0, options.Limit, options.ChunkSize, static d => new ActorStoreListItem(d), RequestTier.Medium, cancellationToken);
+        return _ctx.IterateListAsync("", q, options.Offset ?? 0, options.Limit, options.IterationChunkSize(), static d => new ActorStoreListItem(d), RequestTier.Medium, cancellationToken);
     }
 
     /// <summary>

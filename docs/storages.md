@@ -36,7 +36,9 @@ reached from a run (`client.Run(id).Dataset()`, `.KeyValueStore()`, `.RequestQue
   `Stream`, so a large export is processed incrementally instead of buffered into memory. Unlike
   `DownloadItemsAsync`, this is a single attempt (not retried); dispose the stream when done, which also
   releases the underlying connection.
-- `PushItemsAsync(object items)` — push one object or an array of objects.
+- `PushItemsAsync(object items)` — push one object or an array of objects (or a string holding their JSON
+  serialization). Anything else, such as a bare number or an array of non-objects, throws `ArgumentException`
+  before a request is sent, because the API accepts only objects.
 - `GetStatisticsAsync()` → `JsonObject` (throws if the dataset does not exist).
 - `CreateItemsPublicUrlAsync(DatasetListItemsOptions? options = null, int? expiresInSecs = null, DownloadItemsFormat? format = null)` → `string` (a signed public URL; `format` defaults to `Json`).
 

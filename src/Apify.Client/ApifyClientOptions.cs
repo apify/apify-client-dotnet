@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Apify.Client.Http;
 
 namespace Apify.Client;
@@ -20,8 +21,10 @@ public sealed class ApifyClientOptions
     public string BaseUrl { get; set; } = ApifyClient.DefaultBaseUrl;
 
     /// <summary>
-    /// Base URL for building public, shareable resource URLs (defaults to <see cref="BaseUrl"/>). Like
-    /// <see cref="BaseUrl"/>, accepted with or without the <c>/v2</c> API version path.
+    /// Base URL for building public, shareable resource URLs (defaults to <see cref="ApifyClient.DefaultBaseUrl"/>,
+    /// whatever <see cref="BaseUrl"/> is, as in the reference client, so a client behind an internal or proxied
+    /// <see cref="BaseUrl"/> does not hand out internal links). Like <see cref="BaseUrl"/>, accepted with or
+    /// without the <c>/v2</c> API version path.
     /// </summary>
     public string? PublicBaseUrl { get; set; }
 
@@ -35,12 +38,19 @@ public sealed class ApifyClientOptions
     public int? MaxDelayBetweenRetriesMillis { get; set; }
 
     /// <summary>
-    /// Base duration of the <c>Long</c> timeout tier, in seconds (default 360): downloads, uploads and
-    /// streaming. Also the overall per-request cap every attempt's growing timeout is clamped to,
-    /// regardless of tier, matching the reference client's <c>timeoutLongSecs</c>/<c>timeoutMaxSecs</c>
-    /// (which share the same 360s default for the same reason).
+    /// The overall per-request cap, in seconds (default 360), matching the reference client's
+    /// <c>timeoutMaxSecs</c>: every attempt's growing timeout, including one set with <c>WithTimeout</c>, is
+    /// clamped to it, regardless of tier. It is also the base of the <c>Long</c> tier unless
+    /// <see cref="TimeoutLongSecs"/> is set.
     /// </summary>
     public int TimeoutSecs { get; set; } = ApifyClient.DefaultTimeoutSecs;
+
+    /// <summary>
+    /// Base duration of the <c>Long</c> timeout tier, in seconds: downloads, uploads and streaming. Defaults to
+    /// <see cref="TimeoutSecs"/>. Matches the reference client's <c>timeoutLongSecs</c>; the cap
+    /// <see cref="TimeoutSecs"/> still applies to it.
+    /// </summary>
+    public int? TimeoutLongSecs { get; set; }
 
     /// <summary>
     /// Base duration of the <c>Short</c> timeout tier, in seconds (default 5): simple metadata reads and
@@ -58,10 +68,28 @@ public sealed class ApifyClientOptions
     public string? UserAgentSuffix { get; set; }
 
     /// <summary>
-    /// Algorithm used to compress large request bodies (default <see cref="RequestCompression.Brotli"/>).
-    /// Set it to <see cref="RequestCompression.Gzip"/> to send gzip-compressed bodies instead.
+    /// Algorithm used to compress large request bodies (default <see cref="RequestCompression.Brotli"/>) with
+    /// its default quality. Set it to <see cref="RequestCompression.Gzip"/> to send gzip-compressed bodies
+    /// instead. Use <see cref="Compressor"/> to tune the quality or plug in another algorithm.
     /// </summary>
     public RequestCompression RequestCompression { get; set; } = RequestCompression.Brotli;
+
+    /// <summary>
+    /// A custom request body compressor, for a non-default quality (<see cref="BrotliHttpCompressor"/>,
+    /// <see cref="GzipHttpCompressor"/>) or another algorithm (derive from <see cref="HttpCompressor"/>).
+    /// When set, it takes precedence over <see cref="RequestCompression"/>. Bodies are compressed only when
+    /// they are large enough to benefit and their content type does not already carry its own compression.
+    /// </summary>
+    public HttpCompressor? Compressor { get; set; }
+
+    /// <summary>
+    /// Additional headers sent with every request, such as an integration platform marker. They win over the
+    /// client's built-in defaults (<c>User-Agent</c>, <c>Authorization</c>); header names are compared
+    /// case-insensitively. Only request headers are allowed: a content header such as <c>Content-Type</c>
+    /// makes the <see cref="ApifyClient"/> constructor throw <see cref="ArgumentException"/>, because the client
+    /// sets those per request.
+    /// </summary>
+    public IReadOnlyDictionary<string, string>? Headers { get; set; }
 
     /// <summary>Replaces the default transport (<see cref="HttpClientTransport"/>).</summary>
     public IHttpTransport? HttpTransport { get; set; }

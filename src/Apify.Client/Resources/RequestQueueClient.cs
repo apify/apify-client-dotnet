@@ -21,12 +21,15 @@ public sealed class RequestQueueClient
 
     /// <summary>
     /// The API's maximum accepted request payload size (9 MiB). Batches are additionally split so no single
-    /// batch call exceeds this, matching the reference client's <c>sliceArrayByByteLength</c>.
+    /// batch call exceeds this, matching the reference client's <c>splitIntoJsonArrayBatches</c>.
     /// </summary>
     private const int MaxPayloadSizeBytes = 9 * 1024 * 1024;
 
     /// <summary>Safety margin (0.01%) subtracted from the payload limit, matching the reference client.</summary>
     private const double PayloadSafetyBufferPercent = 0.0001;
+
+    /// <summary>The two bytes of the brackets that wrap a JSON array body, even one holding a single request.</summary>
+    private const int JsonArrayBracketBytes = 2;
 
     private readonly HttpClientCore _http;
     private readonly ResourceContext _ctx;
@@ -112,7 +115,7 @@ public sealed class RequestQueueClient
     /// <param name="cancellationToken">A token to cancel the request.</param>
     public async Task<RequestQueueRequest?> GetRequestAsync(string id, CancellationToken cancellationToken = default)
     {
-        var data = await _ctx.GetResourceAsync("requests/" + ResourceContext.EncodePathSegment(id), new QueryParams(), RequestTier.Short, cancellationToken).ConfigureAwait(false);
+        var data = await _ctx.GetResourceAsync("requests/" + ResourceContext.EncodePathSegment(id, nameof(id)), new QueryParams(), RequestTier.Short, cancellationToken).ConfigureAwait(false);
         return data is JsonObject obj ? RequestQueueRequest.FromJsonObject(obj) : null;
     }
 
@@ -125,10 +128,15 @@ public sealed class RequestQueueClient
     /// <param name="cancellationToken">A token to cancel the request.</param>
     public async Task<RequestQueueOperationInfo> UpdateRequestAsync(RequestQueueRequest request, bool forefront = false, CancellationToken cancellationToken = default)
     {
+        if (string.IsNullOrEmpty(request.Id))
+        {
+            throw new ArgumentException("the request to update must have an Id", nameof(request));
+        }
+
         var q = new QueryParams();
         q.AddBool("forefront", forefront);
         ApplyClientKey(q);
-        var url = _ctx.MergedParams(q).ApplyToUrl(_ctx.SubUrl("requests/" + ResourceContext.EncodePathSegment(request.Id ?? string.Empty)));
+        var url = _ctx.MergedParams(q).ApplyToUrl(_ctx.SubUrl("requests/" + ResourceContext.EncodePathSegment(request.Id, nameof(request))));
         using var response = await _http.CallAsync(HttpMethod.Put, url, Json.Encode(request.ToJsonObject()), ResourceContext.ContentTypeJson, _timeout, tier: RequestTier.Medium, cancellationToken: cancellationToken).ConfigureAwait(false);
         return new RequestQueueOperationInfo(await response.ReadDataObjectAsync(cancellationToken).ConfigureAwait(false));
     }
@@ -140,7 +148,7 @@ public sealed class RequestQueueClient
     {
         var q = new QueryParams();
         ApplyClientKey(q);
-        var url = _ctx.MergedParams(q).ApplyToUrl(_ctx.SubUrl("requests/" + ResourceContext.EncodePathSegment(id)));
+        var url = _ctx.MergedParams(q).ApplyToUrl(_ctx.SubUrl("requests/" + ResourceContext.EncodePathSegment(id, nameof(id))));
         try
         {
             using var response = await _http.CallAsync(HttpMethod.Delete, url, timeout: _timeout, tier: RequestTier.Short, cancellationToken: cancellationToken).ConfigureAwait(false);
@@ -206,17 +214,24 @@ public sealed class RequestQueueClient
 
         var payloadSizeLimitBytes = MaxPayloadSizeBytes - (int)Math.Ceiling(MaxPayloadSizeBytes * PayloadSafetyBufferPercent);
 
-        // Pre-compute all chunks up front (bounded first by the count limit of 25, then by payload byte size)
-        // so they can be dispatched sequentially or with bounded parallelism.
-        var chunks = new List<List<RequestQueueRequest>>();
-        var index = 0;
-        while (index < list.Count)
+        // Serialize every request once: the byte lengths decide the batch boundaries, and the same strings are
+        // joined into the batch bodies, so nothing is serialized a second time when it is sent. All chunks are
+        // planned up front, so an oversized request is rejected before any batch is sent.
+        var serialized = new List<SerializedRequest>(list.Count);
+        for (var i = 0; i < list.Count; i++)
         {
-            var countSlice = list.GetRange(index, Math.Min(MaxRequestsPerBatch, list.Count - index));
-            var chunk = SliceByByteLength(countSlice, payloadSizeLimitBytes, index);
-            chunks.Add(chunk);
-            index += chunk.Count;
+            var json = Json.Encode(list[i].ToJsonObject());
+            var byteLength = Encoding.UTF8.GetByteCount(json);
+            if (byteLength + JsonArrayBracketBytes > payloadSizeLimitBytes)
+            {
+                throw new ArgumentException(
+                    $"BatchAddRequests: the request at index {i} exceeds the maximum payload size ({payloadSizeLimitBytes} bytes)", nameof(requests));
+            }
+
+            serialized.Add(new SerializedRequest(list[i], json, byteLength));
         }
+
+        var chunks = SplitIntoJsonArrayBatches(serialized, payloadSizeLimitBytes);
 
         var merged = new BatchAddResult();
         if (chunks.Count == 0)
@@ -255,7 +270,7 @@ public sealed class RequestQueueClient
 
     /// <summary>Runs one chunk's add-with-retries under the concurrency gate.</summary>
     private async Task<BatchAddResult> DispatchChunkAsync(
-        List<RequestQueueRequest> chunk,
+        List<SerializedRequest> chunk,
         bool forefront,
         BatchAddRequestsOptions options,
         SemaphoreSlim gate,
@@ -272,50 +287,43 @@ public sealed class RequestQueueClient
         }
     }
 
+    /// <summary>A request together with its JSON serialization and that serialization's UTF-8 size.</summary>
+    private readonly record struct SerializedRequest(RequestQueueRequest Request, string Json, int ByteLength);
+
     /// <summary>
-    /// Returns the longest leading run of <paramref name="requests"/> whose combined JSON payload stays
-    /// under <paramref name="maxByteLength"/>, always keeping at least one request so iteration makes
-    /// progress. Ports the reference client's <c>sliceArrayByByteLength</c>.
+    /// Splits serialized requests into batches of at most <see cref="MaxRequestsPerBatch"/> requests whose JSON
+    /// array bodies are at most <paramref name="maxByteLength"/> bytes, always keeping at least one request per batch
+    /// so the split makes progress. Ports the reference client's <c>splitIntoJsonArrayBatches</c>.
     /// </summary>
-    private static List<RequestQueueRequest> SliceByByteLength(List<RequestQueueRequest> requests, int maxByteLength, int startIndex)
+    private static List<List<SerializedRequest>> SplitIntoJsonArrayBatches(List<SerializedRequest> requests, int maxByteLength)
     {
-        var payloads = ToPayload(requests);
-
-        if (Encoding.UTF8.GetByteCount(Json.Encode(payloads)) < maxByteLength)
+        var batches = new List<List<SerializedRequest>>();
+        var batch = new List<SerializedRequest>();
+        // One byte for the opening bracket; each request then adds its own bytes plus one for the comma or the
+        // closing bracket that follows it.
+        var byteLength = 1;
+        foreach (var request in requests)
         {
-            return requests;
-        }
-
-        var sliced = new List<RequestQueueRequest>();
-        var byteLength = 2; // the two bytes of an empty array "[]"
-        for (var i = 0; i < requests.Count; i++)
-        {
-            var itemBytes = Encoding.UTF8.GetByteCount(Json.Encode(requests[i].ToJsonObject()));
-            if (itemBytes > maxByteLength)
+            if (batch.Count > 0 && (batch.Count >= MaxRequestsPerBatch || byteLength + request.ByteLength + 1 > maxByteLength))
             {
-                throw new ArgumentException(
-                    $"BatchAddRequests: the request at index {startIndex + i} exceeds the maximum payload size ({maxByteLength} bytes)");
+                batches.Add(batch);
+                batch = new List<SerializedRequest>();
+                byteLength = 1;
             }
 
-            if (byteLength + itemBytes >= maxByteLength)
-            {
-                break;
-            }
-
-            byteLength += itemBytes;
-            sliced.Add(requests[i]);
+            batch.Add(request);
+            byteLength += request.ByteLength + 1;
         }
 
-        // Guarantee forward progress: keep at least the first request (it fits under the hard max).
-        if (sliced.Count == 0)
+        if (batch.Count > 0)
         {
-            sliced.Add(requests[0]);
+            batches.Add(batch);
         }
 
-        return sliced;
+        return batches;
     }
 
-    private async Task<BatchAddResult> BatchAddChunkWithRetriesAsync(List<RequestQueueRequest> chunk, bool forefront, BatchAddRequestsOptions options, CancellationToken cancellationToken)
+    private async Task<BatchAddResult> BatchAddChunkWithRetriesAsync(List<SerializedRequest> chunk, bool forefront, BatchAddRequestsOptions options, CancellationToken cancellationToken)
     {
         var maxRetries = options.MaxUnprocessedRequestsRetries;
         var minDelayMillis = options.MinDelayBetweenUnprocessedRequestsRetriesMillis;
@@ -337,13 +345,20 @@ public sealed class RequestQueueClient
                 // not to) retry, the requests not yet processed in THIS chunk are reported as unprocessed and
                 // we stop — keeping the method's non-throwing contract so a multi-chunk call still returns
                 // every earlier chunk's already-merged results instead of aborting the whole operation.
-                unprocessed = RequestsNotYetProcessed(chunk, processed);
+                unprocessed = RequestsNotYetProcessed(chunk, processed).ConvertAll(static serialized => serialized.Request);
                 break;
             }
 
             processed.AddRange(response.ProcessedRequests);
             // Only requests the API reports as unprocessed in this SUCCESSFUL response are retried.
             unprocessed = new List<RequestQueueRequest>(response.UnprocessedRequests);
+            if (unprocessed.Count != 0)
+            {
+                // As in the reference client, a response with unprocessed requests counts as rate limited: the
+                // SDK reads these counts to scale down.
+                _http.Stats.AddRateLimitError(attempt + 1);
+            }
+
             remaining = RequestsNotYetProcessed(chunk, processed);
             if (remaining.Count == 0)
             {
@@ -362,12 +377,12 @@ public sealed class RequestQueueClient
         return result;
     }
 
-    private async Task<BatchAddResult> BatchAddChunkAsync(List<RequestQueueRequest> requests, bool forefront, CancellationToken cancellationToken)
+    private async Task<BatchAddResult> BatchAddChunkAsync(List<SerializedRequest> requests, bool forefront, CancellationToken cancellationToken)
     {
         var q = new QueryParams();
         q.AddBool("forefront", forefront);
         ApplyClientKey(q);
-        var data = await _ctx.PostWithBodyAsync("requests/batch", q, Json.Encode(ToPayload(requests)), ResourceContext.ContentTypeJson, RequestTier.Medium, cancellationToken).ConfigureAwait(false);
+        var data = await _ctx.PostWithBodyAsync("requests/batch", q, JoinAsJsonArray(requests), ResourceContext.ContentTypeJson, RequestTier.Medium, cancellationToken).ConfigureAwait(false);
 
         var processed = new List<RequestQueueOperationInfo>();
         if (data.TryGetPropertyValue("processedRequests", out var pNode) && pNode is JsonArray pArray)
@@ -390,7 +405,11 @@ public sealed class RequestQueueClient
         return new BatchAddResult(processed, unprocessed);
     }
 
-    private static List<RequestQueueRequest> RequestsNotYetProcessed(List<RequestQueueRequest> chunk, List<RequestQueueOperationInfo> processed)
+    /// <summary>Joins already-serialized requests into a JSON array body without serializing them again.</summary>
+    private static string JoinAsJsonArray(List<SerializedRequest> requests)
+        => "[" + string.Join(",", requests.ConvertAll(static serialized => serialized.Json)) + "]";
+
+    private static List<SerializedRequest> RequestsNotYetProcessed(List<SerializedRequest> chunk, List<RequestQueueOperationInfo> processed)
     {
         var processedKeys = new HashSet<string>(StringComparer.Ordinal);
         foreach (var info in processed)
@@ -401,12 +420,12 @@ public sealed class RequestQueueClient
             }
         }
 
-        var remaining = new List<RequestQueueRequest>();
-        foreach (var request in chunk)
+        var remaining = new List<SerializedRequest>();
+        foreach (var serialized in chunk)
         {
-            if (!processedKeys.Contains(request.UniqueKey ?? string.Empty))
+            if (!processedKeys.Contains(serialized.Request.UniqueKey ?? string.Empty))
             {
-                remaining.Add(request);
+                remaining.Add(serialized);
             }
         }
 
@@ -480,7 +499,7 @@ public sealed class RequestQueueClient
         var q = new QueryParams();
         q.AddInt("lockSecs", lockSecs).AddBool("forefront", forefront);
         ApplyClientKey(q);
-        var url = _ctx.MergedParams(q).ApplyToUrl(_ctx.SubUrl("requests/" + ResourceContext.EncodePathSegment(id) + "/lock"));
+        var url = _ctx.MergedParams(q).ApplyToUrl(_ctx.SubUrl("requests/" + ResourceContext.EncodePathSegment(id, nameof(id)) + "/lock"));
         using var response = await _http.CallAsync(HttpMethod.Put, url, null, "", _timeout, tier: RequestTier.Medium, cancellationToken: cancellationToken).ConfigureAwait(false);
         return RequestLockInfo.FromData(await response.ReadDataObjectAsync(cancellationToken).ConfigureAwait(false));
     }
@@ -497,7 +516,7 @@ public sealed class RequestQueueClient
         var q = new QueryParams();
         q.AddBool("forefront", forefront);
         ApplyClientKey(q);
-        var url = _ctx.MergedParams(q).ApplyToUrl(_ctx.SubUrl("requests/" + ResourceContext.EncodePathSegment(id) + "/lock"));
+        var url = _ctx.MergedParams(q).ApplyToUrl(_ctx.SubUrl("requests/" + ResourceContext.EncodePathSegment(id, nameof(id)) + "/lock"));
         try
         {
             using var response = await _http.CallAsync(HttpMethod.Delete, url, timeout: _timeout, tier: RequestTier.Short, cancellationToken: cancellationToken).ConfigureAwait(false);

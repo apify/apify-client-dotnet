@@ -281,4 +281,24 @@ public sealed class ChunkSizeTests
 
         Assert.Equal(3, count);
     }
+
+    [Fact]
+    public async Task StoreIterationWithInputSchemaNeverRequestsMoreThanTheApiMaximum()
+    {
+        var transport = new MockTransport().QueueResponse(200, SpecFixtures.Page(1, SpecFixtures.StoreItem("a"))).QueueResponse(200, SpecFixtures.Page(1));
+
+        await DrainAsync(Client(transport).Store().IterateAsync(new StoreListOptions { IncludeInputSchema = true, ChunkSize = 50 }));
+
+        Assert.All(transport.Received, static r => Assert.Contains("limit=10", r.Uri, StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task StoreIterationWithInputSchemaKeepsASmallerChunkSize()
+    {
+        var transport = new MockTransport().QueueResponse(200, SpecFixtures.Page(1, SpecFixtures.StoreItem("a"))).QueueResponse(200, SpecFixtures.Page(1));
+
+        await DrainAsync(Client(transport).Store().IterateAsync(new StoreListOptions { IncludeInputSchema = true, ChunkSize = 4 }));
+
+        Assert.All(transport.Received, static r => Assert.Contains("limit=4", r.Uri, StringComparison.Ordinal));
+    }
 }

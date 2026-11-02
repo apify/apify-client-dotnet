@@ -17,7 +17,7 @@ public sealed class ActorEnvVarClient
 
     internal ActorEnvVarClient(HttpClientCore http, string versionUrl, string name)
     {
-        _ctx = ResourceContext.Single(http, versionUrl, "env-vars", name);
+        _ctx = ResourceContext.Single(http, versionUrl, "env-vars", name, nameof(name));
     }
 
     /// <summary>Fetches the environment variable, or <c>null</c> if it does not exist.</summary>
