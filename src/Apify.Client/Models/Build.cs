@@ -55,4 +55,10 @@ public sealed class Build : ApifyResource
 
     /// <summary>The ID of the Git commit the build's source was taken from, if it came from a Git repository.</summary>
     public string? GitCommitId => GetString("gitCommitId");
+
+    /// <summary>
+    /// The Actor definition the build was made from (the <c>actorDefinition</c> object, including its
+    /// <c>webServerSchema</c>), or <c>null</c> when absent.
+    /// </summary>
+    public JsonObject? ActorDefinition => Get("actorDefinition") as JsonObject;
 }

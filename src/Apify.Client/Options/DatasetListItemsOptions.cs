@@ -22,7 +22,9 @@ public sealed class DatasetListItemsOptions
     /// <summary>
     /// Maximum number of items requested per API call when iterating across pages (must be positive). Only
     /// iteration uses it, as the page size; it is never sent to the API. The effective page size is the
-    /// smaller of this and the remaining <c>Limit</c>. Defaults to the API's own page size.
+    /// smaller of this and the remaining <c>Limit</c>. Dataset items have no default limit, so without
+    /// <c>ChunkSize</c> and <c>Limit</c> iteration loads the whole dataset in one response; set it to iterate a
+    /// large dataset.
     /// </summary>
     public int? ChunkSize { get; init; }
 

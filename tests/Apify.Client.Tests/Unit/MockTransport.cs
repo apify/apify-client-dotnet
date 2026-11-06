@@ -17,8 +17,9 @@ public sealed class RecordedRequest
 {
     private readonly Dictionary<string, string> _headers;
 
-    internal RecordedRequest(string method, string uri, string body, byte[] bodyBytes, Dictionary<string, string> headers)
+    internal RecordedRequest(string method, string uri, string body, byte[] bodyBytes, Dictionary<string, string> headers, bool followsRedirects)
     {
+        FollowsRedirects = followsRedirects;
         Method = method;
         Uri = uri;
         Body = body;
@@ -27,6 +28,9 @@ public sealed class RecordedRequest
     }
 
     public string Method { get; }
+
+    /// <summary>Whether the transport was allowed to follow redirects for this request (<see cref="ApifyRequestOptions.FollowRedirects"/>).</summary>
+    public bool FollowsRedirects { get; }
 
     public string Uri { get; }
 
@@ -115,7 +119,8 @@ public sealed class MockTransport : IHttpTransport
 
         lock (_lock)
         {
-            Received.Add(new RecordedRequest(request.Method.Method, request.RequestUri?.ToString() ?? string.Empty, body, bodyBytes, headers));
+            var followsRedirects = !request.Options.TryGetValue(ApifyRequestOptions.FollowRedirects, out var follow) || follow;
+            Received.Add(new RecordedRequest(request.Method.Method, request.RequestUri?.ToString() ?? string.Empty, body, bodyBytes, headers, followsRedirects));
             Timeouts.Add(timeout.TotalSeconds);
             _inFlight++;
             MaxObservedConcurrency = Math.Max(MaxObservedConcurrency, _inFlight);

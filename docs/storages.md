@@ -44,7 +44,8 @@ reached from a run (`client.Run(id).Dataset()`, `.KeyValueStore()`, `.RequestQue
 
 `DatasetListItemsOptions` selects and reshapes items: `Offset`/`Limit` (pagination: `Limit` is the number of
 dataset rows read, in total across pages when iterating; `0` or unset means no cap), `ChunkSize` (the page
-size `IterateItemsAsync` requests, never sent to the API), `Desc` (reverse
+size `IterateItemsAsync` requests, never sent to the API; without it and `Limit`, iteration loads the whole
+dataset in one response), `Desc` (reverse
 order), `Fields`/`OutputFields`/`Omit` (choose columns), `Unwind`/`Flatten` (restructure nested
 fields), `Clean`/`SkipEmpty`/`SkipHidden`/`SkipFailedPages` (drop unwanted rows), `Simplified`,
 `View`, and `Signature` (for signed public URLs).
@@ -87,7 +88,7 @@ var client = new ApifyClient("my-api-token");
 var dataset = await client.Datasets().GetOrCreateAsync("my-dataset");
 await client.Dataset(dataset.Id!).PushItemsAsync(new[] { new { url = "https://a.com", n = 1 } });
 var page = await client.Dataset(dataset.Id!).ListItemsAsync(new DatasetListItemsOptions { Limit = 100 });
-Console.WriteLine(page.Count); // items in this page; page.Total is the count across all pages
+Console.WriteLine(page.Items.Count); // items in this page; page.Total is the count across all pages
 var csvBytes = await client.Dataset(dataset.Id!).DownloadItemsAsync(DownloadItemsFormat.Csv);
 Console.WriteLine(Encoding.UTF8.GetString(csvBytes)); // CSV is text; decode the raw bytes
 
