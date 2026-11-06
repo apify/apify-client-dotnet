@@ -412,6 +412,7 @@ public sealed class ActorServerClientTests
                 {
                     ["since"] = new DateTime(2026, 11, 6, 18, 0, 0, DateTimeKind.Utc),
                     ["until"] = new DateTimeOffset(2026, 11, 7, 2, 30, 0, TimeSpan.FromHours(2)),
+                    ["plain"] = new DateTime(2026, 11, 6, 18, 0, 0, DateTimeKind.Unspecified),
                     ["tags"] = new[] { "a", "b" },
                     ["ids"] = new List<int> { 1, 2, 3 },
                     ["ratio"] = 1.5,
@@ -421,6 +422,7 @@ public sealed class ActorServerClientTests
         var uri = transport.Received[1].Uri;
         Assert.Contains("since=" + Uri.EscapeDataString("2026-11-06T18:00:00.000Z"), uri, StringComparison.Ordinal);
         Assert.Contains("until=" + Uri.EscapeDataString("2026-11-07T00:30:00.000Z"), uri, StringComparison.Ordinal);
+        Assert.Contains("plain=" + Uri.EscapeDataString("2026-11-06T18:00:00.000Z"), uri, StringComparison.Ordinal);
         Assert.Contains("tags=" + Uri.EscapeDataString("a,b"), uri, StringComparison.Ordinal);
         Assert.Contains("ids=" + Uri.EscapeDataString("1,2,3"), uri, StringComparison.Ordinal);
         Assert.Contains("ratio=1.5", uri, StringComparison.Ordinal);

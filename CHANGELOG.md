@@ -16,8 +16,8 @@
   `Items.Count`; on every other page it equals `Items.Count`. It corresponds to `count` of a page in the
   reference client; `Count` stays the number of items on the page.
 - `CreateItemsPublicUrlAsync` and `CreateKeysPublicUrlAsync` throw `ArgumentOutOfRangeException` before any
-  request for a zero or negative `expiresInSecs`; a zero used to make the signed URL permanent and a negative
-  value an already expired one. Leave it out for a URL that never expires.
+  request for a zero or negative `expiresInSecs`, which used to produce a signed URL that had already expired.
+  Leave it out for a URL that never expires.
 - Documented the page size used when iterating dataset items without `ChunkSize` (the whole dataset in one
   response).
 - Added `Actor.StandbyUrl`/`ActorStandby`/`TaggedBuilds`, `Build.ActorDefinition` and

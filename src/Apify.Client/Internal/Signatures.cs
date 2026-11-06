@@ -38,9 +38,9 @@ internal static class Signatures
     }
 
     /// <summary>
-    /// Rejects a zero or negative expiry. A zero expiry reads as "never expires" in the signature, so the URL would
-    /// be permanent, and a negative one yields a URL that has already expired; a caller that wants a permanent URL
-    /// leaves the expiry out. Matches the reference client, which requires a positive <c>expiresInSecs</c>.
+    /// Rejects a zero or negative expiry, which would yield a URL that has already expired (the expiry is added to
+    /// the current time); a caller that wants a permanent URL leaves the expiry out. Matches the reference
+    /// client, which requires a positive <c>expiresInSecs</c>.
     /// </summary>
     /// <param name="expiresInSecs">The expiry from the caller's arguments, or <c>null</c> when unset.</param>
     /// <param name="paramName">The caller's parameter name, used in the error message.</param>

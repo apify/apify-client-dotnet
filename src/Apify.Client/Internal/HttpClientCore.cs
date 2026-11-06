@@ -36,8 +36,14 @@ internal sealed class HttpClientCore
     /// <summary>Prefix of the headers that describe a request body; they belong to the body, not to the request.</summary>
     private const string ContentHeaderPrefix = "Content-";
 
+    /// <summary>The header that carries the media type of a request body.</summary>
+    public const string ContentTypeHeader = "Content-Type";
+
+    /// <summary>The header that carries the encoding (compression) of a request body.</summary>
+    public const string ContentEncodingHeader = "Content-Encoding";
+
     /// <summary>Content headers the client derives from the body itself, so a caller-supplied value is ignored.</summary>
-    private static readonly string[] BodyDerivedContentHeaders = { "Content-Type", "Content-Encoding", "Content-Length" };
+    private static readonly string[] BodyDerivedContentHeaders = { ContentTypeHeader, ContentEncodingHeader, "Content-Length" };
 
     /// <summary>
     /// Request bodies whose size in bytes is at or above this threshold are compressed before sending,
@@ -378,8 +384,6 @@ internal sealed class HttpClientCore
                 content.Headers.ContentEncoding.Add(prepared.ContentEncoding);
             }
 
-            // A request without a body has nothing to attach the caller's other content headers (for example
-            // Content-Disposition) to, so they are not sent.
             AddContentHeaders(content, extraHeaders);
             request.Content = content;
         }
@@ -388,7 +392,9 @@ internal sealed class HttpClientCore
     }
 
     /// <summary>
-    /// Sets the caller's content headers on the body, except the ones the client derives from the body itself.
+    /// Sets the caller's content headers on the body, except the ones the client derives from the body itself. A
+    /// request without a body has nothing to attach them to (for example <c>Content-Disposition</c>), so they are
+    /// not sent.
     /// </summary>
     private static void AddContentHeaders(HttpContent content, IReadOnlyDictionary<string, string>? headers)
     {

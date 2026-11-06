@@ -28,9 +28,6 @@ public sealed class ActorServerClient
     /// <summary>The header that carries the API token to an Actor's server. The platform removes it before the request reaches the Actor.</summary>
     private const string ServerAuthorizationHeader = "X-Apify-Authorization";
 
-    private const string ContentEncodingHeader = "Content-Encoding";
-    private const string ContentTypeHeader = "Content-Type";
-
     /// <summary>The build tag whose build serves the server interface when <c>actorStandby.build</c> is not set.</summary>
     private const string DefaultBuildTag = "latest";
 
@@ -202,12 +199,12 @@ public sealed class ActorServerClient
             options.Method ?? HttpMethod.Get,
             url,
             body,
-            options.ContentType ?? FindHeader(options.Headers, ContentTypeHeader) ?? DefaultContentType(options.Body),
+            options.ContentType ?? FindHeader(options.Headers, HttpClientCore.ContentTypeHeader) ?? DefaultContentType(options.Body),
             options.Timeout,
             bodyBytes: bodyBytes,
             extraHeaders: options.Headers,
             tier: RequestTier.Long,
-            explicitContentEncoding: FindHeader(options.Headers, ContentEncodingHeader),
+            explicitContentEncoding: FindHeader(options.Headers, HttpClientCore.ContentEncodingHeader),
             policy: policy,
             cancellationToken: cancellationToken).ConfigureAwait(false);
         return new ActorServerResponse(response);
@@ -261,12 +258,16 @@ public sealed class ActorServerClient
         null => null,
         string text => text,
         bool flag => flag ? "1" : "0",
-        DateTime time => time.ToUniversalTime().ToString(QueryTimestampFormat, CultureInfo.InvariantCulture),
+        DateTime time => ToUtc(time).ToString(QueryTimestampFormat, CultureInfo.InvariantCulture),
         DateTimeOffset time => time.UtcDateTime.ToString(QueryTimestampFormat, CultureInfo.InvariantCulture),
         IFormattable formattable => formattable.ToString(null, CultureInfo.InvariantCulture),
         IEnumerable items => string.Join(QueryListSeparator, items.Cast<object?>().Select(FormatQueryValue).Where(static item => item is not null)),
         _ => value.ToString(),
     };
+
+    /// <summary>A date as UTC; a date of unspecified kind is taken as UTC too, so it is sent the same on every machine.</summary>
+    private static DateTime ToUtc(DateTime time)
+        => time.Kind == DateTimeKind.Unspecified ? DateTime.SpecifyKind(time, DateTimeKind.Utc) : time.ToUniversalTime();
 
     private static string DefaultContentType(object? body) => body switch
     {
