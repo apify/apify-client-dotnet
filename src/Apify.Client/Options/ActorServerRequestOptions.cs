@@ -13,8 +13,9 @@ public sealed class ActorServerRequestOptions
 
     /// <summary>
     /// The query parameters of the request, converted as for API calls: <c>null</c> values are left out, booleans
-    /// become <c>1</c>/<c>0</c>, dates become ISO 8601 in UTC (a <see cref="DateTime"/> of unspecified kind is taken as UTC), lists become their comma-joined values and other
-    /// values use their invariant text form. A query in the path is kept and these are appended to it.
+    /// become <c>1</c>/<c>0</c>, dates become ISO 8601 in UTC (a <see cref="DateTime"/> of unspecified kind is
+    /// taken as UTC), lists become their comma-joined values and other values use their invariant text form. A
+    /// query in the path is kept and these are appended to it.
     /// </summary>
     public IReadOnlyDictionary<string, object?>? Query { get; init; }
 
