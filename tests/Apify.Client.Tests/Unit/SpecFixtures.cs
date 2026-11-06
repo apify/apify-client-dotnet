@@ -46,9 +46,11 @@ internal static class SpecFixtures
     public static string ActorPage(int total, params string[] ids) => Page(total, ids.Select(ActorItem).ToArray());
 
     /// <summary>An Actor (<c>GET /v2/actors/{actorId}</c> and the Actor update responses).</summary>
-    public static string Actor(string id, string name = "n", bool isPublic = false)
+    /// <param name="extraProperties">Raw JSON members appended to the Actor object (e.g. <c>"standbyUrl":"https://..."</c>).</param>
+    public static string Actor(string id, string name = "n", bool isPublic = false, string? extraProperties = null)
         => "{\"data\":{\"id\":\"" + id + "\",\"userId\":\"u\",\"name\":\"" + name + "\",\"username\":\"u\",\"isPublic\":" + (isPublic ? "true" : "false")
-            + ",\"createdAt\":\"" + Timestamp + "\",\"modifiedAt\":\"" + Timestamp + "\",\"stats\":{},\"versions\":[],\"defaultRunOptions\":{}}}";
+            + ",\"createdAt\":\"" + Timestamp + "\",\"modifiedAt\":\"" + Timestamp + "\",\"stats\":{},\"versions\":[],\"defaultRunOptions\":{}"
+            + (extraProperties is null ? string.Empty : "," + extraProperties) + "}}";
 
     /// <summary>An Actor run.</summary>
     public static string Run(string id, string status = "SUCCEEDED")
@@ -61,9 +63,14 @@ internal static class SpecFixtures
             + ",\"defaultKeyValueStoreId\":\"kvs\",\"defaultDatasetId\":\"ds\",\"defaultRequestQueueId\":\"rq\"}";
 
     /// <summary>An Actor build.</summary>
-    public static string Build(string id, string status = "SUCCEEDED")
+    /// <param name="extraProperties">Raw JSON members appended to the build object (e.g. <c>"actorDefinition":{}</c>).</param>
+    public static string Build(string id, string status = "SUCCEEDED", string? extraProperties = null)
         => "{\"data\":{\"id\":\"" + id + "\",\"actId\":\"a\",\"userId\":\"u\",\"startedAt\":\"" + Timestamp + "\",\"status\":\"" + status
-            + "\",\"meta\":{\"origin\":\"API\"},\"buildNumber\":\"0.0.1\"}}";
+            + "\",\"meta\":{\"origin\":\"API\"},\"buildNumber\":\"0.0.1\"" + (extraProperties is null ? string.Empty : "," + extraProperties) + "}}";
+
+    /// <summary>An item of an Actor's build collection.</summary>
+    public static string BuildItem(string id, string buildNumber)
+        => "{\"id\":\"" + id + "\",\"actId\":\"a\",\"status\":\"SUCCEEDED\",\"startedAt\":\"" + Timestamp + "\",\"meta\":{\"origin\":\"API\"},\"buildNumber\":\"" + buildNumber + "\"}";
 
     /// <summary>An Actor task.</summary>
     /// <param name="id">The task ID.</param>

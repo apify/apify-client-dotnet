@@ -40,11 +40,12 @@ reached from a run (`client.Run(id).Dataset()`, `.KeyValueStore()`, `.RequestQue
   serialization). Anything else, such as a bare number or an array of non-objects, throws `ArgumentException`
   before a request is sent, because the API accepts only objects.
 - `GetStatisticsAsync()` → `JsonObject` (throws if the dataset does not exist).
-- `CreateItemsPublicUrlAsync(DatasetListItemsOptions? options = null, int? expiresInSecs = null, DownloadItemsFormat? format = null)` → `string` (a signed public URL; `format` defaults to `Json`).
+- `CreateItemsPublicUrlAsync(DatasetListItemsOptions? options = null, int? expiresInSecs = null, DownloadItemsFormat? format = null)` → `string` (a signed public URL; `format` defaults to `Json`; `expiresInSecs` must be positive, leave it out for a URL that never expires, otherwise `ArgumentOutOfRangeException` is thrown before any request).
 
 `DatasetListItemsOptions` selects and reshapes items: `Offset`/`Limit` (pagination: `Limit` is the number of
 dataset rows read, in total across pages when iterating; `0` or unset means no cap), `ChunkSize` (the page
-size `IterateItemsAsync` requests, never sent to the API), `Desc` (reverse
+size `IterateItemsAsync` requests, never sent to the API; without it and `Limit`, iteration loads the whole
+dataset in one response), `Desc` (reverse
 order), `Fields`/`OutputFields`/`Omit` (choose columns), `Unwind`/`Flatten` (restructure nested
 fields), `Clean`/`SkipEmpty`/`SkipHidden`/`SkipFailedPages` (drop unwanted rows), `Simplified`,
 `View`, and `Signature` (for signed public URLs).
@@ -114,7 +115,7 @@ await csvStream.CopyToAsync(file);
   `SetRecordJsonAsync(string key, object? value)` (serializes `value` to JSON bytes).
 - `DeleteRecordAsync(string key)`.
 - `GetRecordPublicUrlAsync(string key)` → `string` and
-  `CreateKeysPublicUrlAsync(ListKeysOptions? options = null, int? expiresInSecs = null)` → `string` (both signed public URLs).
+  `CreateKeysPublicUrlAsync(ListKeysOptions? options = null, int? expiresInSecs = null)` → `string` (both signed public URLs; `expiresInSecs` must be positive, leave it out for a URL that never expires, otherwise `ArgumentOutOfRangeException` is thrown before any request).
 
 `ListKeysOptions` fields: `Limit` (page size), `ExclusiveStartKey` (start after this key),
 `Prefix` (only keys with this prefix), `Collection` (a named record collection), and `Signature`

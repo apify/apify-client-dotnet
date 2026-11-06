@@ -21,6 +21,12 @@ namespace Apify.Client.Http;
 /// <see cref="Apify.Client.Exceptions.ApifyTransportException"/>.
 /// </para>
 /// <para>
+/// A request that sets <see cref="ApifyRequestOptions.FollowRedirects"/> to <c>false</c> in
+/// <see cref="HttpRequestMessage.Options"/> carries the API token in a header that must not follow a redirect to
+/// another host, so the implementation has to return a redirect response as it is. The client sets it on
+/// requests to an Actor's server.
+/// </para>
+/// <para>
 /// Swap the default implementation (<see cref="HttpClientTransport"/>) via
 /// <see cref="Apify.Client.ApifyClientOptions.HttpTransport"/> to share a connection pool, customize
 /// TLS/proxy settings, or inject a mock in tests.

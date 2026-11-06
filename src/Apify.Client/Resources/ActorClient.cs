@@ -21,6 +21,7 @@ public sealed class ActorClient
     private readonly HttpClientCore _http;
     private readonly string _baseUrl;
     private readonly ResourceContext _ctx;
+    private ActorServerClient? _serverClient;
 
     internal ActorClient(ApifyClient root, HttpClientCore http, string baseUrl, string id)
     {
@@ -184,12 +185,20 @@ public sealed class ActorClient
     /// <summary>A client for this Actor's version collection.</summary>
     public ActorVersionCollectionClient Versions() => new(_http, _ctx.SubUrl(""));
 
+    /// <summary>
+    /// A client for the server interface of this Actor. A Server Actor (formerly Actor Standby) runs a web server
+    /// that is called over HTTP without starting a run for each call. Every call returns the same client, so the
+    /// server URL it fetches is reused.
+    /// </summary>
+    public ActorServerClient Server()
+        => LazyInitializer.EnsureInitialized(ref _serverClient, () => new ActorServerClient(_http, _baseUrl, Id));
+
     /// <summary>A read-only client for this Actor's webhook collection (<c>GET /v2/actors/{id}/webhooks</c>).</summary>
     public NestedWebhookCollectionClient Webhooks() => new(_http, _ctx.SubUrl(""));
 
     /// <summary>
     /// Returns this client with every subsequent call's timeout set to <paramref name="timeout"/>,
-    /// overriding the tier default (see the "Timeout tiers" section of the top-level README). Pass
+    /// overriding the tier default (see the "Timeout tiers" section of docs/README.md). Pass
     /// <see cref="TimeSpan.Zero"/> for no timeout, matching the reference client's <c>'noTimeout'</c>. A
     /// value above <see cref="ApifyClientOptions.TimeoutSecs"/> (the overall budget) is capped at it —
     /// raise <see cref="ApifyClientOptions.TimeoutSecs"/> itself to allow a longer per-call timeout.

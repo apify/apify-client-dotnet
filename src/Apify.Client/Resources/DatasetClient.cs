@@ -74,8 +74,7 @@ public sealed class DatasetClient
         options ??= new DatasetListItemsOptions();
         var q = new QueryParams();
         options.AppendTo(q);
-        var (page, _) = await FetchItemsPageAsync(q, options.Desc ?? false, cancellationToken).ConfigureAwait(false);
-        return page;
+        return await FetchItemsPageAsync(q, options.Desc ?? false, cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -111,14 +110,14 @@ public sealed class DatasetClient
             limitCountsRows: true,
             async (offset, pageLimit, token) =>
             {
-                var (page, scannedCount) = await FetchItemsPageAsync(baseQuery.PageQuery(offset, pageLimit), desc, token).ConfigureAwait(false);
-                return new FetchedPage<JsonNode?>(page.Items, scannedCount);
+                var page = await FetchItemsPageAsync(baseQuery.PageQuery(offset, pageLimit), desc, token).ConfigureAwait(false);
+                return new FetchedPage<JsonNode?>(page.Items, page.ScannedRows);
             },
             cancellationToken);
     }
 
     /// <summary>Fetches a single page of items for the given options (see the query overload).</summary>
-    internal Task<(PaginationList<JsonNode?> Page, long ScannedCount)> FetchItemsPageAsync(DatasetListItemsOptions options, CancellationToken cancellationToken)
+    internal Task<PaginationList<JsonNode?>> FetchItemsPageAsync(DatasetListItemsOptions options, CancellationToken cancellationToken)
     {
         var q = new QueryParams();
         options.AppendTo(q);
@@ -127,11 +126,12 @@ public sealed class DatasetClient
 
     /// <summary>
     /// Fetches a single page of dataset items. The endpoint returns a bare JSON array with pagination in
-    /// <c>X-Apify-Pagination-*</c> response headers. Returns the page alongside the number of rows the API
-    /// scanned to produce it (<c>X-Apify-Pagination-Count</c>), which the offset iterator paginates by (see
-    /// <see cref="IterateItemsAsync"/>); it falls back to the item count when the header is absent.
+    /// <c>X-Apify-Pagination-*</c> response headers. The page's <see cref="PaginationList{T}.ScannedRows"/> is the
+    /// number of rows the API scanned to produce it (<c>X-Apify-Pagination-Count</c>), which the offset
+    /// iterator paginates by (see <see cref="IterateItemsAsync"/>). The header is derived from the dataset's
+    /// item count, which lags a fresh push, so the item count is used when it is larger or the header is absent.
     /// </summary>
-    private async Task<(PaginationList<JsonNode?> Page, long ScannedCount)> FetchItemsPageAsync(QueryParams q, bool desc, CancellationToken cancellationToken)
+    private async Task<PaginationList<JsonNode?>> FetchItemsPageAsync(QueryParams q, bool desc, CancellationToken cancellationToken)
     {
         var url = _ctx.MergedParams(q).ApplyToUrl(_ctx.SubUrl("items"));
         using var response = await _http.CallAsync(HttpMethod.Get, url, timeout: _ctx.RequestTimeout, tier: RequestTier.Long, cancellationToken: cancellationToken).ConfigureAwait(false);
@@ -141,15 +141,14 @@ public sealed class DatasetClient
             items.Add(item);
         }
 
-        var count = items.Count;
-        var page = PaginationList<JsonNode?>.FromItems(
+        var returned = items.Count;
+        return PaginationList<JsonNode?>.FromItems(
             items,
-            HeaderInt(response, "X-Apify-Pagination-Total", count),
+            Math.Max(HeaderInt(response, "X-Apify-Pagination-Count", returned), returned),
+            HeaderInt(response, "X-Apify-Pagination-Total", returned),
             HeaderInt(response, "X-Apify-Pagination-Offset", 0),
-            HeaderInt(response, "X-Apify-Pagination-Limit", count),
+            HeaderInt(response, "X-Apify-Pagination-Limit", returned),
             desc);
-        var scannedCount = HeaderInt(response, "X-Apify-Pagination-Count", count);
-        return (page, scannedCount);
     }
 
     /// <summary>
@@ -301,7 +300,7 @@ public sealed class DatasetClient
     /// non-expiring). The URL is built from the configured public base URL.
     /// </remarks>
     /// <param name="options">Optional item filtering/projection options forwarded into the URL.</param>
-    /// <param name="expiresInSecs">Optional expiry in seconds for a signed URL.</param>
+    /// <param name="expiresInSecs">Optional expiry in seconds for a signed URL; must be positive (omit it for a URL that never expires).</param>
     /// <param name="format">Output format served by the URL (<c>null</c> defaults to <see cref="DownloadItemsFormat.Json"/>).</param>
     /// <param name="cancellationToken">A token to cancel the request.</param>
     public async Task<string> CreateItemsPublicUrlAsync(
@@ -310,6 +309,7 @@ public sealed class DatasetClient
         DownloadItemsFormat? format = null,
         CancellationToken cancellationToken = default)
     {
+        Signatures.ValidateExpiry(expiresInSecs, nameof(expiresInSecs));
         var q = new QueryParams();
         (options ?? new DatasetListItemsOptions()).AppendTo(q);
         if (format is not null)
@@ -350,7 +350,7 @@ public sealed class DatasetClient
 
     /// <summary>
     /// Returns this client with every subsequent call's timeout set to <paramref name="timeout"/>,
-    /// overriding the tier default (see the "Timeout tiers" section of the top-level README). Pass
+    /// overriding the tier default (see the "Timeout tiers" section of docs/README.md). Pass
     /// <see cref="TimeSpan.Zero"/> for no timeout, matching the reference client's <c>'noTimeout'</c>. A
     /// value above <see cref="ApifyClientOptions.TimeoutSecs"/> (the overall budget) is capped at it —
     /// raise <see cref="ApifyClientOptions.TimeoutSecs"/> itself to allow a longer per-call timeout.

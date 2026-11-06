@@ -59,6 +59,7 @@ without re-encoding it as JSON.
 - `Builds()` → `BuildCollectionClient`; `Runs()` → `RunCollectionClient`.
 - `Version(string versionNumber)` → `ActorVersionClient`; `Versions()` → `ActorVersionCollectionClient` — a single Actor version and the version collection.
 - `Webhooks()` → read-only `NestedWebhookCollectionClient`.
+- `Server()` → `ActorServerClient` — the Actor's server interface, see [Server Actors](#server-actors--clientactoridserver).
 
 `ActorStartOptions` fields:
 
@@ -94,6 +95,80 @@ against) and `ContentType` (`string?`, content type of the input; defaults to `a
 
 `LastRunOptions` fields: `Status` (`string?`, only consider the last run with this status, e.g.
 `SUCCEEDED`) and `Origin` (`string?`, only consider the last run started from this origin, e.g. `API`).
+
+## Server Actors — `client.Actor(id).Server()`
+
+A Server Actor (formerly Actor Standby) runs a web server that is called over HTTP without starting a run
+for each call. `Server()` returns an `ActorServerClient`; every call returns the same client, so the server
+URL it fetches is reused.
+
+- `RequestAsync(string path = "/", ActorServerRequestOptions? options = null)` → `ActorServerResponse` —
+  sends a request to the Actor's server and returns its response, whatever its status.
+- `GetUrlAsync()` → `string` — the server URL (the Actor's `standbyUrl`), to call the server with another
+  HTTP client. Fetched from the API on the first call of `GetUrlAsync`, `GetOpenApiSpecAsync` or
+  `RequestAsync`, then reused.
+- `GetOpenApiSpecAsync()` → `JsonObject?` — the web server schema (OpenAPI specification) of the build that
+  serves the server: `actorStandby.build` (a tag or a build number) or `latest`; `null` if the definition has
+  none.
+- `WithTimeout(TimeSpan timeout)` — the timeout of the API calls made by `GetUrlAsync` and
+  `GetOpenApiSpecAsync`.
+
+They throw `ActorServerException` when the Actor is not a Server Actor (or the serving build does not exist),
+and the usual `ApifyApiException` when it does not exist. `RequestAsync` also throws
+`InvalidOperationException` when the client's `HttpClientTransport` wraps your own `HttpClient` without a
+second one that does not follow redirects (see
+[Replaceable HTTP transport](README.md#replaceable-http-transport)).
+
+`RequestAsync` details:
+
+- The request goes to the server URL, and `path` is always resolved against it (a fragment is dropped), so
+  neither the request nor the token can reach another host.
+- The token travels in the `X-Apify-Authorization` header, which the platform removes before the request
+  reaches the Actor's code. Headers you pass, `Authorization` included, reach the Actor as they are.
+- Any response is returned, error statuses included. Only 429 and 503 are retried (with the client's retry
+  settings, returning the last response when they run out), because other statuses can come from the Actor's
+  code. Network errors and timeouts are not retried, since the Actor may have already handled the request, and
+  a redirect is returned as it is instead of followed.
+- Bodies are sent uncompressed unless `Compressor` is set. The timeout defaults to the `Long` tier, which
+  covers the cold start of an idle Actor.
+
+`ActorServerRequestOptions` fields:
+
+| Field | Type | Description |
+|---|---|---|
+| `Method` | `HttpMethod?` | HTTP method. Defaults to `GET`. |
+| `Query` | `IReadOnlyDictionary<string, object?>?` | Query parameters; `null` values are left out, booleans become `1`/`0`, dates ISO 8601 in UTC (a `DateTime` of unspecified kind is taken as UTC) and lists their comma-joined values. |
+| `Headers` | `IReadOnlyDictionary<string, string>?` | Additional request headers. A `Content-Type` header equals `ContentType`; a `Content-Encoding` header marks a body that is already encoded and is then not compressed; other `Content-*` headers (e.g. `Content-Disposition`) are sent only with a `Body`. |
+| `Body` | `object?` | Request body: `byte[]` and `string` are sent as they are, anything else is serialized to JSON. |
+| `ContentType` | `string?` | Content type of the body; defaults to `application/json`, `text/plain; charset=utf-8` for a string and `application/octet-stream` for bytes. |
+| `Compressor` | `HttpCompressor?` | Compressor of the body (e.g. `new GzipHttpCompressor()`). Set it only if the Actor's server decodes the resulting `Content-Encoding`. |
+| `StreamResponse` | `bool` | Return the response body unread, to read it with `ReadAsStreamAsync`. The response holds its connection until disposed. |
+| `Timeout` | `TimeSpan?` | Timeout of the request; defaults to the `Long` tier. |
+
+`ActorServerResponse` is `IDisposable` (dispose it when done) and has `StatusCode`, `IsSuccess`, `Headers`
+(case-insensitive), `ContentType`, `ReadAsBytesAsync()`, `ReadAsStringAsync()`, `ReadAsStreamAsync()` and
+`ReadAsJsonAsync()` (`JsonNode?`; throws `InvalidResponseBodyException` for a body that is not JSON).
+
+```csharp
+using System;
+using System.Collections.Generic;
+using Apify.Client;
+using Apify.Client.Options;
+
+var client = new ApifyClient("my-api-token");
+var server = client.Actor("username/actor-name").Server();
+
+using var response = await server.RequestAsync(
+    "/search",
+    new ActorServerRequestOptions { Query = new Dictionary<string, object?> { ["q"] = "apify" } });
+if (response.IsSuccess)
+{
+    Console.WriteLine(await response.ReadAsJsonAsync());
+}
+
+Console.WriteLine(await server.GetUrlAsync());
+Console.WriteLine(await server.GetOpenApiSpecAsync());
+```
 
 ## Versions and environment variables
 

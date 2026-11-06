@@ -56,4 +56,14 @@ public sealed class SignatureTests
         s = s.PadRight(s.Length + ((4 - (s.Length % 4)) % 4), '=');
         return System.Text.Encoding.UTF8.GetString(Convert.FromBase64String(s));
     }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-1)]
+    public void SigningRejectsANonPositiveExpiry(int expiresInSecs)
+    {
+        var ex = Assert.Throws<ArgumentOutOfRangeException>(() => Signatures.SignStorageContent("secret", "rid", expiresInSecs));
+
+        Assert.Equal("expiresInSecs", ex.ParamName);
+    }
 }

@@ -278,10 +278,11 @@ public sealed class KeyValueStoreClient
     /// the caller already supplied one. <paramref name="expiresInSecs"/> optionally bounds a signed URL.
     /// </summary>
     /// <param name="options">Optional key-listing filters forwarded into the URL.</param>
-    /// <param name="expiresInSecs">Optional expiry in seconds for a signed URL.</param>
+    /// <param name="expiresInSecs">Optional expiry in seconds for a signed URL; must be positive (omit it for a URL that never expires).</param>
     /// <param name="cancellationToken">A token to cancel the request.</param>
     public async Task<string> CreateKeysPublicUrlAsync(ListKeysOptions? options = null, int? expiresInSecs = null, CancellationToken cancellationToken = default)
     {
+        Signatures.ValidateExpiry(expiresInSecs, nameof(expiresInSecs));
         options ??= new ListKeysOptions();
         var q = new QueryParams();
         options.AppendTo(q);
@@ -303,7 +304,7 @@ public sealed class KeyValueStoreClient
 
     /// <summary>
     /// Returns this client with every subsequent call's timeout set to <paramref name="timeout"/>,
-    /// overriding the tier default (see the "Timeout tiers" section of the top-level README). Pass
+    /// overriding the tier default (see the "Timeout tiers" section of docs/README.md). Pass
     /// <see cref="TimeSpan.Zero"/> for no timeout, matching the reference client's <c>'noTimeout'</c>. A
     /// value above <see cref="ApifyClientOptions.TimeoutSecs"/> (the overall budget) is capped at it —
     /// raise <see cref="ApifyClientOptions.TimeoutSecs"/> itself to allow a longer per-call timeout.

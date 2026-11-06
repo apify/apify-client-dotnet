@@ -13,7 +13,7 @@ signatures on the pages below for brevity). Method names mirror the reference cl
 
 ## Contents
 
-- [Actors](actors.md) — create, run, build, validate input, versions and environment variables.
+- [Actors](actors.md) — create, run, build, validate input, Server Actors, versions and environment variables.
 - [Builds](builds.md) — fetch, wait, abort, logs, OpenAPI definition.
 - [Runs](runs.md) — get/wait, abort, metamorph, reboot, resurrect, charge, storages, logs.
 - [Storages](storages.md) — datasets, key-value stores, request queues.
@@ -74,7 +74,7 @@ the `using` directives for whichever ones a file references:
 | `Apify.Client.Resources` | Every resource client the entry point returns — `ActorClient`, `RunClient`, `BuildClient`, `DatasetClient`, `KeyValueStoreClient`, `RequestQueueClient`, `TaskClient`, `ScheduleClient`, `LogClient`, `UserClient`, `ActorVersionClient`, `ActorEnvVarClient`, the `…CollectionClient` types (including `ActorVersionCollectionClient`, `ActorEnvVarCollectionClient`, `NestedWebhookCollectionClient`, and `WebhookDispatchCollectionClient`), etc. |
 | `Apify.Client.Models` | Data models returned by the clients — `Actor`, `ActorRun`, `Build`, `Dataset`, `RequestQueueRequest`, `ActorEnvVar`, `PaginationList<T>`, and so on. |
 | `Apify.Client.Options` | The option/request objects passed into methods — `ActorStartOptions`, `ActorBuildOptions`, `ActorListOptions`, `RunListOptions`, `RunResurrectOptions`, `RunChargeOptions`, `MetamorphOptions`, `LastRunOptions`, `DatasetListItemsOptions`, `DatasetDownloadOptions`, `DownloadItemsFormat`, `GetRecordOptions`, `SetRecordOptions`, `ListKeysOptions`, `IterateKeysOptions`, `ListRequestsOptions`, `PaginateRequestsOptions`, `BatchAddRequestsOptions`, `RequestQueueClientOptions`, `TaskStartOptions`, `ValidateInputOptions`, `LogOptions`, `ListOptions`, `StorageListOptions`, `StoreListOptions`. |
-| `Apify.Client.Exceptions` | `ApifyClientException` (common base), `ApifyApiException` (and its per-status subclasses), `ApifyTransportException`, `InvalidResponseBodyException` and `ResponseValidationException`. |
+| `Apify.Client.Exceptions` | `ApifyClientException` (common base), `ApifyApiException` (and its per-status subclasses), `ApifyTransportException`, `InvalidResponseBodyException`, `ResponseValidationException` and `ActorServerException`. |
 | `Apify.Client.Http` | The replaceable transport: `IHttpTransport` and the default `HttpClientTransport`. |
 | `System.Text.Json.Nodes` (BCL) | Not an Apify namespace, but required whenever you name the JSON escape-hatch types the client returns/accepts — `JsonObject`/`JsonNode` (e.g. dataset items, `GetInputAsync`/`UpdateInputAsync`, `GetStatisticsAsync`, `GetOpenApiDefinitionAsync`, `MonthlyUsageAsync`/`LimitsAsync`, `RequestQueueRequest.UserData`). Add `using System.Text.Json.Nodes;`. |
 
@@ -203,6 +203,15 @@ var client = new ApifyClient(new ApifyClientOptions
 });
 ```
 
+Requests to an Actor's server (`client.Actor(id).Server()`, see [Actors](actors.md)) must not follow
+redirects, because they carry the API token in a header. They set
+`Apify.Client.Http.ApifyRequestOptions.FollowRedirects` to `false` in `HttpRequestMessage.Options`, and a
+custom `IHttpTransport` has to return a redirect response as it is for such a request. `HttpClientTransport`
+does this with a second `HttpClient` that has automatic redirects disabled: it creates one itself, but a
+transport wrapping your own `HttpClient` needs one too, passed as the second constructor argument
+(`new HttpClientTransport(httpClient, noRedirectHttpClient)`), otherwise such a request throws
+`InvalidOperationException`.
+
 ## Error handling
 
 Methods that fetch a single resource return `null` when the resource does not exist (rather than
@@ -248,8 +257,9 @@ not break the client. The response arrived in full, so neither is
 retried. Both expose `StatusCode`, `HttpMethod`, `Path` and the raw `Body`. An error status with an
 unparsable body throws the `ApifyApiException` for its status code, with the raw body in its message.
 
-`ApifyApiException`, `ApifyTransportException`, `InvalidResponseBodyException` and
-`ResponseValidationException` extend the common
+`ApifyApiException`, `ApifyTransportException`, `InvalidResponseBodyException`,
+`ResponseValidationException` and `ActorServerException` (an Actor that is not a Server Actor, see
+[Actors](actors.md)) extend the common
 `ApifyClientException`, so `catch (ApifyClientException)` catches every error this client raises for a
 failed call without naming the concrete types:
 
