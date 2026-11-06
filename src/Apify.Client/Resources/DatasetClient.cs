@@ -111,7 +111,7 @@ public sealed class DatasetClient
             async (offset, pageLimit, token) =>
             {
                 var page = await FetchItemsPageAsync(baseQuery.PageQuery(offset, pageLimit), desc, token).ConfigureAwait(false);
-                return new FetchedPage<JsonNode?>(page.Items, page.Count);
+                return new FetchedPage<JsonNode?>(page.Items, page.ScannedRows);
             },
             cancellationToken);
     }
@@ -126,7 +126,7 @@ public sealed class DatasetClient
 
     /// <summary>
     /// Fetches a single page of dataset items. The endpoint returns a bare JSON array with pagination in
-    /// <c>X-Apify-Pagination-*</c> response headers. The page's <see cref="PaginationList{T}.Count"/> is the
+    /// <c>X-Apify-Pagination-*</c> response headers. The page's <see cref="PaginationList{T}.ScannedRows"/> is the
     /// number of rows the API scanned to produce it (<c>X-Apify-Pagination-Count</c>), which the offset
     /// iterator paginates by (see <see cref="IterateItemsAsync"/>). The header is derived from the dataset's
     /// item count, which lags a fresh push, so the item count is used when it is larger or the header is absent.
@@ -300,7 +300,7 @@ public sealed class DatasetClient
     /// non-expiring). The URL is built from the configured public base URL.
     /// </remarks>
     /// <param name="options">Optional item filtering/projection options forwarded into the URL.</param>
-    /// <param name="expiresInSecs">Optional expiry in seconds for a signed URL.</param>
+    /// <param name="expiresInSecs">Optional expiry in seconds for a signed URL; must be positive (omit it for a URL that never expires).</param>
     /// <param name="format">Output format served by the URL (<c>null</c> defaults to <see cref="DownloadItemsFormat.Json"/>).</param>
     /// <param name="cancellationToken">A token to cancel the request.</param>
     public async Task<string> CreateItemsPublicUrlAsync(
@@ -309,6 +309,7 @@ public sealed class DatasetClient
         DownloadItemsFormat? format = null,
         CancellationToken cancellationToken = default)
     {
+        Signatures.ValidateExpiry(expiresInSecs, nameof(expiresInSecs));
         var q = new QueryParams();
         (options ?? new DatasetListItemsOptions()).AppendTo(q);
         if (format is not null)
@@ -349,7 +350,7 @@ public sealed class DatasetClient
 
     /// <summary>
     /// Returns this client with every subsequent call's timeout set to <paramref name="timeout"/>,
-    /// overriding the tier default (see the "Timeout tiers" section of the top-level README). Pass
+    /// overriding the tier default (see the "Timeout tiers" section of docs/README.md). Pass
     /// <see cref="TimeSpan.Zero"/> for no timeout, matching the reference client's <c>'noTimeout'</c>. A
     /// value above <see cref="ApifyClientOptions.TimeoutSecs"/> (the overall budget) is capped at it —
     /// raise <see cref="ApifyClientOptions.TimeoutSecs"/> itself to allow a longer per-call timeout.

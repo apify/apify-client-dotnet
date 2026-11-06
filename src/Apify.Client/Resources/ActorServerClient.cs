@@ -1,6 +1,8 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Globalization;
+using System.Linq;
 using System.Net.Http;
 using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
@@ -26,39 +28,41 @@ public sealed class ActorServerClient
     /// <summary>The header that carries the API token to an Actor's server. The platform removes it before the request reaches the Actor.</summary>
     private const string ServerAuthorizationHeader = "X-Apify-Authorization";
 
-    /// <summary>The <c>Content-Encoding</c> header, which marks a request body that is already encoded.</summary>
     private const string ContentEncodingHeader = "Content-Encoding";
-
-    /// <summary>The <c>Content-Type</c> header, which describes the request body.</summary>
     private const string ContentTypeHeader = "Content-Type";
-
-    /// <summary>Prefix of the headers that describe the request body; the client sets them on the body, not as plain headers.</summary>
-    private const string ContentHeaderPrefix = "Content-";
 
     /// <summary>The build tag whose build serves the server interface when <c>actorStandby.build</c> is not set.</summary>
     private const string DefaultBuildTag = "latest";
 
     private const string DefaultRequestPath = "/";
 
-    private const string JsonContentType = "application/json";
     private const string TextContentType = "text/plain; charset=utf-8";
     private const string BinaryContentType = "application/octet-stream";
 
-    /// <summary>The rate limit status the platform answers with when it cannot pass a request on.</summary>
-    private const int RateLimitStatus = 429;
+    /// <summary>The format of a date in a query parameter: ISO 8601 in UTC with milliseconds, as the reference client sends it.</summary>
+    private const string QueryTimestampFormat = "yyyy-MM-dd'T'HH:mm:ss.fff'Z'";
+
+    /// <summary>The separator of the values of a list in a query parameter.</summary>
+    private const string QueryListSeparator = ",";
 
     /// <summary>The Service Unavailable status the platform answers with when it cannot pass a request to a server run.</summary>
     private const int ServiceUnavailableStatus = 503;
+
+    /// <summary>
+    /// Bounds the build number matching so that a pathological input cannot stall the call; the pattern is simple,
+    /// so a second is generous.
+    /// </summary>
+    private static readonly TimeSpan BuildNumberMatchTimeout = TimeSpan.FromSeconds(1);
 
     /// <summary>
     /// Statuses a server request is retried on. The platform answers with them when it cannot pass a request to a
     /// server run, so a retry usually does not run the Actor's code again. An Actor that returns one itself gets
     /// the request again.
     /// </summary>
-    private static readonly int[] ServerRetryStatusCodes = { RateLimitStatus, ServiceUnavailableStatus };
+    private static readonly int[] ServerRetryStatusCodes = { HttpClientCore.RateLimitExceeded, ServiceUnavailableStatus };
 
     /// <summary>Matches a build number such as <c>0.1.23</c>: version, minor version and sequence number.</summary>
-    private static readonly Regex BuildNumberPattern = new(@"^(\d+)\.(\d+)\.(\d+)$", RegexOptions.CultureInvariant, TimeSpan.FromSeconds(1));
+    private static readonly Regex BuildNumberPattern = new("^([0-9]+)\\.([0-9]+)\\.([0-9]+)$", RegexOptions.CultureInvariant, BuildNumberMatchTimeout);
 
     private readonly HttpClientCore _http;
     private readonly string _baseUrl;
@@ -158,6 +162,10 @@ public sealed class ActorServerClient
     /// <exception cref="ActorServerException">The Actor is not a Server Actor.</exception>
     /// <exception cref="ApifyApiException">The Actor does not exist.</exception>
     /// <exception cref="ApifyTransportException">The request failed or timed out without a response.</exception>
+    /// <exception cref="InvalidOperationException">
+    /// The client uses an <see cref="Http.HttpClientTransport"/> that wraps a caller-supplied <see cref="HttpClient"/>
+    /// without a <c>noRedirectHttpClient</c>, so it cannot send a request that must not follow redirects.
+    /// </exception>
     public async Task<ActorServerResponse> RequestAsync(
         string path = DefaultRequestPath,
         ActorServerRequestOptions? options = null,
@@ -197,7 +205,7 @@ public sealed class ActorServerClient
             options.ContentType ?? FindHeader(options.Headers, ContentTypeHeader) ?? DefaultContentType(options.Body),
             options.Timeout,
             bodyBytes: bodyBytes,
-            extraHeaders: WithoutContentHeaders(options.Headers),
+            extraHeaders: options.Headers,
             tier: RequestTier.Long,
             explicitContentEncoding: FindHeader(options.Headers, ContentEncodingHeader),
             policy: policy,
@@ -208,7 +216,7 @@ public sealed class ActorServerClient
     /// <summary>
     /// Returns this client with the timeout of the API calls it makes (the Actor and build lookups of
     /// <see cref="GetUrlAsync"/> and <see cref="GetOpenApiSpecAsync"/>) set to <paramref name="timeout"/>,
-    /// overriding the tier default (see the "Timeout tiers" section of the top-level README). Pass
+    /// overriding the tier default (see the "Timeout tiers" section of docs/README.md). Pass
     /// <see cref="TimeSpan.Zero"/> for no timeout. A value above <see cref="ApifyClientOptions.TimeoutSecs"/>
     /// is capped at it. It does not affect <see cref="RequestAsync"/>, which takes its timeout from
     /// <see cref="ActorServerRequestOptions.Timeout"/>.
@@ -238,48 +246,34 @@ public sealed class ActorServerClient
 
     private static void AddQueryValue(QueryParams query, string key, object? value)
     {
-        switch (value)
+        if (FormatQueryValue(value) is { } text)
         {
-            case null:
-                break;
-            case bool flag:
-                query.AddBool(key, flag);
-                break;
-            case IFormattable formattable:
-                query.AddRaw(key, formattable.ToString(null, CultureInfo.InvariantCulture));
-                break;
-            default:
-                query.AddRaw(key, value.ToString() ?? string.Empty);
-                break;
+            query.AddRaw(key, text);
         }
     }
+
+    /// <summary>
+    /// Converts a query value to text: dates to ISO 8601 in UTC, booleans to <c>1</c>/<c>0</c>, lists to their
+    /// comma-joined values and other values to their invariant text; <c>null</c> stays <c>null</c> and is left out.
+    /// </summary>
+    private static string? FormatQueryValue(object? value) => value switch
+    {
+        null => null,
+        string text => text,
+        bool flag => flag ? "1" : "0",
+        DateTime time => time.ToUniversalTime().ToString(QueryTimestampFormat, CultureInfo.InvariantCulture),
+        DateTimeOffset time => time.UtcDateTime.ToString(QueryTimestampFormat, CultureInfo.InvariantCulture),
+        IFormattable formattable => formattable.ToString(null, CultureInfo.InvariantCulture),
+        IEnumerable items => string.Join(QueryListSeparator, items.Cast<object?>().Select(FormatQueryValue).Where(static item => item is not null)),
+        _ => value.ToString(),
+    };
 
     private static string DefaultContentType(object? body) => body switch
     {
         string => TextContentType,
         byte[] => BinaryContentType,
-        _ => JsonContentType,
+        _ => ResourceContext.ContentTypeJson,
     };
-
-    /// <summary>The headers that are not about the body (<c>Content-*</c>); those are applied to the body itself.</summary>
-    private static Dictionary<string, string>? WithoutContentHeaders(IReadOnlyDictionary<string, string>? headers)
-    {
-        if (headers is null)
-        {
-            return null;
-        }
-
-        var plain = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-        foreach (var header in headers)
-        {
-            if (!header.Key.StartsWith(ContentHeaderPrefix, StringComparison.OrdinalIgnoreCase))
-            {
-                plain[header.Key] = header.Value;
-            }
-        }
-
-        return plain;
-    }
 
     private static string? FindHeader(IReadOnlyDictionary<string, string>? headers, string name)
     {
@@ -317,7 +311,7 @@ public sealed class ActorServerClient
             ? buildId
             : null;
 
-    private async Task<string?> FindBuildIdByNumberAsync(string buildNumber, (int Major, int Minor, int Sequence) target, CancellationToken cancellationToken)
+    private async Task<string?> FindBuildIdByNumberAsync(string buildNumber, (long Major, long Minor, long Sequence) target, CancellationToken cancellationToken)
     {
         var builds = new BuildCollectionClient(_http, _ctx.SubUrl(""), "builds");
         if (_ctx.RequestTimeout is { } timeout)
@@ -355,18 +349,21 @@ public sealed class ActorServerClient
         return client;
     }
 
-    /// <summary>Splits a build number like <c>0.1.23</c> into its parts, or returns <c>null</c> for anything else.</summary>
-    private static (int Major, int Minor, int Sequence)? ParseBuildNumber(string? buildNumber)
+    /// <summary>
+    /// Splits a build number like <c>0.1.23</c> into its parts, or returns <c>null</c> for anything else, including
+    /// numbers too large to be a real build number.
+    /// </summary>
+    private static (long Major, long Minor, long Sequence)? ParseBuildNumber(string? buildNumber)
     {
         var match = BuildNumberPattern.Match(buildNumber ?? string.Empty);
-        if (!match.Success)
+        if (!match.Success
+            || !long.TryParse(match.Groups[1].Value, NumberStyles.None, CultureInfo.InvariantCulture, out var major)
+            || !long.TryParse(match.Groups[2].Value, NumberStyles.None, CultureInfo.InvariantCulture, out var minor)
+            || !long.TryParse(match.Groups[3].Value, NumberStyles.None, CultureInfo.InvariantCulture, out var sequence))
         {
             return null;
         }
 
-        return (
-            int.Parse(match.Groups[1].Value, CultureInfo.InvariantCulture),
-            int.Parse(match.Groups[2].Value, CultureInfo.InvariantCulture),
-            int.Parse(match.Groups[3].Value, CultureInfo.InvariantCulture));
+        return (major, minor, sequence);
     }
 }

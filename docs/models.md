@@ -356,7 +356,8 @@ One page of a paginated listing, returned by every `ListAsync` method.
 | Property | Type | Description |
 |---|---|---|
 | `Items` | `IReadOnlyList<T>` | The items on this page. |
-| `Count` | `long` | Number of entries on this page. On a page of dataset items, the rows the API scanned for it (or the returned item count when larger), which filters such as `SkipEmpty` can leave above `Items.Count`; the next page starts at `Offset + Math.Min(Count, Limit)`. On every other page it equals `Items.Count`. |
+| `Count` | `long` | Number of items on this page (equals `Items.Count`). |
+| `ScannedRows` | `long` | Number of entries the API went through for this page. On a page of dataset items, the dataset rows it scanned (or the returned item count when larger), which filters such as `SkipEmpty` can leave above `Items.Count`; the next page starts at `Offset + Math.Min(ScannedRows, Limit)`. On every other page it equals `Items.Count`. Corresponds to `count` of a page in the reference client. |
 | `Total` | `long` | Total number of items across all pages. |
 | `Offset` | `long` | The offset this page started at. |
 | `Limit` | `long` | The page-size limit that was applied. |

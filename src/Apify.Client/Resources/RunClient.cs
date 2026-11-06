@@ -350,7 +350,7 @@ public sealed class RunClient
             // Only a page that returned nothing and scanned no rows marks the end: filters can shorten a
             // full page, or empty one that still scanned rows. When a filter could have hidden every row
             // past a lagging `itemCount`, a plain one-row read confirms nothing is left.
-            if (page.Count == 0
+            if (page.ScannedRows == 0
                 && (!options.HasRowFilters || await IsDatasetExhaustedAsync(datasetClient, position, cancellationToken).ConfigureAwait(false)))
             {
                 yield break;
@@ -433,7 +433,7 @@ public sealed class RunClient
 
     /// <summary>
     /// Returns this client with every subsequent call's timeout set to <paramref name="timeout"/>,
-    /// overriding the tier default (see the "Timeout tiers" section of the top-level README). Pass
+    /// overriding the tier default (see the "Timeout tiers" section of docs/README.md). Pass
     /// <see cref="TimeSpan.Zero"/> for no timeout, matching the reference client's <c>'noTimeout'</c>. A
     /// value above <see cref="ApifyClientOptions.TimeoutSecs"/> (the overall budget) is capped at it —
     /// raise <see cref="ApifyClientOptions.TimeoutSecs"/> itself to allow a longer per-call timeout.

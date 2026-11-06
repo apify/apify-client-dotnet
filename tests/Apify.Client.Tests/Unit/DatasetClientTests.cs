@@ -46,7 +46,7 @@ public sealed class DatasetClientTests
     }
 
     [Fact]
-    public async Task ListItemsReportsTheRowsScannedAsTheCountOfThePage()
+    public async Task ListItemsReportsTheRowsScannedSeparatelyFromTheItemCountOfThePage()
     {
         // `skipEmpty` applies after offset/limit, so a page can scan more rows than it returns items.
         var headers = new Dictionary<string, string>
@@ -61,12 +61,15 @@ public sealed class DatasetClientTests
         var page = await Client(transport).Dataset("ds1").ListItemsAsync(new DatasetListItemsOptions { SkipEmpty = true, Limit = 4 });
 
         Assert.Single(page.Items);
-        Assert.Equal(4, page.Count);
+        // `Count` stays the number of items, so indexing by it and the list's own count agree.
+        Assert.Equal(1, page.Count);
+        Assert.Single((IEnumerable<System.Text.Json.Nodes.JsonNode?>)page);
+        Assert.Equal(4, page.ScannedRows);
         Assert.Equal(10, page.Total);
     }
 
     [Fact]
-    public async Task ListItemsCountIsTheReturnedItemsWhenTheHeaderIsAbsentOrLower()
+    public async Task ListItemsScannedRowsAreTheReturnedItemsWhenTheHeaderIsAbsentOrLower()
     {
         var lagging = new Dictionary<string, string> { ["X-Apify-Pagination-Count"] = "0" };
         var transport = new MockTransport()
@@ -74,7 +77,44 @@ public sealed class DatasetClientTests
             .QueueResponse(200, "[{\"i\":1},{\"i\":2},{\"i\":3}]");
         var dataset = Client(transport).Dataset("ds1");
 
-        Assert.Equal(2, (await dataset.ListItemsAsync()).Count);
-        Assert.Equal(3, (await dataset.ListItemsAsync()).Count);
+        Assert.Equal(2, (await dataset.ListItemsAsync()).ScannedRows);
+        Assert.Equal(3, (await dataset.ListItemsAsync()).ScannedRows);
+    }
+
+    [Fact]
+    public async Task ListingPagesOtherThanDatasetItemsHaveScannedRowsEqualToTheirItems()
+    {
+        var transport = new MockTransport().QueueResponse(200, SpecFixtures.ActorPage(1, "a1"));
+
+        var page = await Client(transport).Actors().ListAsync();
+
+        Assert.Equal(1, page.Count);
+        Assert.Equal(1, page.ScannedRows);
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-5)]
+    public async Task CreateItemsPublicUrlRejectsANonPositiveExpiryBeforeAnyRequest(int expiresInSecs)
+    {
+        var transport = new MockTransport();
+
+        await Assert.ThrowsAsync<ArgumentOutOfRangeException>(
+            () => Client(transport).Dataset("ds1").CreateItemsPublicUrlAsync(expiresInSecs: expiresInSecs));
+
+        Assert.Equal(0, transport.CallCount);
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-5)]
+    public async Task CreateKeysPublicUrlRejectsANonPositiveExpiryBeforeAnyRequest(int expiresInSecs)
+    {
+        var transport = new MockTransport();
+
+        await Assert.ThrowsAsync<ArgumentOutOfRangeException>(
+            () => Client(transport).KeyValueStore("kvs1").CreateKeysPublicUrlAsync(expiresInSecs: expiresInSecs));
+
+        Assert.Equal(0, transport.CallCount);
     }
 }

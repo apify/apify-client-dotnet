@@ -6,13 +6,18 @@
   Standby): `RequestAsync` sends a request to the Actor's server (token in `X-Apify-Authorization`, any
   response returned, only 429 and 503 retried, no redirects followed), `GetUrlAsync` returns the server URL
   and `GetOpenApiSpecAsync` its OpenAPI specification. New `ActorServerRequestOptions`,
-  `ActorServerResponse` and `ActorServerException`.
+  `ActorServerResponse` and `ActorServerException`. `Content-*` headers of a request reach the server with the
+  request body.
 - Requests that must not follow redirects set `ApifyRequestOptions.FollowRedirects` to `false`; a custom
   `IHttpTransport` has to honor it. `HttpClientTransport` takes an optional second `HttpClient` with
   automatic redirects disabled for them (it creates one when it creates its own `HttpClient`).
-- `PaginationList<T>.Count` of a dataset items page is the number of rows the API scanned (or the returned
-  item count when larger), which filters such as `SkipEmpty` can leave above `Items.Count`; other pages are
-  unchanged. Iteration steps by it, as before.
+- Added `PaginationList<T>.ScannedRows`, the number of dataset rows the API scanned for a page of dataset
+  items (or the returned item count when larger), which filters such as `SkipEmpty` can leave above
+  `Items.Count`; on every other page it equals `Items.Count`. It corresponds to `count` of a page in the
+  reference client; `Count` stays the number of items on the page.
+- `CreateItemsPublicUrlAsync` and `CreateKeysPublicUrlAsync` throw `ArgumentOutOfRangeException` before any
+  request for a zero or negative `expiresInSecs`; a zero used to make the signed URL permanent and a negative
+  value an already expired one. Leave it out for a URL that never expires.
 - Documented the page size used when iterating dataset items without `ChunkSize` (the whole dataset in one
   response).
 - Added `Actor.StandbyUrl`/`ActorStandby`/`TaggedBuilds`, `Build.ActorDefinition` and

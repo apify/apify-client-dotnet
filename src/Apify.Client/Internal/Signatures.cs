@@ -38,6 +38,21 @@ internal static class Signatures
     }
 
     /// <summary>
+    /// Rejects a zero or negative expiry. A zero expiry reads as "never expires" in the signature, so the URL would
+    /// be permanent, and a negative one yields a URL that has already expired; a caller that wants a permanent URL
+    /// leaves the expiry out. Matches the reference client, which requires a positive <c>expiresInSecs</c>.
+    /// </summary>
+    /// <param name="expiresInSecs">The expiry from the caller's arguments, or <c>null</c> when unset.</param>
+    /// <param name="paramName">The caller's parameter name, used in the error message.</param>
+    public static void ValidateExpiry(int? expiresInSecs, string paramName)
+    {
+        if (expiresInSecs is <= 0)
+        {
+            throw new ArgumentOutOfRangeException(paramName, expiresInSecs, paramName + " must be positive; omit it for a URL that never expires.");
+        }
+    }
+
+    /// <summary>
     /// Builds a storage-content signature for a resource's public URL, byte-for-byte compatible with
     /// upstream <c>createStorageContentSignature</c>.
     /// </summary>
@@ -51,6 +66,7 @@ internal static class Signatures
     /// <param name="expiresInSecs">Optional expiry in seconds (<c>null</c> for a non-expiring URL).</param>
     public static string SignStorageContent(string secretKey, string resourceId, int? expiresInSecs)
     {
+        ValidateExpiry(expiresInSecs, nameof(expiresInSecs));
         var expiresAtMillis = expiresInSecs is not null
             ? DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() + (expiresInSecs.Value * 1000L)
             : 0L;

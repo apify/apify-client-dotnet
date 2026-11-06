@@ -114,7 +114,10 @@ URL it fetches is reused.
   `GetOpenApiSpecAsync`.
 
 They throw `ActorServerException` when the Actor is not a Server Actor (or the serving build does not exist),
-and the usual `ApifyApiException` when it does not exist.
+and the usual `ApifyApiException` when it does not exist. `RequestAsync` also throws
+`InvalidOperationException` when the client's `HttpClientTransport` wraps your own `HttpClient` without a
+second one that does not follow redirects (see
+[Replaceable HTTP transport](README.md#replaceable-http-transport)).
 
 `RequestAsync` details:
 
@@ -134,8 +137,8 @@ and the usual `ApifyApiException` when it does not exist.
 | Field | Type | Description |
 |---|---|---|
 | `Method` | `HttpMethod?` | HTTP method. Defaults to `GET`. |
-| `Query` | `IReadOnlyDictionary<string, object?>?` | Query parameters; `null` values are left out and booleans become `1`/`0`. |
-| `Headers` | `IReadOnlyDictionary<string, string>?` | Additional request headers. A `Content-Type` header equals `ContentType`; a `Content-Encoding` header marks a body that is already encoded and is then not compressed. |
+| `Query` | `IReadOnlyDictionary<string, object?>?` | Query parameters; `null` values are left out, booleans become `1`/`0`, dates ISO 8601 in UTC and lists their comma-joined values. |
+| `Headers` | `IReadOnlyDictionary<string, string>?` | Additional request headers. A `Content-Type` header equals `ContentType`; a `Content-Encoding` header marks a body that is already encoded and is then not compressed; other `Content-*` headers (e.g. `Content-Disposition`) are sent only with a `Body`. |
 | `Body` | `object?` | Request body: `byte[]` and `string` are sent as they are, anything else is serialized to JSON. |
 | `ContentType` | `string?` | Content type of the body; defaults to `application/json`, `text/plain; charset=utf-8` for a string and `application/octet-stream` for bytes. |
 | `Compressor` | `HttpCompressor?` | Compressor of the body (e.g. `new GzipHttpCompressor()`). Set it only if the Actor's server decodes the resulting `Content-Encoding`. |

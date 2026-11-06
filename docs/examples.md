@@ -29,8 +29,8 @@ var client = new ApifyClient(
 // The third argument bounds the wait in seconds (120 here); pass null to wait indefinitely.
 var run = await client.Actor("apify/hello-world").CallAsync(null, null, 120);
 var items = await client.Dataset(run.DefaultDatasetId!).ListItemsAsync(new DatasetListItemsOptions());
-// Items.Count is the number of items in THIS page; Total is the dataset's full count across all pages.
-Console.WriteLine($"Items on this page: {items.Items.Count} (of {items.Total} total)");
+// Count is the number of items in THIS page; Total is the dataset's full count across all pages.
+Console.WriteLine($"Items on this page: {items.Count} (of {items.Total} total)");
 ```
 
 ## Each storage: create, push, read
@@ -40,7 +40,7 @@ Console.WriteLine($"Items on this page: {items.Items.Count} (of {items.Total} to
 var dataset = await client.Datasets().GetOrCreateAsync("example-ds");
 await client.Dataset(dataset.Id!).PushItemsAsync(new[] { new { hello = "world" } });
 var items = await client.Dataset(dataset.Id!).ListItemsAsync(new DatasetListItemsOptions());
-Console.WriteLine("Dataset items: " + items.Items.Count);
+Console.WriteLine("Dataset items: " + items.Count);
 
 // Key-value store
 var store = await client.KeyValueStores().GetOrCreateAsync("example-kvs");

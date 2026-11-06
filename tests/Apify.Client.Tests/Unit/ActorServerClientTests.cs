@@ -354,4 +354,90 @@ public sealed class ActorServerClientTests
 
         Assert.Contains("Build latest of Actor a1 does not exist", ex.Message, StringComparison.Ordinal);
     }
+
+    [Fact]
+    public async Task RequestForwardsTheOtherContentHeadersWithABodyButNotTheOnesTheClientSets()
+    {
+        var transport = new MockTransport().QueueResponse(200, ActorResponse).QueueResponse(200, "{}");
+
+        using var response = await Client(transport).Actor("a1").Server().RequestAsync(
+            "/upload",
+            new ActorServerRequestOptions
+            {
+                Method = HttpMethod.Post,
+                Body = new byte[] { 1, 2, 3 },
+                Headers = new Dictionary<string, string>
+                {
+                    ["Content-Disposition"] = "attachment; filename=\"a.bin\"",
+                    ["Content-Language"] = "en",
+                    ["Content-Length"] = "999",
+                    ["X-Plain"] = "yes",
+                },
+            });
+
+        var request = transport.Received[1];
+        Assert.Equal("attachment; filename=\"a.bin\"", request.Header("Content-Disposition"));
+        Assert.Equal("en", request.Header("Content-Language"));
+        Assert.Equal("yes", request.Header("X-Plain"));
+        Assert.NotEqual("999", request.Header("Content-Length"));
+        Assert.Equal("application/octet-stream", request.Header("Content-Type"));
+    }
+
+    [Fact]
+    public async Task RequestWithoutABodyDoesNotSendContentHeadersButKeepsTheOthers()
+    {
+        var transport = new MockTransport().QueueResponse(200, ActorResponse).QueueResponse(200, "{}");
+
+        using var response = await Client(transport).Actor("a1").Server().RequestAsync(
+            "/",
+            new ActorServerRequestOptions
+            {
+                Headers = new Dictionary<string, string> { ["Content-Disposition"] = "inline", ["X-Plain"] = "yes" },
+            });
+
+        Assert.Equal(string.Empty, transport.Received[1].Header("Content-Disposition"));
+        Assert.Equal("yes", transport.Received[1].Header("X-Plain"));
+    }
+
+    [Fact]
+    public async Task RequestConvertsDatesToIsoUtcAndListsToCommaJoinedValues()
+    {
+        var transport = new MockTransport().QueueResponse(200, ActorResponse).QueueResponse(200, "{}");
+
+        using var response = await Client(transport).Actor("a1").Server().RequestAsync(
+            "/",
+            new ActorServerRequestOptions
+            {
+                Query = new Dictionary<string, object?>
+                {
+                    ["since"] = new DateTime(2026, 11, 6, 18, 0, 0, DateTimeKind.Utc),
+                    ["until"] = new DateTimeOffset(2026, 11, 7, 2, 30, 0, TimeSpan.FromHours(2)),
+                    ["tags"] = new[] { "a", "b" },
+                    ["ids"] = new List<int> { 1, 2, 3 },
+                    ["ratio"] = 1.5,
+                },
+            });
+
+        var uri = transport.Received[1].Uri;
+        Assert.Contains("since=" + Uri.EscapeDataString("2026-11-06T18:00:00.000Z"), uri, StringComparison.Ordinal);
+        Assert.Contains("until=" + Uri.EscapeDataString("2026-11-07T00:30:00.000Z"), uri, StringComparison.Ordinal);
+        Assert.Contains("tags=" + Uri.EscapeDataString("a,b"), uri, StringComparison.Ordinal);
+        Assert.Contains("ids=" + Uri.EscapeDataString("1,2,3"), uri, StringComparison.Ordinal);
+        Assert.Contains("ratio=1.5", uri, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData("1.0.99999999999999999999")]
+    [InlineData("١.٢.٣")]
+    [InlineData("1.2")]
+    public async Task GetOpenApiSpecTreatsAnUnparsableBuildReferenceAsAMissingBuild(string buildRef)
+    {
+        var actor = ServerActor("\"actorStandby\":{\"build\":\"" + buildRef + "\"},\"taggedBuilds\":{}");
+        var transport = new MockTransport().QueueResponse(200, actor);
+
+        var ex = await Assert.ThrowsAsync<ActorServerException>(() => Client(transport).Actor("a1").Server().GetOpenApiSpecAsync());
+
+        Assert.Contains("does not exist", ex.Message, StringComparison.Ordinal);
+        Assert.Equal(1, transport.CallCount);
+    }
 }

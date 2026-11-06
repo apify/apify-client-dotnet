@@ -20,7 +20,7 @@ namespace Apify.Client.Internal;
 internal sealed class HttpClientCore
 {
     /// <summary>Status returned when the per-resource rate limit is hit.</summary>
-    private const int RateLimitExceeded = 429;
+    public const int RateLimitExceeded = 429;
 
     /// <summary>Statuses at or above this value are treated as retryable internal server errors.</summary>
     private const int MinServerError = 500;
@@ -32,6 +32,12 @@ internal sealed class HttpClientCore
     private const int BackoffFactor = 2;
 
     private const int NotFound = 404;
+
+    /// <summary>Prefix of the headers that describe a request body; they belong to the body, not to the request.</summary>
+    private const string ContentHeaderPrefix = "Content-";
+
+    /// <summary>Content headers the client derives from the body itself, so a caller-supplied value is ignored.</summary>
+    private static readonly string[] BodyDerivedContentHeaders = { "Content-Type", "Content-Encoding", "Content-Length" };
 
     /// <summary>
     /// Request bodies whose size in bytes is at or above this threshold are compressed before sending,
@@ -322,10 +328,18 @@ internal sealed class HttpClientCore
 
         foreach (var header in headers)
         {
+            // Content headers are set on the body (see BuildRequest); the request's header collection rejects them.
+            if (IsContentHeader(header.Key))
+            {
+                continue;
+            }
+
             request.Headers.Remove(header.Key);
             request.Headers.TryAddWithoutValidation(header.Key, header.Value);
         }
     }
+
+    private static bool IsContentHeader(string name) => name.StartsWith(ContentHeaderPrefix, StringComparison.OrdinalIgnoreCase);
 
     /// <summary>Builds a fully-prepared request with auth, User-Agent, content type and extra headers.</summary>
     private HttpRequestMessage BuildRequest(
@@ -364,10 +378,35 @@ internal sealed class HttpClientCore
                 content.Headers.ContentEncoding.Add(prepared.ContentEncoding);
             }
 
+            // A request without a body has nothing to attach the caller's other content headers (for example
+            // Content-Disposition) to, so they are not sent.
+            AddContentHeaders(content, extraHeaders);
             request.Content = content;
         }
 
         return request;
+    }
+
+    /// <summary>
+    /// Sets the caller's content headers on the body, except the ones the client derives from the body itself.
+    /// </summary>
+    private static void AddContentHeaders(HttpContent content, IReadOnlyDictionary<string, string>? headers)
+    {
+        if (headers is null)
+        {
+            return;
+        }
+
+        foreach (var header in headers)
+        {
+            if (!IsContentHeader(header.Key) || BodyDerivedContentHeaders.Contains(header.Key, StringComparer.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            content.Headers.Remove(header.Key);
+            content.Headers.TryAddWithoutValidation(header.Key, header.Value);
+        }
     }
 
     /// <summary>

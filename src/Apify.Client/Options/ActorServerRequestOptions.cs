@@ -13,8 +13,8 @@ public sealed class ActorServerRequestOptions
 
     /// <summary>
     /// The query parameters of the request, converted as for API calls: <c>null</c> values are left out, booleans
-    /// become <c>1</c>/<c>0</c> and other values use their invariant text form. A query in the path is kept and
-    /// these are appended to it.
+    /// become <c>1</c>/<c>0</c>, dates become ISO 8601 in UTC, lists become their comma-joined values and other
+    /// values use their invariant text form. A query in the path is kept and these are appended to it.
     /// </summary>
     public IReadOnlyDictionary<string, object?>? Query { get; init; }
 
@@ -22,7 +22,9 @@ public sealed class ActorServerRequestOptions
     /// Additional request headers. They reach the Actor's server as they are, <c>Authorization</c> included, and
     /// a header of the token's name (<c>X-Apify-Authorization</c>) replaces the token. A <c>Content-Type</c> header
     /// is the same as <see cref="ContentType"/>. A <c>Content-Encoding</c> header marks a body that is already
-    /// encoded, which is then sent without compressing it (<c>identity</c> opts out of compression).
+    /// encoded, which is then sent without compressing it (<c>identity</c> opts out of compression). Other
+    /// <c>Content-*</c> headers, such as <c>Content-Disposition</c>, describe the body and are sent only with a
+    /// <see cref="Body"/>; a <c>Content-Length</c> header is ignored, since the client sets the length itself.
     /// </summary>
     public IReadOnlyDictionary<string, string>? Headers { get; init; }
 
