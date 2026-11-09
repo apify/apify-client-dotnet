@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.Linq;
 using System.IO;
 using System.Net.Http;
 using System.Net.Http.Headers;
@@ -19,7 +20,7 @@ namespace Apify.Client.Internal;
 internal sealed class HttpClientCore
 {
     /// <summary>Status returned when the per-resource rate limit is hit.</summary>
-    private const int RateLimitExceeded = 429;
+    public const int RateLimitExceeded = 429;
 
     /// <summary>Statuses at or above this value are treated as retryable internal server errors.</summary>
     private const int MinServerError = 500;
@@ -31,6 +32,18 @@ internal sealed class HttpClientCore
     private const int BackoffFactor = 2;
 
     private const int NotFound = 404;
+
+    /// <summary>Prefix of the headers that describe a request body; they belong to the body, not to the request.</summary>
+    private const string ContentHeaderPrefix = "Content-";
+
+    /// <summary>The header that carries the media type of a request body.</summary>
+    public const string ContentTypeHeader = "Content-Type";
+
+    /// <summary>The header that carries the encoding (compression) of a request body.</summary>
+    public const string ContentEncodingHeader = "Content-Encoding";
+
+    /// <summary>Content headers the client derives from the body itself, so a caller-supplied value is ignored.</summary>
+    private static readonly string[] BodyDerivedContentHeaders = { ContentTypeHeader, ContentEncodingHeader, "Content-Length" };
 
     /// <summary>
     /// Request bodies whose size in bytes is at or above this threshold are compressed before sending,
@@ -144,7 +157,9 @@ internal sealed class HttpClientCore
 
     /// <summary>
     /// Sends a request with auth, User-Agent and the retry policy applied, returning the successful
-    /// response (the caller owns and disposes it).
+    /// response (the caller owns and disposes it). A <paramref name="policy"/> other than
+    /// <see cref="RequestPolicy.Default"/> changes how the call authenticates, which responses it retries and
+    /// whether an error response is returned instead of thrown.
     /// </summary>
     public async Task<HttpResponseMessage> CallAsync(
         HttpMethod method,
@@ -157,8 +172,10 @@ internal sealed class HttpClientCore
         IReadOnlyDictionary<string, string>? extraHeaders = null,
         RequestTier tier = RequestTier.Long,
         string? explicitContentEncoding = null,
+        RequestPolicy? policy = null,
         CancellationToken cancellationToken = default)
     {
+        policy ??= RequestPolicy.Default;
         _stats.AddCall();
         var delayMillis = _retry.MinDelayMillis;
         var maxAttempts = _retry.MaxRetries + 1;
@@ -176,7 +193,7 @@ internal sealed class HttpClientCore
         // skips this: the bytes are already in their final, encoded form and must reach the API unchanged.
         var prepared = explicitContentEncoding is not null
             ? new PreparedBody(bodyBytes ?? (body is not null ? Encoding.UTF8.GetBytes(body) : null), contentType, explicitContentEncoding)
-            : await PrepareBodyAsync(body, bodyBytes, contentType, cancellationToken).ConfigureAwait(false);
+            : await PrepareBodyAsync(body, bodyBytes, contentType, policy, cancellationToken).ConfigureAwait(false);
         Exception? lastError = null;
 
         for (var attempt = 1; attempt <= maxAttempts; attempt++)
@@ -186,7 +203,7 @@ internal sealed class HttpClientCore
             {
                 _stats.AddRequest();
                 var response = await SendOnceAsync(
-                    method, url, prepared, extraHeaders,
+                    method, url, prepared, extraHeaders, policy,
                     AttemptTimeout(baseTimeout, overallCap, attempt), cancellationToken).ConfigureAwait(false);
 
                 var status = (int)response.StatusCode;
@@ -198,21 +215,30 @@ internal sealed class HttpClientCore
                     return response;
                 }
 
-                if (status == RateLimitExceeded)
+                // The statistics track the API's rate limits; only API calls throw on an error status, so a call
+                // that returns error responses is not an API call and its 429s stay out of them.
+                if (status == RateLimitExceeded && policy.ThrowOnErrorStatus)
                 {
                     _stats.AddRateLimitError(attempt);
+                }
+
+                retryable = IsStatusRetryable(status, policy);
+                if (!policy.ThrowOnErrorStatus && (!retryable || attempt == maxAttempts))
+                {
+                    response.RequestMessage = new HttpRequestMessage(method, url);
+                    return response;
                 }
 
                 var errorBody = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
                 response.Dispose();
                 lastError = BuildApiError(status, errorBody, attempt, method.Method, path);
-                retryable = IsStatusRetryable(status);
             }
             catch (ApifyTransportException ex)
             {
                 lastError = ex;
-                // Network/timeout failures are retryable, unless the caller opted out of retrying timeouts.
-                retryable = !(doNotRetryTimeouts && ex.IsTimeout);
+                // Network/timeout failures are retryable, unless the caller opted out of retrying timeouts or of
+                // retrying transport errors at all.
+                retryable = policy.RetryTransportErrors && !(doNotRetryTimeouts && ex.IsTimeout);
             }
 
             if (!retryable || attempt == maxAttempts)
@@ -234,7 +260,7 @@ internal sealed class HttpClientCore
     {
         _stats.AddCall();
         _stats.AddRequest();
-        var request = BuildRequest(HttpMethod.Get, url, default, null);
+        var request = BuildRequest(HttpMethod.Get, url, default, null, RequestPolicy.Default);
         return _transport.SendAsync(request, TimeSpan.FromSeconds(Math.Min(_retry.LongTimeoutSecs, _retry.TimeoutSecs)), streaming: true, cancellationToken);
     }
 
@@ -243,11 +269,12 @@ internal sealed class HttpClientCore
         string url,
         PreparedBody prepared,
         IReadOnlyDictionary<string, string>? extraHeaders,
+        RequestPolicy policy,
         TimeSpan timeout,
         CancellationToken cancellationToken)
     {
-        using var request = BuildRequest(method, url, prepared, extraHeaders);
-        return await _transport.SendAsync(request, timeout, streaming: false, cancellationToken).ConfigureAwait(false);
+        using var request = BuildRequest(method, url, prepared, extraHeaders, policy);
+        return await _transport.SendAsync(request, timeout, policy.StreamResponse, cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -279,6 +306,24 @@ internal sealed class HttpClientCore
         }
     }
 
+    /// <summary>
+    /// Moves the request's <c>Authorization</c> header (the token, or a default header of that name) to the header
+    /// named <paramref name="headerName"/>; nothing changes for <c>null</c>. A header of that name set for the
+    /// single call is applied afterwards and still wins.
+    /// </summary>
+    private static void MoveAuthorization(HttpRequestMessage request, string? headerName)
+    {
+        if (headerName is null || !request.Headers.TryGetValues("Authorization", out var values))
+        {
+            return;
+        }
+
+        var authorization = string.Join(", ", values);
+        request.Headers.Remove("Authorization");
+        request.Headers.Remove(headerName);
+        request.Headers.TryAddWithoutValidation(headerName, authorization);
+    }
+
     /// <summary>Sets each header on the request, replacing any value already set under the same name.</summary>
     private static void SetHeaders(HttpRequestMessage request, IReadOnlyDictionary<string, string>? headers)
     {
@@ -289,17 +334,26 @@ internal sealed class HttpClientCore
 
         foreach (var header in headers)
         {
+            // Content headers are set on the body (see BuildRequest); the request's header collection rejects them.
+            if (IsContentHeader(header.Key))
+            {
+                continue;
+            }
+
             request.Headers.Remove(header.Key);
             request.Headers.TryAddWithoutValidation(header.Key, header.Value);
         }
     }
+
+    private static bool IsContentHeader(string name) => name.StartsWith(ContentHeaderPrefix, StringComparison.OrdinalIgnoreCase);
 
     /// <summary>Builds a fully-prepared request with auth, User-Agent, content type and extra headers.</summary>
     private HttpRequestMessage BuildRequest(
         HttpMethod method,
         string url,
         PreparedBody prepared,
-        IReadOnlyDictionary<string, string>? extraHeaders)
+        IReadOnlyDictionary<string, string>? extraHeaders,
+        RequestPolicy policy)
     {
         var request = new HttpRequestMessage(method, url);
         request.Headers.TryAddWithoutValidation("User-Agent", UserAgent);
@@ -311,7 +365,12 @@ internal sealed class HttpClientCore
         // The client-wide default headers win over the built-in ones above, and a header set for this single call
         // wins over both.
         SetHeaders(request, _defaultHeaders);
+        MoveAuthorization(request, policy.AuthorizationHeader);
         SetHeaders(request, extraHeaders);
+        if (!policy.FollowRedirects)
+        {
+            request.Options.Set(ApifyRequestOptions.FollowRedirects, false);
+        }
 
         if (prepared.Bytes is not null)
         {
@@ -325,10 +384,35 @@ internal sealed class HttpClientCore
                 content.Headers.ContentEncoding.Add(prepared.ContentEncoding);
             }
 
+            AddContentHeaders(content, extraHeaders);
             request.Content = content;
         }
 
         return request;
+    }
+
+    /// <summary>
+    /// Sets the caller's content headers on the body, except the ones the client derives from the body itself. A
+    /// request without a body has nothing to attach them to (for example <c>Content-Disposition</c>), so they are
+    /// not sent.
+    /// </summary>
+    private static void AddContentHeaders(HttpContent content, IReadOnlyDictionary<string, string>? headers)
+    {
+        if (headers is null)
+        {
+            return;
+        }
+
+        foreach (var header in headers)
+        {
+            if (!IsContentHeader(header.Key) || BodyDerivedContentHeaders.Contains(header.Key, StringComparer.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            content.Headers.Remove(header.Key);
+            content.Headers.TryAddWithoutValidation(header.Key, header.Value);
+        }
     }
 
     /// <summary>
@@ -342,7 +426,7 @@ internal sealed class HttpClientCore
     /// the configured <see cref="HttpCompressor"/>: brotli (<c>Content-Encoding: br</c>) by default, matching
     /// the reference client's preference.
     /// </remarks>
-    private async Task<PreparedBody> PrepareBodyAsync(string? body, byte[]? bodyBytes, string contentType, CancellationToken cancellationToken)
+    private async Task<PreparedBody> PrepareBodyAsync(string? body, byte[]? bodyBytes, string contentType, RequestPolicy policy, CancellationToken cancellationToken)
     {
         var raw = bodyBytes ?? (body is not null ? Encoding.UTF8.GetBytes(body) : null);
         if (raw is null)
@@ -350,13 +434,14 @@ internal sealed class HttpClientCore
             return default;
         }
 
-        if (raw.Length < MinCompressBytes || !IsCompressibleContentType(contentType))
+        if (!policy.CompressBody || raw.Length < MinCompressBytes || !IsCompressibleContentType(contentType))
         {
             return new PreparedBody(raw, contentType, null);
         }
 
-        var compressed = await _compressor.CompressAsync(raw, cancellationToken).ConfigureAwait(false);
-        return new PreparedBody(compressed, contentType, _compressor.ContentEncoding);
+        var compressor = policy.Compressor ?? _compressor;
+        var compressed = await compressor.CompressAsync(raw, cancellationToken).ConfigureAwait(false);
+        return new PreparedBody(compressed, contentType, compressor.ContentEncoding);
     }
 
     /// <summary>
@@ -443,7 +528,10 @@ internal sealed class HttpClientCore
         return scaled < overall ? scaled : overall;
     }
 
-    private static bool IsStatusRetryable(int status) => status == RateLimitExceeded || status >= MinServerError;
+    private static bool IsStatusRetryable(int status, RequestPolicy policy)
+        => policy.RetryStatusCodes is { } codes
+            ? codes.Contains(status)
+            : status == RateLimitExceeded || status >= MinServerError;
 
     /// <summary>Returns a delay chosen randomly from <c>[delay, 2*delay)</c> (exponential backoff + jitter).</summary>
     private static double RandomizedDelayMillis(double delayMillis)

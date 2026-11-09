@@ -6,7 +6,7 @@ namespace Apify.Client.Tests.Unit;
 
 /// <summary>
 /// The typed accessors for fields the OpenAPI specification added to the build, run, storage, webhook, schedule
-/// and request models (spec v2-2026-10-29T100357Z).
+/// and request models (spec v2-2026-11-04T151257Z).
 /// </summary>
 [Trait("Category", "Unit")]
 public sealed class ModelAccessorTests
@@ -97,5 +97,51 @@ public sealed class ModelAccessorTests
             "{\"id\":\"r1\",\"uniqueKey\":\"k\",\"url\":\"https://a.com\",\"handledAt\":null}")!.AsObject());
 
         Assert.Null(request.HandledAt);
+    }
+
+    [Fact]
+    public void ActorExposesItsServerUrlStandbySettingsAndTaggedBuilds()
+    {
+        var actor = new Actor(JsonNode.Parse(
+            "{\"standbyUrl\":\"https://jane--echo.apify.actor\",\"actorStandby\":{\"build\":\"latest\",\"tenancy\":\"SINGLE_TENANT\"},"
+            + "\"taggedBuilds\":{\"latest\":{\"buildId\":\"b1\",\"buildNumber\":\"0.0.1\"}}}")!.AsObject());
+
+        Assert.Equal("https://jane--echo.apify.actor", actor.StandbyUrl);
+        Assert.Equal("SINGLE_TENANT", actor.ActorStandby!["tenancy"]!.GetValue<string>());
+        Assert.Equal("b1", actor.TaggedBuilds!["latest"]!["buildId"]!.GetValue<string>());
+    }
+
+    [Fact]
+    public void ActorWithoutServerSettingsHasNone()
+    {
+        var actor = new Actor(JsonNode.Parse("{\"standbyUrl\":null}")!.AsObject());
+
+        Assert.Null(actor.StandbyUrl);
+        Assert.Null(actor.ActorStandby);
+        Assert.Null(actor.TaggedBuilds);
+    }
+
+    [Fact]
+    public void BuildExposesItsActorDefinition()
+    {
+        var build = new Build(JsonNode.Parse("{\"actorDefinition\":{\"webServerSchema\":{\"openapi\":\"3.0.0\"}}}")!.AsObject());
+
+        Assert.Equal("3.0.0", build.ActorDefinition!["webServerSchema"]!["openapi"]!.GetValue<string>());
+        Assert.Null(new Build(new JsonObject()).ActorDefinition);
+    }
+
+    [Fact]
+    public void ActorVersionExposesItsActorPath()
+    {
+        var version = new ActorVersion(JsonNode.Parse("{\"versionNumber\":\"0.1\",\"actorPath\":\"actors/typescript-actor\"}")!.AsObject());
+
+        Assert.Equal("actors/typescript-actor", version.ActorPath);
+    }
+
+    [Fact]
+    public void ActorVersionWithNullOrNoActorPathHasNone()
+    {
+        Assert.Null(new ActorVersion(JsonNode.Parse("{\"actorPath\":null}")!.AsObject()).ActorPath);
+        Assert.Null(new ActorVersion(new JsonObject()).ActorPath);
     }
 }

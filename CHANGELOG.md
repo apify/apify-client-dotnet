@@ -1,5 +1,36 @@
 # Changelog
 
+## 0.9.0
+
+- Added `ActorClient.Server()`, which returns an `ActorServerClient` for Server Actors (formerly Actor
+  Standby): `RequestAsync` sends a request to the Actor's server (token in `X-Apify-Authorization`, any
+  response returned, only 429 and 503 retried, no redirects followed), `GetUrlAsync` returns the server URL
+  and `GetOpenApiSpecAsync` its OpenAPI specification. New `ActorServerRequestOptions`,
+  `ActorServerResponse` and `ActorServerException`. `Content-*` headers of a request reach the server with the
+  request body.
+- Requests that must not follow redirects set `ApifyRequestOptions.FollowRedirects` to `false`; a custom
+  `IHttpTransport` has to honor it. `HttpClientTransport` takes an optional second `HttpClient` with
+  automatic redirects disabled for them (it creates one when it creates its own `HttpClient`).
+- **Breaking:** `PaginationList<T>.Count` is now the number of entries the API went through for the page, as
+  `count` in the reference client, instead of the number of items. On a page from
+  `DatasetClient.ListItemsAsync` it is the larger of the rows the API scanned for it
+  (`X-Apify-Pagination-Count`) and the items returned, so filters such as `SkipEmpty` or `Clean` can leave it
+  above `Items.Count`. On any other list it is the `count` the API reports, which
+  exceeds `Items.Count` only where the API drops entries after counting them, as the Store listing does. Use
+  `Items.Count` for the number of items: the list's own count (`IReadOnlyCollection<T>.Count`, LINQ's
+  `Count()`), enumeration and indexer still cover the items. Offset iteration steps by `Count`, capped at
+  the requested limit.
+- `CreateItemsPublicUrlAsync` and `CreateKeysPublicUrlAsync` throw `ArgumentOutOfRangeException` before any
+  request for a zero or negative `expiresInSecs`, which used to produce a signed URL that had already expired.
+  Leave it out for a URL that never expires.
+- Documented the page size used when iterating dataset items without `ChunkSize` (the whole dataset in one
+  response).
+- Added `Actor.StandbyUrl`/`ActorStandby`/`TaggedBuilds`, `Build.ActorDefinition` and
+  `ActorVersion.ActorPath` (the Actor's directory inside an uploaded `SOURCE_FILES` or `TARBALL` source).
+- Bumped `ApifyClientVersion.ApiSpecVersion` to the Apify OpenAPI spec `v2-2026-11-04T151257Z` and the
+  project version to `0.9.0`; regenerated the embedded response schemas (`actorPath` on versions and
+  builds).
+
 ## 0.8.0
 
 - `PushItemsAsync` no longer retries a request that timed out, because the API may already have stored the

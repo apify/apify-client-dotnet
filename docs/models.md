@@ -41,6 +41,9 @@ Base class for every JSON-backed model below.
 | `IsPublic` | `bool?` | Whether the Actor is published publicly in the Apify Store. |
 | `CreatedAt` | `string?` | ISO 8601 creation timestamp. |
 | `ModifiedAt` | `string?` | ISO 8601 last-modification timestamp. |
+| `StandbyUrl` | `string?` | URL of the Actor's server when it is a Server Actor (see [`ActorServerClient`](actors.md#server-actors--clientactoridserver)); `null` otherwise. |
+| `ActorStandby` | `JsonObject?` | The Server Actor settings: `isEnabled`, `build`, `memoryMbytes`, `idleTimeoutSecs`, `tenancy` (`SINGLE_TENANT` or `MULTI_TENANT`) and others. |
+| `TaggedBuilds` | `JsonObject?` | The builds the Actor's tags point to, keyed by tag (e.g. `latest`); each value has `buildId` and `buildNumber`. |
 
 ## `ActorRun`
 
@@ -78,6 +81,7 @@ Base class for every JSON-backed model below.
 | `ExitCode` | `long?` | Exit code of the build process (`0` on success); absent while building. |
 | `GitBranchName` | `string?` | Git branch the build's source was taken from, for Git-based sources. |
 | `GitCommitId` | `string?` | Git commit the build's source was taken from, for Git-based sources. |
+| `ActorDefinition` | `JsonObject?` | The Actor definition the build was made from, including its `webServerSchema`. |
 | `IsTerminal` | `bool` | `true` if `Status` is a terminal state. |
 
 ## `ActorVersion`
@@ -86,6 +90,7 @@ Base class for every JSON-backed model below.
 |---|---|---|
 | `VersionNumber` | `string?` | The version's number (e.g. `0.1`). |
 | `SourceType` | `string?` | How the source is provided (e.g. `SOURCE_FILES`, `GIT_REPO`, `TARBALL`, `GITHUB_GIST`). |
+| `ActorPath` | `string?` | The Actor's directory inside the uploaded source of a `SOURCE_FILES` or `TARBALL` version (relative to the upload root, `/` separators, e.g. `actors/typescript-actor`); `null` when the upload root is the Actor's directory. A `TARBALL` source is a zip archive. |
 
 ## `ActorEnvVar`
 
@@ -351,7 +356,7 @@ One page of a paginated listing, returned by every `ListAsync` method.
 | Property | Type | Description |
 |---|---|---|
 | `Items` | `IReadOnlyList<T>` | The items on this page. |
-| `Count` | `long` | Number of items on this page (equals `Items.Count`). |
+| `Count` | `long` | Number of entries the API went through for this page. On a page of dataset items, the larger of the dataset rows it scanned and the items returned, so filters such as `SkipEmpty` or `Clean` can leave it above `Items.Count`; the next page starts at `Offset + Math.Min(Count, Limit)`. On any other page, the `count` the API reports, which is the number of items except where the API drops entries after counting them (the Store listing). Use `Items.Count` for the number of items: the list's own count (`IReadOnlyCollection<T>.Count`, LINQ's `Count()`), enumeration and indexer cover the items only. |
 | `Total` | `long` | Total number of items across all pages. |
 | `Offset` | `long` | The offset this page started at. |
 | `Limit` | `long` | The page-size limit that was applied. |

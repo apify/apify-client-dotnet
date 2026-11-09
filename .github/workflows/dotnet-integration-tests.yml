@@ -52,7 +52,11 @@ jobs:
 
       # Offline unit tests (mock transport): prove the retry/error/signature logic without the API. Every test step
       # sets TreatNoTestsAsError, so a filter that matches no tests fails the workflow instead of passing.
+      # The tests run in a non-UTC time zone, so that a date converted with the machine's local time zone shows
+      # up as a failure instead of passing by accident on the UTC runner.
       - name: Unit tests
+        env:
+          TZ: Asia/Tokyo
         run: dotnet test --configuration Release --no-build --filter Category=Unit -- RunConfiguration.TreatNoTestsAsError=true
 
       # Fail fast if the integration-test secret is missing or empty. Without this guard the

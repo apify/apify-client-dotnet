@@ -43,7 +43,7 @@ public sealed class ActorEnvVarClient
 
     /// <summary>
     /// Returns this client with every subsequent call's timeout set to <paramref name="timeout"/>,
-    /// overriding the tier default (see the "Timeout tiers" section of the top-level README). Pass
+    /// overriding the tier default (see the "Timeout tiers" section of docs/README.md). Pass
     /// <see cref="TimeSpan.Zero"/> for no timeout, matching the reference client's <c>'noTimeout'</c>. A
     /// value above <see cref="ApifyClientOptions.TimeoutSecs"/> (the overall budget) is capped at it —
     /// raise <see cref="ApifyClientOptions.TimeoutSecs"/> itself to allow a longer per-call timeout.

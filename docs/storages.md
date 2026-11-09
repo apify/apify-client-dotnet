@@ -27,7 +27,9 @@ reached from a run (`client.Run(id).Dataset()`, `.KeyValueStore()`, `.RequestQue
 
 - `GetAsync()` → `Dataset?`; `UpdateAsync(object newFields)` → `Dataset`; `DeleteAsync()`.
 - `ListItemsAsync(DatasetListItemsOptions? options = null)` → `PaginationList<JsonNode?>` (one page; pagination via
-  response headers).
+  response headers). The page's `Count` is the larger of the dataset rows the API scanned and the items returned,
+  so `Clean`/`SkipEmpty` can leave it above `Items.Count`; to page by hand, request the next page at
+  `Offset + Math.Min(Count, Limit)`, and use `Items.Count` for the number of items.
 - `IterateItemsAsync(DatasetListItemsOptions? options = null)` → `IAsyncEnumerable<JsonNode?>` — lazily iterate every
   item across pages, fetching each page on demand.
 - `DownloadItemsAsync(DownloadItemsFormat format, DatasetDownloadOptions? options = null)` → serialized items as
@@ -40,11 +42,12 @@ reached from a run (`client.Run(id).Dataset()`, `.KeyValueStore()`, `.RequestQue
   serialization). Anything else, such as a bare number or an array of non-objects, throws `ArgumentException`
   before a request is sent, because the API accepts only objects.
 - `GetStatisticsAsync()` → `JsonObject` (throws if the dataset does not exist).
-- `CreateItemsPublicUrlAsync(DatasetListItemsOptions? options = null, int? expiresInSecs = null, DownloadItemsFormat? format = null)` → `string` (a signed public URL; `format` defaults to `Json`).
+- `CreateItemsPublicUrlAsync(DatasetListItemsOptions? options = null, int? expiresInSecs = null, DownloadItemsFormat? format = null)` → `string` (a signed public URL; `format` defaults to `Json`; `expiresInSecs` must be positive, leave it out for a URL that never expires, otherwise `ArgumentOutOfRangeException` is thrown before any request).
 
 `DatasetListItemsOptions` selects and reshapes items: `Offset`/`Limit` (pagination: `Limit` is the number of
 dataset rows read, in total across pages when iterating; `0` or unset means no cap), `ChunkSize` (the page
-size `IterateItemsAsync` requests, never sent to the API), `Desc` (reverse
+size `IterateItemsAsync` requests, never sent to the API; without it and `Limit`, iteration loads the whole
+dataset in one response), `Desc` (reverse
 order), `Fields`/`OutputFields`/`Omit` (choose columns), `Unwind`/`Flatten` (restructure nested
 fields), `Clean`/`SkipEmpty`/`SkipHidden`/`SkipFailedPages` (drop unwanted rows), `Simplified`,
 `View`, and `Signature` (for signed public URLs).
@@ -87,7 +90,7 @@ var client = new ApifyClient("my-api-token");
 var dataset = await client.Datasets().GetOrCreateAsync("my-dataset");
 await client.Dataset(dataset.Id!).PushItemsAsync(new[] { new { url = "https://a.com", n = 1 } });
 var page = await client.Dataset(dataset.Id!).ListItemsAsync(new DatasetListItemsOptions { Limit = 100 });
-Console.WriteLine(page.Count); // items in this page; page.Total is the count across all pages
+Console.WriteLine(page.Items.Count); // items in this page; page.Total is the count across all pages
 var csvBytes = await client.Dataset(dataset.Id!).DownloadItemsAsync(DownloadItemsFormat.Csv);
 Console.WriteLine(Encoding.UTF8.GetString(csvBytes)); // CSV is text; decode the raw bytes
 
@@ -114,7 +117,7 @@ await csvStream.CopyToAsync(file);
   `SetRecordJsonAsync(string key, object? value)` (serializes `value` to JSON bytes).
 - `DeleteRecordAsync(string key)`.
 - `GetRecordPublicUrlAsync(string key)` → `string` and
-  `CreateKeysPublicUrlAsync(ListKeysOptions? options = null, int? expiresInSecs = null)` → `string` (both signed public URLs).
+  `CreateKeysPublicUrlAsync(ListKeysOptions? options = null, int? expiresInSecs = null)` → `string` (both signed public URLs; `expiresInSecs` must be positive, leave it out for a URL that never expires, otherwise `ArgumentOutOfRangeException` is thrown before any request).
 
 `ListKeysOptions` fields: `Limit` (page size), `ExclusiveStartKey` (start after this key),
 `Prefix` (only keys with this prefix), `Collection` (a named record collection), and `Signature`

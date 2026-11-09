@@ -59,8 +59,12 @@ jobs:
       - name: Build (warnings as errors)
         run: dotnet build --configuration Release --no-restore
 
+      # The same settings as the unit-test step of the CI workflow: a non-UTC time zone, and a filter that matches
+      # no tests fails the release gate instead of passing it.
       - name: Unit tests
-        run: dotnet test --configuration Release --no-build --filter Category=Unit
+        env:
+          TZ: Asia/Tokyo
+        run: dotnet test --configuration Release --no-build --filter Category=Unit -- RunConfiguration.TreatNoTestsAsError=true
 
       - name: Resolve version from csproj
         id: version
