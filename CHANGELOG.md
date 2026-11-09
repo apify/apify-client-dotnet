@@ -11,11 +11,15 @@
 - Requests that must not follow redirects set `ApifyRequestOptions.FollowRedirects` to `false`; a custom
   `IHttpTransport` has to honor it. `HttpClientTransport` takes an optional second `HttpClient` with
   automatic redirects disabled for them (it creates one when it creates its own `HttpClient`).
-- **Breaking:** `PaginationList<T>.Count` of a page from `DatasetClient.ListItemsAsync` is now the larger of
-  the rows the API scanned for it (`X-Apify-Pagination-Count`) and the items returned, as `count` in the
-  reference client. Filters such as `SkipEmpty` or `Clean` can leave it above `Items.Count`, so code that
-  indexes a page up to `Count` must use `Items.Count` instead. On every other page `Count` still equals
-  `Items.Count`. Offset iteration of dataset items steps by `Count`, capped at the requested limit.
+- **Breaking:** `PaginationList<T>.Count` is now the number of entries the API went through for the page, as
+  `count` in the reference client, instead of the number of items. On a page from
+  `DatasetClient.ListItemsAsync` it is the larger of the rows the API scanned for it
+  (`X-Apify-Pagination-Count`) and the items returned, so filters such as `SkipEmpty` or `Clean` can leave it
+  above `Items.Count`. On any other list it is the `count` the API reports, which
+  exceeds `Items.Count` only where the API drops entries after counting them, as the Store listing does. Use
+  `Items.Count` for the number of items: the list's own count (`IReadOnlyCollection<T>.Count`, LINQ's
+  `Count()`), enumeration and indexer still cover the items. Offset iteration steps by `Count`, capped at
+  the requested limit.
 - `CreateItemsPublicUrlAsync` and `CreateKeysPublicUrlAsync` throw `ArgumentOutOfRangeException` before any
   request for a zero or negative `expiresInSecs`, which used to produce a signed URL that had already expired.
   Leave it out for a URL that never expires.

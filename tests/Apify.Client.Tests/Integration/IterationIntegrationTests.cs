@@ -395,7 +395,7 @@ public sealed class IterationIntegrationTests : IntegrationTestBase
             await dataset.PushItemsAsync(new object[] { new { n = 1 }, new Dictionary<string, object> { ["#hidden"] = 1 }, new { n = 3 } });
 
             var clean = new DatasetListItemsOptions { Clean = true, Limit = 3 };
-            var page = await dataset.ListItemsAsync(clean);
+            PaginationList<System.Text.Json.Nodes.JsonNode?>? page = null;
             Assert.True(
                 await PollUntilAsync(
                     EventualConsistencyAttempts,
@@ -405,7 +405,7 @@ public sealed class IterationIntegrationTests : IntegrationTestBase
                         page = await dataset.ListItemsAsync(clean);
                         return page.Items.Count == 2 && page.Count == 3;
                     }),
-                "expected a cleaned page with two items to report three rows in Count; got " + page.Items.Count + " items, Count " + page.Count);
+                "expected a cleaned page with two items to report three rows in Count; got " + page?.Items.Count + " items, Count " + page?.Count);
 
             // Offset iteration steps by Count, so a one-row chunk still reads both surviving rows once.
             var seen = new List<int>();

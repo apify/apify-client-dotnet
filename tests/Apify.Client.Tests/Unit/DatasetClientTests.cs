@@ -66,6 +66,7 @@ public sealed class DatasetClientTests
         // enumeration and indexer still cover the items only.
         Assert.Equal(4, page.Count);
         Assert.Single((IEnumerable<System.Text.Json.Nodes.JsonNode?>)page);
+        Assert.Equal(page.Items.Count, ((IReadOnlyCollection<System.Text.Json.Nodes.JsonNode?>)page).Count);
         Assert.Equal(10, page.Total);
     }
 
@@ -92,14 +93,15 @@ public sealed class DatasetClientTests
     }
 
     [Fact]
-    public async Task ListingPagesOtherThanDatasetItemsHaveCountEqualToTheirItems()
+    public async Task ListingPagesHaveTheCountTheApiReports()
     {
-        var transport = new MockTransport().QueueResponse(200, SpecFixtures.ActorPage(1, "a1"));
+        // The Store listing drops entries after counting them, so `count` can exceed the items returned.
+        var transport = new MockTransport().QueueResponse(200, SpecFixtures.PageWithCount(2, 3, SpecFixtures.ActorItem("a1"), SpecFixtures.ActorItem("a2")));
 
         var page = await Client(transport).Actors().ListAsync();
 
-        Assert.Equal(1, page.Count);
-        Assert.Single(page.Items);
+        Assert.Equal(3, page.Count);
+        Assert.Equal(2, page.Items.Count);
     }
 
     [Theory]

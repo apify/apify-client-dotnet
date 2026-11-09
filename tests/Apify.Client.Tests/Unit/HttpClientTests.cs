@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using Apify.Client.Exceptions;
 using Apify.Client.Options;
@@ -105,19 +106,20 @@ public sealed class HttpClientTests
     }
 
     [Fact]
-    public async Task PaginationCountReflectsItemsNotServerMetadata()
+    public async Task PaginationCountIsTheApiCountWhileTheIndexerCoversTheItems()
     {
-        // Server reports total/count larger than the items actually returned in this page. Count and the
-        // indexer must operate on the item array so `for (i < Count) page[i]` cannot throw; Total keeps the
-        // API's reported total.
+        // The server reports total/count larger than the items returned in this page (as the Store listing
+        // does when it drops entries after counting them). Count and Total keep the API's values, while the
+        // list's own count, enumeration and indexer cover the items, so indexing up to Items.Count cannot throw.
         var body = SpecFixtures.ActorPage(2, "a", "b").Replace("\"total\":2", "\"total\":100", StringComparison.Ordinal).Replace("\"count\":2", "\"count\":100", StringComparison.Ordinal);
         var transport = new MockTransport().QueueResponse(200, body);
         var page = await Client(transport).Actors().ListAsync();
 
         Assert.Equal(100, page.Total);
-        Assert.Equal(2, page.Count);
+        Assert.Equal(100, page.Count);
         Assert.Equal(2, page.Items.Count);
-        for (var i = 0; i < page.Count; i++)
+        Assert.Equal(2, ((IReadOnlyCollection<Apify.Client.Models.Actor>)page).Count);
+        for (var i = 0; i < page.Items.Count; i++)
         {
             Assert.NotNull(page[i]); // must not throw IndexOutOfRange
         }
