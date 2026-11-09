@@ -350,7 +350,7 @@ public sealed class RunClient
             // Only a page that returned nothing and scanned no rows marks the end: filters can shorten a
             // full page, or empty one that still scanned rows. When a filter could have hidden every row
             // past a lagging `itemCount`, a plain one-row read confirms nothing is left.
-            if (page.ScannedRows == 0
+            if (page.Count == 0
                 && (!options.HasRowFilters || await IsDatasetExhaustedAsync(datasetClient, position, cancellationToken).ConfigureAwait(false)))
             {
                 yield break;

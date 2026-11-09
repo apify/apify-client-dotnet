@@ -111,7 +111,7 @@ public sealed class DatasetClient
             async (offset, pageLimit, token) =>
             {
                 var page = await FetchItemsPageAsync(baseQuery.PageQuery(offset, pageLimit), desc, token).ConfigureAwait(false);
-                return new FetchedPage<JsonNode?>(page.Items, page.ScannedRows);
+                return new FetchedPage<JsonNode?>(page.Items, page.Count);
             },
             cancellationToken);
     }
@@ -126,7 +126,7 @@ public sealed class DatasetClient
 
     /// <summary>
     /// Fetches a single page of dataset items. The endpoint returns a bare JSON array with pagination in
-    /// <c>X-Apify-Pagination-*</c> response headers. The page's <see cref="PaginationList{T}.ScannedRows"/> is the
+    /// <c>X-Apify-Pagination-*</c> response headers. The page's <see cref="PaginationList{T}.Count"/> is the
     /// number of rows the API scanned to produce it (<c>X-Apify-Pagination-Count</c>), which the offset
     /// iterator paginates by (see <see cref="IterateItemsAsync"/>). The header is derived from the dataset's
     /// item count, which lags a fresh push, so the item count is used when it is larger or the header is absent.

@@ -11,23 +11,22 @@ namespace Apify.Client.Models;
 /// </summary>
 /// <remarks>
 /// The pagination metadata (<see cref="Total"/>, <see cref="Offset"/>, <see cref="Limit"/>,
-/// <see cref="Count"/>, <see cref="Desc"/>) accompanies the <see cref="Items"/>. <see cref="Count"/> is
-/// always the number of items in <em>this</em> page (so <c>this[i]</c> is valid for
-/// <c>0 &lt;= i &lt; Count</c>); the API's total across all pages is exposed separately as
-/// <see cref="Total"/>. A page of dataset items also reports the rows the API scanned for it as
-/// <see cref="ScannedRows"/>. Note: <see cref="Total"/> reflects the API's reported total, which can
-/// briefly lag immediately after a write (the count is computed asynchronously) — re-read after a short
-/// delay if you need an exact post-write total.
+/// <see cref="Count"/>, <see cref="Desc"/>) accompanies the <see cref="Items"/>. <see cref="Count"/> is the
+/// number of entries on <em>this</em> page, which on a page of dataset items can differ from the number of
+/// items returned: use <c>Items.Count</c> (or the list's own enumeration and indexer) for the items. The API's
+/// total across all pages is exposed separately as <see cref="Total"/>. Note: <see cref="Total"/> reflects the
+/// API's reported total, which can briefly lag immediately after a write (the count is computed
+/// asynchronously) — re-read after a short delay if you need an exact post-write total.
 /// </remarks>
 /// <typeparam name="T">The hydrated item type.</typeparam>
 public sealed class PaginationList<T> : IReadOnlyList<T>
 {
     private readonly IReadOnlyList<T> _items;
 
-    private PaginationList(IReadOnlyList<T> items, long scannedRows, long total, long offset, long limit, bool desc)
+    private PaginationList(IReadOnlyList<T> items, long count, long total, long offset, long limit, bool desc)
     {
         _items = items;
-        ScannedRows = scannedRows;
+        Count = count;
         Total = total;
         Offset = offset;
         Limit = limit;
@@ -61,13 +60,13 @@ public sealed class PaginationList<T> : IReadOnlyList<T>
     /// a bare array with pagination in response headers).
     /// </summary>
     /// <param name="items">The page items.</param>
-    /// <param name="scannedRows">The rows the API scanned for the page, or the item count when that is larger.</param>
+    /// <param name="count">The rows the API scanned for the page, or the item count when that is larger.</param>
     /// <param name="total">Total number of items available across all pages.</param>
     /// <param name="offset">Number of items skipped at the start.</param>
     /// <param name="limit">Maximum number of items the API would return.</param>
     /// <param name="desc">Whether the items are in descending order.</param>
-    internal static PaginationList<T> FromItems(IReadOnlyList<T> items, long scannedRows, long total, long offset, long limit, bool desc)
-        => new(items, scannedRows, total, offset, limit, desc);
+    internal static PaginationList<T> FromItems(IReadOnlyList<T> items, long count, long total, long offset, long limit, bool desc)
+        => new(items, count, total, offset, limit, desc);
 
     /// <summary>The items of this page (never <c>null</c>).</summary>
     public IReadOnlyList<T> Items => _items;
@@ -82,22 +81,15 @@ public sealed class PaginationList<T> : IReadOnlyList<T>
     public long Limit { get; }
 
     /// <summary>
-    /// Number of items in this page (always equal to <c>Items.Count</c>). Use <see cref="Total"/> for the
-    /// count across all pages, and <see cref="ScannedRows"/> for the dataset rows the page covers.
+    /// Number of entries on this page. On a page from <see cref="Resources.DatasetClient.ListItemsAsync"/>, the
+    /// number of dataset rows the API scanned for it, or the number of items returned when that is larger, so
+    /// filters such as <see cref="Options.DatasetListItemsOptions.SkipEmpty"/> or
+    /// <see cref="Options.DatasetListItemsOptions.Clean"/> can leave it above <c>Items.Count</c>. The next page
+    /// starts at <c>Offset + Math.Min(Count, Limit)</c>; the cap matters only with
+    /// <see cref="Options.DatasetListItemsOptions.Unwind"/>, which can return more items than the rows scanned.
+    /// On every other page it equals <c>Items.Count</c>. Use <see cref="Total"/> for the count across all pages.
     /// </summary>
-    public long Count => _items.Count;
-
-    /// <summary>
-    /// Number of entries the API went through to produce this page. On a page of dataset items it is the
-    /// number of dataset rows the API scanned, or the number of items returned when that is larger, so filters
-    /// such as <see cref="Options.DatasetListItemsOptions.SkipEmpty"/> or
-    /// <see cref="Options.DatasetListItemsOptions.Clean"/> can leave it above <c>Items.Count</c>. The next
-    /// page starts at <c>Offset + Math.Min(ScannedRows, Limit)</c>; the cap matters only with
-    /// <see cref="Options.DatasetListItemsOptions.Unwind"/>, which can return more items than the rows
-    /// scanned. On every other page it equals <c>Items.Count</c>. It corresponds to <c>count</c> of a page in
-    /// the reference client, which reports the scanned rows there.
-    /// </summary>
-    public long ScannedRows { get; }
+    public long Count { get; }
 
     /// <summary>Whether the items are in descending order.</summary>
     public bool Desc { get; }

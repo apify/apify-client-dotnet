@@ -11,10 +11,11 @@
 - Requests that must not follow redirects set `ApifyRequestOptions.FollowRedirects` to `false`; a custom
   `IHttpTransport` has to honor it. `HttpClientTransport` takes an optional second `HttpClient` with
   automatic redirects disabled for them (it creates one when it creates its own `HttpClient`).
-- Added `PaginationList<T>.ScannedRows`, the number of dataset rows the API scanned for a page of dataset
-  items (or the returned item count when larger), which filters such as `SkipEmpty` can leave above
-  `Items.Count`; on every other page it equals `Items.Count`. It corresponds to `count` of a page in the
-  reference client; `Count` stays the number of items on the page.
+- **Breaking:** `PaginationList<T>.Count` of a page from `DatasetClient.ListItemsAsync` is now the larger of
+  the rows the API scanned for it (`X-Apify-Pagination-Count`) and the items returned, as `count` in the
+  reference client. Filters such as `SkipEmpty` or `Clean` can leave it above `Items.Count`, so code that
+  indexes a page up to `Count` must use `Items.Count` instead. On every other page `Count` still equals
+  `Items.Count`. Offset iteration of dataset items steps by `Count`, capped at the requested limit.
 - `CreateItemsPublicUrlAsync` and `CreateKeysPublicUrlAsync` throw `ArgumentOutOfRangeException` before any
   request for a zero or negative `expiresInSecs`, which used to produce a signed URL that had already expired.
   Leave it out for a URL that never expires.

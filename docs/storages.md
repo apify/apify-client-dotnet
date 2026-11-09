@@ -27,7 +27,9 @@ reached from a run (`client.Run(id).Dataset()`, `.KeyValueStore()`, `.RequestQue
 
 - `GetAsync()` → `Dataset?`; `UpdateAsync(object newFields)` → `Dataset`; `DeleteAsync()`.
 - `ListItemsAsync(DatasetListItemsOptions? options = null)` → `PaginationList<JsonNode?>` (one page; pagination via
-  response headers).
+  response headers). The page's `Count` is the larger of the dataset rows the API scanned and the items returned,
+  so `Clean`/`SkipEmpty` can leave it above `Items.Count`; to page by hand, request the next page at
+  `Offset + Math.Min(Count, Limit)`, and use `Items.Count` for the number of items.
 - `IterateItemsAsync(DatasetListItemsOptions? options = null)` → `IAsyncEnumerable<JsonNode?>` — lazily iterate every
   item across pages, fetching each page on demand.
 - `DownloadItemsAsync(DownloadItemsFormat format, DatasetDownloadOptions? options = null)` → serialized items as
@@ -88,7 +90,7 @@ var client = new ApifyClient("my-api-token");
 var dataset = await client.Datasets().GetOrCreateAsync("my-dataset");
 await client.Dataset(dataset.Id!).PushItemsAsync(new[] { new { url = "https://a.com", n = 1 } });
 var page = await client.Dataset(dataset.Id!).ListItemsAsync(new DatasetListItemsOptions { Limit = 100 });
-Console.WriteLine(page.Count); // items in this page; page.Total is the count across all pages
+Console.WriteLine(page.Items.Count); // items in this page; page.Total is the count across all pages
 var csvBytes = await client.Dataset(dataset.Id!).DownloadItemsAsync(DownloadItemsFormat.Csv);
 Console.WriteLine(Encoding.UTF8.GetString(csvBytes)); // CSV is text; decode the raw bytes
 

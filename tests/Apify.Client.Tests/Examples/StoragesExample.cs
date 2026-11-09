@@ -17,7 +17,7 @@ public static class StoragesExample
         {
             await client.Dataset(dataset.Id!).PushItemsAsync(new[] { new { hello = "world" } });
             var items = await client.Dataset(dataset.Id!).ListItemsAsync(new DatasetListItemsOptions());
-            Console.WriteLine("Dataset items: " + items.Count);
+            Console.WriteLine("Dataset items: " + items.Items.Count);
         }
         finally
         {

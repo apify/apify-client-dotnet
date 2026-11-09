@@ -381,4 +381,44 @@ public sealed class IterationIntegrationTests : IntegrationTestBase
             await client.Dataset(ds.Id!).DeleteAsync();
         }
     }
+
+    [SkippableFact]
+    public async Task ListItemsCountCoversTheRowsScannedByAFilterAndIterationReadsEveryRow()
+    {
+        var client = RequireClient();
+        var ds = await client.Datasets().GetOrCreateAsync(UniqueName("ds-count"));
+        try
+        {
+            var dataset = client.Dataset(ds.Id!);
+            // `Clean` drops the middle row (only a hidden field) after offset/limit, so the page returns two
+            // items from three scanned rows.
+            await dataset.PushItemsAsync(new object[] { new { n = 1 }, new Dictionary<string, object> { ["#hidden"] = 1 }, new { n = 3 } });
+
+            var clean = new DatasetListItemsOptions { Clean = true, Limit = 3 };
+            var page = await dataset.ListItemsAsync(clean);
+            Assert.True(
+                await PollUntilAsync(
+                    EventualConsistencyAttempts,
+                    EventualConsistencyBackoff,
+                    async () =>
+                    {
+                        page = await dataset.ListItemsAsync(clean);
+                        return page.Items.Count == 2 && page.Count == 3;
+                    }),
+                "expected a cleaned page with two items to report three rows in Count; got " + page.Items.Count + " items, Count " + page.Count);
+
+            // Offset iteration steps by Count, so a one-row chunk still reads both surviving rows once.
+            var seen = new List<int>();
+            await foreach (var item in dataset.IterateItemsAsync(new DatasetListItemsOptions { Clean = true, ChunkSize = 1 }))
+            {
+                seen.Add(item!["n"]!.GetValue<int>());
+            }
+
+            Assert.Equal(new[] { 1, 3 }, seen);
+        }
+        finally
+        {
+            await client.Dataset(ds.Id!).DeleteAsync();
+        }
+    }
 }

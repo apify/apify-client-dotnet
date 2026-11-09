@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Threading.Tasks;
 using Apify.Client.Exceptions;
 using Apify.Client.Options;
@@ -46,7 +47,7 @@ public sealed class DatasetClientTests
     }
 
     [Fact]
-    public async Task ListItemsReportsTheRowsScannedSeparatelyFromTheItemCountOfThePage()
+    public async Task ListItemsCountIsTheRowsScannedWhenAFilterReturnsFewerItems()
     {
         // `skipEmpty` applies after offset/limit, so a page can scan more rows than it returns items.
         var headers = new Dictionary<string, string>
@@ -61,35 +62,44 @@ public sealed class DatasetClientTests
         var page = await Client(transport).Dataset("ds1").ListItemsAsync(new DatasetListItemsOptions { SkipEmpty = true, Limit = 4 });
 
         Assert.Single(page.Items);
-        // `Count` stays the number of items, so indexing by it and the list's own count agree.
-        Assert.Equal(1, page.Count);
+        // `Count` is the rows scanned, which a filter leaves above the items returned; the list's own
+        // enumeration and indexer still cover the items only.
+        Assert.Equal(4, page.Count);
         Assert.Single((IEnumerable<System.Text.Json.Nodes.JsonNode?>)page);
-        Assert.Equal(4, page.ScannedRows);
         Assert.Equal(10, page.Total);
     }
 
-    [Fact]
-    public async Task ListItemsScannedRowsAreTheReturnedItemsWhenTheHeaderIsAbsentOrLower()
+    [Theory]
+    [InlineData("3", 1, 3)] // filtered page: scanned rows above the items returned
+    [InlineData("0", 2, 2)] // lagging header: the items returned
+    [InlineData("1", 2, 2)] // unwound page: more items than the rows scanned
+    [InlineData(null, 1, 1)] // header absent: the items returned
+    public async Task ListItemsCountIsTheLargerOfTheScannedRowsAndTheItemsReturned(string? scanned, int returned, long expectedCount)
     {
-        var lagging = new Dictionary<string, string> { ["X-Apify-Pagination-Count"] = "0" };
-        var transport = new MockTransport()
-            .QueueResponse(200, "[{\"i\":1},{\"i\":2}]", lagging)
-            .QueueResponse(200, "[{\"i\":1},{\"i\":2},{\"i\":3}]");
-        var dataset = Client(transport).Dataset("ds1");
+        var headers = new Dictionary<string, string>();
+        if (scanned is not null)
+        {
+            headers["X-Apify-Pagination-Count"] = scanned;
+        }
 
-        Assert.Equal(2, (await dataset.ListItemsAsync()).ScannedRows);
-        Assert.Equal(3, (await dataset.ListItemsAsync()).ScannedRows);
+        var body = "[" + string.Join(",", Enumerable.Range(1, returned).Select(static n => "{\"a\":" + n + "}")) + "]";
+        var transport = new MockTransport().QueueResponse(200, body, headers);
+
+        var page = await Client(transport).Dataset("ds1").ListItemsAsync(new DatasetListItemsOptions { Limit = 3 });
+
+        Assert.Equal(expectedCount, page.Count);
+        Assert.Equal(returned, page.Items.Count);
     }
 
     [Fact]
-    public async Task ListingPagesOtherThanDatasetItemsHaveScannedRowsEqualToTheirItems()
+    public async Task ListingPagesOtherThanDatasetItemsHaveCountEqualToTheirItems()
     {
         var transport = new MockTransport().QueueResponse(200, SpecFixtures.ActorPage(1, "a1"));
 
         var page = await Client(transport).Actors().ListAsync();
 
         Assert.Equal(1, page.Count);
-        Assert.Equal(1, page.ScannedRows);
+        Assert.Single(page.Items);
     }
 
     [Theory]
