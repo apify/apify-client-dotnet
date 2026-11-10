@@ -12,9 +12,8 @@ public sealed class ActorListOptions
     public int? Limit { get; init; }
 
     /// <summary>
-    /// Maximum number of items requested per API call when iterating across pages (must be positive). Only
-    /// iteration uses it, as the page size; it is never sent to the API. The effective page size is the
-    /// smaller of this and the remaining <c>Limit</c>. Defaults to the API's own page size.
+    /// Maximum items requested per API call when iterating, which must be positive. It sizes the pages and is never sent to
+    /// the API; the page size is the smaller of this and the remaining <c>Limit</c>. Defaults to the API's page size.
     /// </summary>
     public int? ChunkSize { get; init; }
 

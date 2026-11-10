@@ -71,9 +71,8 @@ public sealed class ActorRunIntegrationTests : IntegrationTestBase
         // hello-world pushes an item, so an iterator that yields nothing is a failure.
         Assert.NotEmpty(iterated);
 
-        // The run is finished, so its dataset is complete. The dataset listing lags the pushed items by a few
-        // seconds (which is why the iterator drains past the reported item count), so it must catch up to
-        // exactly the items the iterator already read.
+        // The dataset listing lags the pushed items, which is why the iterator reads past the reported item count, so it must
+        // catch up to the items the iterator read.
         var listed = new List<string>();
         Assert.True(
             await PollUntilAsync(

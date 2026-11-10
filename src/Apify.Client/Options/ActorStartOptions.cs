@@ -32,21 +32,16 @@ public sealed class ActorStartOptions
     public bool? RestartOnError { get; init; }
 
     /// <summary>
-    /// Retries the start while the account lacks the memory or a concurrent-run slot for the run (an
-    /// <c>actor-memory-limit-exceeded</c>/<c>concurrent-runs-limit-exceeded</c> error), instead of throwing
-    /// immediately. <c>null</c> (the default) disables retrying.
+    /// Retries the start while the account lacks the memory or a concurrent-run slot
+    /// (<c>actor-memory-limit-exceeded</c>, <c>concurrent-runs-limit-exceeded</c>) instead of throwing. <c>null</c> (the
+    /// default) does not retry.
     /// </summary>
     public WaitForResources? WaitForResources { get; init; }
 
-    /// <summary>
-    /// Override the Actor's permission level for this run (<c>LIMITED_PERMISSIONS</c>/<c>FULL_PERMISSIONS</c>).
-    /// </summary>
+    /// <summary>Overrides the Actor's permission level for this run (<c>LIMITED_PERMISSIONS</c> or <c>FULL_PERMISSIONS</c>).</summary>
     public string? ForcePermissionLevel { get; init; }
 
-    /// <summary>
-    /// Ad-hoc webhooks to attach to this run; a JSON-serializable list serialized to base64-encoded JSON
-    /// as the <c>webhooks</c> query parameter.
-    /// </summary>
+    /// <summary>Ad-hoc webhooks for this run: a JSON-serializable list, sent as base64-encoded JSON in the <c>webhooks</c> query parameter.</summary>
     public object? Webhooks { get; init; }
 
     /// <summary>The configured content type, or the JSON default when unset.</summary>
@@ -67,9 +62,8 @@ public sealed class ActorStartOptions
     }
 
     /// <summary>
-    /// Encodes an ad-hoc webhooks list as base64-encoded JSON, as the API's <c>webhooks</c> query
-    /// parameter requires. Returns <c>null</c> for a <c>null</c> list. Shared by Actor and task start
-    /// options.
+    /// Encodes ad-hoc webhooks as base64-encoded JSON for the <c>webhooks</c> query parameter; <c>null</c> for <c>null</c>.
+    /// Shared by the Actor and task start options.
     /// </summary>
     internal static string? EncodeWebhooks(object? webhooks)
     {

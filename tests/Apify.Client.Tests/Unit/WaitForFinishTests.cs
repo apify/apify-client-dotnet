@@ -23,10 +23,8 @@ public sealed class WaitForFinishTests
     [Fact]
     public async Task WaitForFinishThrowsNotFoundOnPersistent404InsteadOfRunningOutTheFullWaitBudget()
     {
-        // Regression test (mirrors a reference-client bug fix): a run id that never existed used to make
-        // WaitForFinishAsync treat every 404 as transient database replica lag and poll for the entire wait
-        // budget (up to ~11.5 days when waitSecs is left unset). It must instead give up a few seconds into
-        // a *persistent* 404, well before a much larger waitSecs elapses.
+        // Regression test, as a reference client bug fix: a run ID that never existed made WaitForFinishAsync treat every 404 as
+        // replica lag and poll for the whole wait (about 11.5 days without waitSecs). It must give up after a persistent 404.
         var transport = new MockTransport();
         for (var i = 0; i < 60; i++)
         {
@@ -45,11 +43,8 @@ public sealed class WaitForFinishTests
     [Fact]
     public async Task WaitForFinishThrowsNotFoundWhenTheWaitBudgetElapsesBeforeTheNotFoundGraceWindow()
     {
-        // Regression test: when `waitSecs` is small enough that the overall wait budget runs out before the
-        // 3-second not-found grace window does, the loop exits via the budget check rather than the grace-
-        // window check. It must still surface the persistent 404 as NotFoundException, not the generic
-        // "cannot fetch details from the server" fallback that only applies when nothing was ever fetched
-        // and no error was ever recorded (which cannot happen once a 404 has been seen).
+        // Regression test: when waitSecs runs out before the 3-second not-found window, the persistent 404 must still surface as
+        // NotFoundException, not the generic fallback for when nothing was ever fetched.
         var transport = new MockTransport();
         for (var i = 0; i < 10; i++)
         {

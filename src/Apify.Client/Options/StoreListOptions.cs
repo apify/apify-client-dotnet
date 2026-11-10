@@ -13,9 +13,8 @@ public sealed class StoreListOptions
     public int? Limit { get; init; }
 
     /// <summary>
-    /// Maximum number of items requested per API call when iterating across pages (must be positive). Only
-    /// iteration uses it, as the page size; it is never sent to the API. The effective page size is the
-    /// smaller of this and the remaining <c>Limit</c>. Defaults to the API's own page size.
+    /// Maximum items requested per API call when iterating, which must be positive. It sizes the pages and is never sent to
+    /// the API; the page size is the smaller of this and the remaining <c>Limit</c>. Defaults to the API's page size.
     /// </summary>
     public int? ChunkSize { get; init; }
 
@@ -44,9 +43,9 @@ public sealed class StoreListOptions
     public bool? AllowsAgenticUsers { get; init; }
 
     /// <summary>
-    /// Include each Actor's <c>inputSchema</c>: a compact version of the input schema of its default build
-    /// (property types and required properties only). With it, the API's <c>limit</c> defaults to and cannot
-    /// exceed <see cref="MaxPageLimitWithInputSchema"/>, so iteration requests pages of at most that size.
+    /// Include each Actor's <c>inputSchema</c>, a compact form of the input schema of its default build (property types and
+    /// required properties). The API then caps <c>limit</c> at <see cref="MaxPageLimitWithInputSchema"/>, and iteration
+    /// requests pages of at most that size.
     /// </summary>
     public bool? IncludeInputSchema { get; init; }
 

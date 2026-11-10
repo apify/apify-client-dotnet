@@ -3,28 +3,22 @@ using Apify.Client.Internal;
 
 namespace Apify.Client.Options;
 
-/// <summary>
-/// Configures listing or downloading dataset items (<c>GET /v2/datasets/{datasetId}/items</c>). All
-/// fields are optional.
-/// </summary>
+/// <summary>Configures listing or downloading dataset items. All fields are optional.</summary>
 public sealed class DatasetListItemsOptions
 {
     /// <summary>Number of items to skip.</summary>
     public int? Offset { get; init; }
 
     /// <summary>
-    /// Maximum number of dataset rows to read. Filters can return fewer items than rows read and
-    /// <see cref="Unwind"/> more. When iterating, it caps the rows read in total across all pages; <c>0</c>
-    /// or unset means no cap.
+    /// Maximum number of dataset rows to read. Filters can return fewer items than rows and <see cref="Unwind"/> more. When
+    /// iterating, it caps the rows read across all pages; <c>0</c> or unset means no cap.
     /// </summary>
     public int? Limit { get; init; }
 
     /// <summary>
-    /// Maximum number of items requested per API call when iterating across pages (must be positive). Only
-    /// iteration uses it, as the page size; it is never sent to the API. The effective page size is the
-    /// smaller of this and the remaining <c>Limit</c>. Dataset items have no default limit, so without
-    /// <c>ChunkSize</c> and <c>Limit</c> iteration loads the whole dataset in one response; set it to iterate a
-    /// large dataset.
+    /// Maximum rows requested per API call when iterating (must be positive); never sent to the API. The page size is the
+    /// smaller of this and the remaining <c>Limit</c>. Without <c>ChunkSize</c> and <c>Limit</c>, iteration loads the whole
+    /// dataset in one response, so set it for a large dataset.
     /// </summary>
     public int? ChunkSize { get; init; }
 

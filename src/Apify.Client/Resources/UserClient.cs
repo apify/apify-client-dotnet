@@ -8,14 +8,11 @@ using Apify.Client.Models;
 
 namespace Apify.Client.Resources;
 
-/// <summary>
-/// A client for accessing user data (<c>/v2/users/{userId}</c> or <c>/v2/users/me</c>).
-/// </summary>
+/// <summary>A client for a user: <c>me</c>, or another user by ID or username.</summary>
 /// <remarks>
-/// It also exposes the user's monthly usage and account limits. Besides <c>me</c>, the API accepts the account's
-/// ID or username, but only for your own account or the organization your API token belongs to. API tokens
-/// with limited permissions cannot use these by-ID endpoints (<c>me</c> is not affected by that), and updating
-/// an organization's limits also needs the permission to manage the organization.
+/// It also exposes the monthly usage and account limits. Besides <c>me</c>, the API accepts an ID or username only for
+/// your own account or the organization your token belongs to. Tokens with limited permissions cannot use the by-ID
+/// endpoints, and updating an organization's limits needs the permission to manage it.
 /// </remarks>
 public sealed class UserClient
 {
@@ -29,9 +26,8 @@ public sealed class UserClient
     }
 
     /// <summary>
-    /// Fetches the user. For <c>me</c> it returns private account details (via
-    /// <see cref="ApifyResource.ToJsonObject"/>); for other users it returns the public profile. Returns
-    /// <c>null</c> if the user does not exist.
+    /// Fetches the user: private account details for <c>me</c> (via <see cref="ApifyResource.ToJsonObject"/>), the public
+    /// profile for others. Returns <c>null</c> if the user does not exist.
     /// </summary>
     /// <param name="cancellationToken">A token to cancel the request.</param>
     public async Task<User?> GetAsync(CancellationToken cancellationToken = default)
@@ -40,10 +36,7 @@ public sealed class UserClient
         return data is JsonObject obj ? new User(obj) : null;
     }
 
-    /// <summary>
-    /// Fetches the user's monthly usage for the month containing the given date (formatted as
-    /// <c>YYYY-MM-DD</c>). An empty/<c>null</c> date reports the current month.
-    /// </summary>
+    /// <summary>Fetches the monthly usage for the month of <paramref name="date"/> (<c>YYYY-MM-DD</c>), by default the current month.</summary>
     /// <param name="date">The date whose month to report, or <c>null</c> for the current month.</param>
     /// <param name="cancellationToken">A token to cancel the request.</param>
     public async Task<JsonObject> MonthlyUsageAsync(string? date = null, CancellationToken cancellationToken = default)
@@ -80,11 +73,9 @@ public sealed class UserClient
     }
 
     /// <summary>
-    /// Returns this client with every subsequent call's timeout set to <paramref name="timeout"/>,
-    /// overriding the tier default (see the "Timeout tiers" section of docs/README.md). Pass
-    /// <see cref="TimeSpan.Zero"/> for no timeout, matching the reference client's <c>'noTimeout'</c>. A
-    /// value above <see cref="ApifyClientOptions.TimeoutSecs"/> (the overall budget) is capped at it —
-    /// raise <see cref="ApifyClientOptions.TimeoutSecs"/> itself to allow a longer per-call timeout.
+    /// Returns this client with the timeout of every subsequent call set to <paramref name="timeout"/>, overriding the
+    /// tier default (see "Timeout tiers" in docs/README.md). <see cref="TimeSpan.Zero"/> means no timeout. A value above
+    /// <see cref="ApifyClientOptions.TimeoutSecs"/> is capped at it.
     /// </summary>
     /// <param name="timeout">The timeout to use for every call made through this client.</param>
     public UserClient WithTimeout(TimeSpan timeout)

@@ -7,37 +7,30 @@ using Apify.Client.Options;
 namespace Apify.Client.Internal;
 
 /// <summary>
-/// Implements <see cref="ActorStartOptions.WaitForResources"/>/<see cref="TaskStartOptions.WaitForResources"/>:
-/// retries a run start while the API rejects it for lack of resources. Matches the reference client's
+/// Implements <see cref="ActorStartOptions.WaitForResources"/> and <see cref="TaskStartOptions.WaitForResources"/>:
+/// retries a run start while the API rejects it for lack of resources, as the reference client's
 /// <c>startWaitingForResources()</c>.
 /// </summary>
 internal static class ResourceLimitRetry
 {
-    /// <summary>
-    /// Error types the API rejects a run start with while the account has no free memory or concurrent-run
-    /// slot for it. Both clear as other runs or builds finish.
-    /// </summary>
+    /// <summary>Error types of a start rejected because no memory or concurrent-run slot is free; both clear as other runs finish.</summary>
     private const string MemoryLimitErrorType = "actor-memory-limit-exceeded";
 
     private const string ConcurrentRunsLimitErrorType = "concurrent-runs-limit-exceeded";
 
-    /// <summary>Cooldown between two attempts to start a run that was rejected for lack of resources.</summary>
+    /// <summary>Cooldown between attempts.</summary>
     private const int CooldownMillis = 10_000;
 
     /// <summary>
-    /// Calls <paramref name="start"/>, retrying it every <paramref name="cooldownMillis"/> while it fails
-    /// with a resource-limit error. <paramref name="waitForResources"/> <c>null</c> disables retrying
-    /// entirely (the first error is thrown as-is); otherwise <see cref="WaitForResources.MaxWaitSecs"/>
-    /// <c>null</c> retries until the call succeeds, and a value bounds the retrying, after which the last
-    /// error is thrown. Any other error is thrown right away.
+    /// Calls <paramref name="start"/> and retries it every <paramref name="cooldownMillis"/> while it fails with a
+    /// resource-limit error. A <c>null</c> <paramref name="waitForResources"/> throws the first error;
+    /// <see cref="WaitForResources.MaxWaitSecs"/> <c>null</c> retries until success, and a value bounds the retrying before
+    /// the last error is thrown. Other errors are thrown at once.
     /// </summary>
     /// <param name="start">Makes one start attempt.</param>
     /// <param name="waitForResources">The retry configuration, or <c>null</c> to disable retrying.</param>
     /// <param name="cancellationToken">A token to cancel the wait between attempts.</param>
-    /// <param name="cooldownMillis">
-    /// The cooldown between attempts; defaults to <see cref="CooldownMillis"/>. Overridable only so unit
-    /// tests can exercise multi-attempt retries without a real 10-second wait per attempt.
-    /// </param>
+    /// <param name="cooldownMillis">The cooldown between attempts; a parameter so unit tests need not wait 10 seconds.</param>
     public static async Task<T> StartAsync<T>(
         Func<Task<T>> start,
         WaitForResources? waitForResources,

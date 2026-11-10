@@ -7,8 +7,7 @@ shape: `ListAsync(StorageListOptions? options = null)` (one page),
 optional `JsonNode? schema = null` to register a storage schema on creation). Storages can also be
 reached from a run (`client.Run(id).Dataset()`, `.KeyValueStore()`, `.RequestQueue()`).
 
-> Snippets below run inside an `async` context. `ImplicitUsings` is disabled in this repository, so all
-> `using` directives (including `System`) are shown explicitly and must precede any statements.
+> Snippets run in an `async` context with `ImplicitUsings` disabled, so every `using`, `System` included, is listed.
 
 `StorageListOptions` fields:
 
@@ -154,7 +153,7 @@ await client.KeyValueStore(store.Id!).SetRecordAsync("blob", new byte[] { 0x00, 
 ### Uploading a pre-compressed record
 
 `SetRecordOptions.ContentEncoding` uploads a value you already compressed yourself (`gzip`, `br`,
-`deflate`, or `identity`), sent verbatim as the `Content-Encoding` header: the client sends the bytes
+`zstd`, `deflate`, or `identity`), sent verbatim as the `Content-Encoding` header: the client sends the bytes
 as-is and skips its own compression, so they are never compressed twice.
 
 ```csharp

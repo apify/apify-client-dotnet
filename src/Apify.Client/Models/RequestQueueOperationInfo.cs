@@ -15,10 +15,7 @@ public sealed class RequestQueueOperationInfo : ApifyResource
     /// <summary>The ID of the affected request.</summary>
     public string? RequestId => GetString("requestId");
 
-    /// <summary>
-    /// The unique key of the affected request. Populated for batch-add results; may be <c>null</c> for
-    /// single add/update operations.
-    /// </summary>
+    /// <summary>The unique key of the affected request. Set for batch-add results, may be <c>null</c> otherwise.</summary>
     public string? UniqueKey => GetString("uniqueKey");
 
     /// <summary>Whether the request was already in the queue.</summary>

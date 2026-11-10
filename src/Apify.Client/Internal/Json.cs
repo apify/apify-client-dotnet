@@ -4,15 +4,10 @@ using System.Text.Json.Nodes;
 
 namespace Apify.Client.Internal;
 
-/// <summary>
-/// Shared JSON (de)serialization for the client.
-/// </summary>
+/// <summary>JSON serialization shared by the client.</summary>
 internal static class Json
 {
-    /// <summary>
-    /// Serialization options matching the reference client's output: slashes and non-ASCII characters
-    /// are left unescaped (like PHP's <c>JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE</c>).
-    /// </summary>
+    /// <summary>Serialization options of the reference client's output: slashes and non-ASCII characters are not escaped.</summary>
     private static readonly JsonSerializerOptions SerializerOptions = new()
     {
         Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
@@ -32,9 +27,8 @@ internal static class Json
         value?.ToJsonString(SerializerOptions) ?? "null";
 
     /// <summary>
-    /// Decodes a JSON string into a <see cref="JsonNode"/> (<c>null</c> for an empty body). Throws
-    /// <see cref="JsonException"/> when it is not valid JSON; response bodies go through
-    /// <see cref="ResponseReader"/>, which turns that into an <see cref="Apify.Client.Exceptions.InvalidResponseBodyException"/>.
+    /// Decodes a JSON string into a <see cref="JsonNode"/> (<c>null</c> for an empty body). Throws <see cref="JsonException"/>
+    /// for invalid JSON; <see cref="ResponseReader"/> turns that into an <see cref="Apify.Client.Exceptions.InvalidResponseBodyException"/>.
     /// </summary>
     public static JsonNode? Decode(string body)
     {

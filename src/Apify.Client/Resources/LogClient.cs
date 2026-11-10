@@ -9,10 +9,7 @@ using Apify.Client.Options;
 
 namespace Apify.Client.Resources;
 
-/// <summary>
-/// A client for accessing the log of an Actor build or run (<c>/v2/logs/{buildOrRunId}</c>, or the
-/// run/build-nested <c>.../log</c>).
-/// </summary>
+/// <summary>A client for the log of an Actor build or run.</summary>
 public sealed class LogClient
 {
     private readonly HttpClientCore _http;
@@ -30,19 +27,16 @@ public sealed class LogClient
         => new(http, ResourceContext.Single(http, baseUrl, "logs", id, "buildOrRunId"), ambiguousNotFound: false);
 
     /// <summary>
-    /// Creates a log client nested under a run or build that has no id of its own (<c>run.Log()</c>,
-    /// <c>build.Log()</c>). A 404 here is ambiguous — it could mean the run/build itself or its log is
-    /// missing — so <see cref="GetAsync"/> and <see cref="StreamAsync"/> throw instead of resolving
-    /// <c>null</c>, matching the reference client's <c>catchNotFoundForResourceOrThrow()</c>.
+    /// Creates a log client nested under a run or build (<c>run.Log()</c>, <c>build.Log()</c>). A 404 is ambiguous there,
+    /// since the run or build may be missing, so <see cref="GetAsync"/> and <see cref="StreamAsync"/> throw instead of
+    /// returning <c>null</c>, as in the reference client.
     /// </summary>
     internal static LogClient Nested(HttpClientCore http, string baseUrl, QueryParams? inheritedParams = null, TimeSpan? timeout = null)
         => new(http, ResourceContext.Collection(http, baseUrl, "log", inheritedParams).WithTimeout(timeout), ambiguousNotFound: true);
 
     /// <summary>
-    /// Fetches the log as text. For a log addressed by its own id (<see cref="ApifyClient.Log"/>), a 404
-    /// resolves to <c>null</c>; for a log nested under a run/build with no id of its own
-    /// (<c>run.Log()</c>/<c>build.Log()</c>), a 404 is ambiguous (the run/build itself may be what is
-    /// missing) and throws an <see cref="ApifyApiException"/> instead.
+    /// Fetches the log as text. A log addressed by its own ID (<see cref="ApifyClient.Log"/>) resolves a 404 to
+    /// <c>null</c>; a nested log throws an <see cref="ApifyApiException"/>.
     /// </summary>
     /// <param name="options">Optional log-content options.</param>
     /// <param name="cancellationToken">A token to cancel the request.</param>
@@ -59,10 +53,8 @@ public sealed class LogClient
         => await _ctx.GetRawRequiredAsync("", q, RequestTier.Long, cancellationToken).ConfigureAwait(false);
 
     /// <summary>
-    /// Fetches the log as raw bytes instead of a decoded string — the counterpart of <see cref="GetAsync"/>
-    /// for a log that is not (or might not be) valid UTF-8 text. It does not change how the log is fetched,
-    /// only how the body is returned; the whole log is downloaded in one response either way. To read it
-    /// incrementally, use <see cref="StreamAsync"/>.
+    /// Fetches the log as raw bytes, for a log that may not be valid UTF-8. The whole log is downloaded in one response;
+    /// use <see cref="StreamAsync"/> to read it incrementally.
     /// </summary>
     /// <param name="options">Optional log-content options.</param>
     /// <param name="cancellationToken">A token to cancel the request.</param>
@@ -79,14 +71,12 @@ public sealed class LogClient
         => await _ctx.GetRawBytesRequiredAsync("", q, RequestTier.Long, cancellationToken).ConfigureAwait(false);
 
     /// <summary>
-    /// Opens a live, streaming connection to the log and returns a stream over the log bytes. For a log
-    /// addressed by its own id, a 404 resolves to <c>null</c> (matching <see cref="GetAsync"/>); for a log
-    /// nested under a run/build with no id of its own, a 404 is ambiguous and throws instead.
+    /// Opens a live stream of the log bytes. A log addressed by its own ID resolves a 404 to <c>null</c>, like
+    /// <see cref="GetAsync"/>; a nested log throws.
     /// </summary>
     /// <remarks>
-    /// Unlike <see cref="GetAsync"/>, this bypasses the buffered/retrying transport so the log can be
-    /// followed in real time as the run produces it (the <c>stream=1</c> query parameter). Because the
-    /// response is consumed incrementally, it is not retried. The caller must dispose the returned stream.
+    /// Unlike <see cref="GetAsync"/>, this bypasses the buffered, retrying transport (<c>stream=1</c>) to follow the log
+    /// in real time, so it is not retried. Dispose the returned stream.
     /// </remarks>
     /// <param name="options">Optional log-content options.</param>
     /// <param name="cancellationToken">A token to cancel the request.</param>
@@ -116,11 +106,9 @@ public sealed class LogClient
     }
 
     /// <summary>
-    /// Returns this client with every subsequent call's timeout set to <paramref name="timeout"/>,
-    /// overriding the tier default (see the "Timeout tiers" section of docs/README.md). Pass
-    /// <see cref="TimeSpan.Zero"/> for no timeout, matching the reference client's <c>'noTimeout'</c>. A
-    /// value above <see cref="ApifyClientOptions.TimeoutSecs"/> (the overall budget) is capped at it —
-    /// raise <see cref="ApifyClientOptions.TimeoutSecs"/> itself to allow a longer per-call timeout.
+    /// Returns this client with the timeout of every subsequent call set to <paramref name="timeout"/>, overriding the
+    /// tier default (see "Timeout tiers" in docs/README.md). <see cref="TimeSpan.Zero"/> means no timeout. A value above
+    /// <see cref="ApifyClientOptions.TimeoutSecs"/> is capped at it.
     /// </summary>
     /// <param name="timeout">The timeout to use for every call made through this client.</param>
     public LogClient WithTimeout(TimeSpan timeout)

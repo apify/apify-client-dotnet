@@ -1,11 +1,8 @@
 namespace Apify.Client.Internal;
 
 /// <summary>
-/// The timeout tier a request falls into, matching the reference client's <c>TimeoutTier</c>
-/// (<c>'short'</c>/<c>'medium'</c>/<c>'long'</c>): each tier's duration is configured once on
-/// <see cref="Apify.Client.ApifyClientOptions"/> and every method that sends a request picks the tier that
-/// fits its expected duration, so the default wait before giving up is consistent across the client instead
-/// of a single one-size-fits-all budget.
+/// The timeout tier of a request, as the reference client's <c>TimeoutTier</c>. Each tier's duration is configured on
+/// <see cref="Apify.Client.ApifyClientOptions"/>, and each method picks the tier that fits its expected duration.
 /// </summary>
 internal enum RequestTier
 {

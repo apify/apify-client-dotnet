@@ -37,21 +37,14 @@ public sealed class ScheduleClient
     /// <param name="cancellationToken">A token to cancel the request.</param>
     public Task DeleteAsync(CancellationToken cancellationToken = default) => _ctx.DeleteResourceAsync("", RequestTier.Short, cancellationToken);
 
-    /// <summary>
-    /// Fetches the schedule's invocation log as text. Throws if the schedule does not exist (no longer
-    /// resolves to <c>null</c>): the log endpoint has no meaning apart from its parent schedule, matching the
-    /// reference client.
-    /// </summary>
-    /// <param name="cancellationToken">A token to cancel the request.</param>
+    /// <summary>Fetches the schedule's invocation log as text. Throws if the schedule does not exist, as in the reference client.</summary>
     public Task<string> GetLogAsync(CancellationToken cancellationToken = default)
         => _ctx.GetRawRequiredAsync("log", new QueryParams(), RequestTier.Medium, cancellationToken);
 
     /// <summary>
-    /// Returns this client with every subsequent call's timeout set to <paramref name="timeout"/>,
-    /// overriding the tier default (see the "Timeout tiers" section of docs/README.md). Pass
-    /// <see cref="TimeSpan.Zero"/> for no timeout, matching the reference client's <c>'noTimeout'</c>. A
-    /// value above <see cref="ApifyClientOptions.TimeoutSecs"/> (the overall budget) is capped at it —
-    /// raise <see cref="ApifyClientOptions.TimeoutSecs"/> itself to allow a longer per-call timeout.
+    /// Returns this client with the timeout of every subsequent call set to <paramref name="timeout"/>, overriding the
+    /// tier default (see "Timeout tiers" in docs/README.md). <see cref="TimeSpan.Zero"/> means no timeout. A value above
+    /// <see cref="ApifyClientOptions.TimeoutSecs"/> is capped at it.
     /// </summary>
     /// <param name="timeout">The timeout to use for every call made through this client.</param>
     public ScheduleClient WithTimeout(TimeSpan timeout)

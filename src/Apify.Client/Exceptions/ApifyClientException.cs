@@ -3,15 +3,13 @@ using System;
 namespace Apify.Client.Exceptions;
 
 /// <summary>
-/// Base class of every error this client throws for a failed API call: <see cref="ApifyApiException"/>
-/// (and its per-status subclasses), <see cref="ApifyTransportException"/>,
-/// <see cref="InvalidResponseBodyException"/> and <see cref="ResponseValidationException"/>. A single
-/// <c>catch (ApifyClientException)</c> catches all of them, matching the reference client's
-/// <c>ApifyClientError</c>.
+/// Base class of the errors this client throws for a failed API call: <see cref="ApifyApiException"/> and its
+/// subclasses, <see cref="ApifyTransportException"/>, <see cref="InvalidResponseBodyException"/> and
+/// <see cref="ResponseValidationException"/>. Mirrors the reference client's <c>ApifyClientError</c>.
 /// </summary>
 /// <remarks>
-/// An invalid argument throws a standard <see cref="ArgumentException"/>/<see cref="ArgumentOutOfRangeException"/>
-/// before any request is sent; neither of those extends this class.
+/// An invalid argument throws <see cref="ArgumentException"/> or <see cref="ArgumentOutOfRangeException"/> before any
+/// request is sent; these do not derive from this class.
 /// </remarks>
 public abstract class ApifyClientException : Exception
 {

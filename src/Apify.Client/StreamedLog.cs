@@ -11,36 +11,34 @@ using Apify.Client.Resources;
 namespace Apify.Client;
 
 /// <summary>
-/// Redirects a run's (or build's) live log to a destination sink, one complete message at a time. Mirrors
-/// the reference client's <c>StreamedLog</c> helper: it opens the raw log stream, splits it on Apify's
-/// ISO-8601 timestamp line markers, and forwards each complete message to the <c>toLog</c> callback.
+/// Redirects a run's or build's live log to a sink, one complete message at a time, as the reference client's
+/// <c>StreamedLog</c> does: it reads the raw log stream, splits it at the ISO 8601 timestamps that start each message
+/// and passes each message to the <c>toLog</c> callback.
 /// </summary>
 /// <remarks>
-/// The destination is modelled as an <see cref="Action{String}"/> (the idiomatic .NET equivalent of the
-/// reference client's logger): each argument is one complete, trimmed log message. Redirection runs on a
-/// background task started by <see cref="Start"/> and drained by <see cref="StopAsync"/> (or by disposal).
+/// Each callback argument is one complete, trimmed message. Redirection runs on a background task started by
+/// <see cref="Start"/> and drained by <see cref="StopAsync"/> or disposal.
 /// </remarks>
 public sealed class StreamedLog : IAsyncDisposable
 {
     /// <summary>
-    /// Apify log lines are prefixed with an ISO-8601 UTC timestamp (e.g. <c>2024-01-02T03:04:05.678Z</c>).
-    /// A timestamp at the start of a line marks the beginning of a new (possibly multi-line) message.
+    /// Matches the ISO 8601 UTC timestamp (<c>2024-01-02T03:04:05.678Z</c>) that starts each message of the Apify log;
+    /// a message can span several lines.
     /// </summary>
     private static readonly Regex MessageMarker = new(
         @"(?:\n|^)(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z)",
         RegexOptions.Compiled);
 
-    /// <summary>Size of the read buffer used while draining the log stream.</summary>
+    /// <summary>Size of the read buffer.</summary>
     private const int ReadChunkChars = 4096;
 
     /// <summary>
-    /// Pause before the first reopen of a log stream that ended before the run had logged anything. Each
-    /// further reopen doubles the pause up to <see cref="EmptyStreamMaxRetryMillis"/>, bounding the request
-    /// rate while a run waits a long time to start (e.g. for free memory).
+    /// Pause before the first reopen of a log stream that ended before the run logged anything. Each further reopen
+    /// doubles it up to <see cref="EmptyStreamMaxRetryMillis"/>.
     /// </summary>
     private const int EmptyStreamInitialRetryMillis = 500;
 
-    /// <summary>Upper bound on the pause between reopens of an empty log stream.</summary>
+    /// <summary>Longest pause between reopens of an empty log stream.</summary>
     private const int EmptyStreamMaxRetryMillis = 5_000;
 
     private readonly LogClient _logClient;
@@ -55,28 +53,24 @@ public sealed class StreamedLog : IAsyncDisposable
     {
         _logClient = logClient;
         _toLog = toLog;
-        // When fromStart is false, ignore messages timestamped before this helper was created.
+        // With fromStart false, ignore messages from before this helper was created.
         _relevancyTimeLimit = fromStart ? null : DateTimeOffset.UtcNow;
     }
 
     /// <summary>
-    /// Pass this as the <c>log</c> argument of <c>ActorClient.CallAsync</c> or <c>TaskClient.CallAsync</c> to get
-    /// the reference client's default redirection: once the run has started, its log is written to the
-    /// standard output with the prefix <c>&lt;Actor name&gt; runId:&lt;id&gt; -&gt; </c> (the run and its Actor are
-    /// fetched to build it, as the reference client does). Only <c>CallAsync</c> recognizes it:
-    /// <see cref="RunClient.GetStreamedLog"/> uses a sink as it is, so there it writes the messages without the
-    /// prefix; use <see cref="CreatePrefixedSink"/> for a known run.
+    /// Pass this as the <c>log</c> argument of <c>ActorClient.CallAsync</c> or <c>TaskClient.CallAsync</c> to write the run's
+    /// log to the standard output with the prefix <c>&lt;Actor name&gt; runId:&lt;id&gt; -&gt; </c>, as the reference client
+    /// does by default. Only <c>CallAsync</c> recognizes it; <see cref="RunClient.GetStreamedLog"/> uses a sink as it is, so
+    /// use <see cref="CreatePrefixedSink"/> there.
     /// </summary>
     public static readonly Action<string> DefaultConsole = static message => Console.Out.WriteLine(message);
 
     /// <summary>
-    /// Creates a ready-made sink that writes every message with the reference client's default prefix,
-    /// <c>&lt;Actor name&gt; runId:&lt;id&gt; -&gt; </c>, one message per line, for a run that is already known (for
-    /// <see cref="RunClient.GetStreamedLog"/>). <c>CallAsync</c> creates the run itself, so pass
-    /// <see cref="DefaultConsole"/> there instead.
+    /// Creates a sink that writes each message on one line with the prefix <c>&lt;Actor name&gt; runId:&lt;id&gt; -&gt; </c>,
+    /// for a run that is already known (<see cref="RunClient.GetStreamedLog"/>).
     /// </summary>
     /// <param name="runId">The run ID shown in the prefix.</param>
-    /// <param name="actorName">The Actor name shown in the prefix; omitted from it when <c>null</c> or empty.</param>
+    /// <param name="actorName">The Actor name shown in the prefix; omitted when <c>null</c> or empty.</param>
     /// <param name="writer">Where the lines are written (default: the standard output).</param>
     public static Action<string> CreatePrefixedSink(string runId, string? actorName = null, TextWriter? writer = null)
     {
@@ -100,9 +94,7 @@ public sealed class StreamedLog : IAsyncDisposable
         }
     }
 
-    /// <summary>
-    /// Stops redirecting the log and waits for the background task to drain. A no-op if not started.
-    /// </summary>
+    /// <summary>Stops redirecting and waits for the background task to drain. A no-op if not started.</summary>
     public async Task StopAsync()
     {
         Task? task;
@@ -127,7 +119,7 @@ public sealed class StreamedLog : IAsyncDisposable
         }
         catch (OperationCanceledException)
         {
-            // Expected: cancellation is how redirection is stopped.
+            // Expected: cancellation stops the redirection.
         }
         finally
         {
@@ -148,9 +140,7 @@ public sealed class StreamedLog : IAsyncDisposable
         {
             while (!sawAnyBytes)
             {
-                // _logClient is always the run/build-nested (ambiguous) client (see the internal
-                // constructor's only caller, RunClient.GetStreamedLog), which never resolves a 404 to
-                // null — it throws instead.
+                // _logClient is the run's or build's nested client, which throws on a 404 instead of returning null.
                 using var stream = (await _logClient.StreamAsync(new LogOptions { Raw = true }, cancellationToken).ConfigureAwait(false))!;
                 using var reader = new StreamReader(stream, Encoding.UTF8);
 
@@ -168,19 +158,16 @@ public sealed class StreamedLog : IAsyncDisposable
                     break;
                 }
 
-                // The API serves the log of a run that has not logged anything yet as an empty stream that
-                // closes at once, so reopen it with growing backoff until the first bytes arrive. Without
-                // this, a run that was still queued (no memory free yet) when streaming started would never
-                // have any of its log redirected, even once it did start producing output.
+                // A run that has not logged anything yet is served as an empty stream that closes at once, so reopen it with growing
+                // backoff until the first bytes arrive. Otherwise the log of a run still queued when streaming started would never be redirected.
                 await Task.Delay(TimeSpan.FromMilliseconds(retryMillis), cancellationToken).ConfigureAwait(false);
                 retryMillis = Math.Min(retryMillis * 2, EmptyStreamMaxRetryMillis);
             }
         }
         catch (OperationCanceledException) when (!sawAnyBytes)
         {
-            // Stopped before the run had logged anything (e.g. it was still queued): fetch whatever log
-            // exists in one plain request instead of silently redirecting nothing. Best-effort — a failure
-            // here must not turn a clean stop into a thrown exception.
+            // Stopped before the run logged anything (for example it was queued): fetch whatever log exists in one plain request.
+            // Best effort, so a failure must not turn a clean stop into an exception.
             try
             {
                 var content = await _logClient.GetAsync(new LogOptions { Raw = true }, CancellationToken.None).ConfigureAwait(false);
@@ -188,20 +175,19 @@ public sealed class StreamedLog : IAsyncDisposable
             }
             catch (Exception)
             {
-                // Leave the buffer as-is; the run's log (if any) simply isn't redirected for this stop.
+                // Leave the buffer as it is; the log is not redirected for this stop.
             }
         }
         finally
         {
-            // Emit whatever is left: a message without a trailing newline, or the fallback fetched above.
+            // Emit what is left: a message without a trailing newline, or the fallback fetched above.
             FlushMessages(buffer, flushRemainder: true);
         }
     }
 
     /// <summary>
-    /// Emits every complete message currently in <paramref name="buffer"/>. A message runs from one
-    /// timestamp marker to the next; the final one is complete only when <paramref name="flushRemainder"/>
-    /// is <c>true</c> (stream ended), otherwise it is kept in the buffer as a possibly-incomplete tail.
+    /// Emits every complete message in <paramref name="buffer"/>. A message runs from one timestamp to the next; the last
+    /// one is complete only with <paramref name="flushRemainder"/> (the stream ended), otherwise it stays in the buffer.
     /// </summary>
     private void FlushMessages(StringBuilder buffer, bool flushRemainder)
     {
@@ -239,8 +225,8 @@ public sealed class StreamedLog : IAsyncDisposable
     }
 
     /// <summary>
-    /// Writes one message to the sink, skipping it when <c>fromStart</c> is disabled and the message's
-    /// timestamp predates this helper's creation. Blank messages are dropped.
+    /// Writes one message to the sink. Blank messages are dropped, and so are messages older than this helper when
+    /// <c>fromStart</c> is off.
     /// </summary>
     private void EmitMessage(string message, string? timestamp)
     {

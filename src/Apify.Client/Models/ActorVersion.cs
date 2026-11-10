@@ -19,10 +19,9 @@ public sealed class ActorVersion : ApifyResource
     public string? SourceType => GetString("sourceType");
 
     /// <summary>
-    /// The Actor's directory inside the uploaded source of a <c>SOURCE_FILES</c> or <c>TARBALL</c> version, as a
-    /// path relative to the upload root with <c>/</c> separators (for example <c>actors/typescript-actor</c>).
-    /// <c>null</c> when the upload root is the Actor's directory, and absent for a <c>TARBALL</c> version when the
-    /// caller has no write access to the Actor.
+    /// The Actor's directory inside the uploaded source of a <c>SOURCE_FILES</c> or <c>TARBALL</c> version, a path relative
+    /// to the upload root with <c>/</c> separators (for example <c>actors/typescript-actor</c>). <c>null</c> when the upload
+    /// root is the Actor's directory; absent on a <c>TARBALL</c> version for a caller without write access to the Actor.
     /// </summary>
     public string? ActorPath => GetString("actorPath");
 }

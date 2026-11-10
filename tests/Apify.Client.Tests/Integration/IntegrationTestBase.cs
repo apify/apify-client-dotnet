@@ -7,40 +7,29 @@ using Xunit;
 
 namespace Apify.Client.Tests.Integration;
 
-/// <summary>
-/// Shared setup for the integration test suite.
-/// </summary>
+/// <summary>Shared setup of the integration tests.</summary>
 /// <remarks>
-/// All integration tests require a valid <c>APIFY_TOKEN</c> for the test account. The API base URL is
-/// taken from <c>APIFY_API_URL</c> (which includes the <c>/v2</c> suffix) and falls back to
-/// <c>https://api.apify.com/v2</c>. Tests are designed to run concurrently — including against the same
-/// test account from several language clients at once — so every test creates uniquely-named resources
-/// and cleans them up.
+/// The tests need a valid <c>APIFY_TOKEN</c>. The API URL is <c>APIFY_API_URL</c> (with the <c>/v2</c> suffix), or
+/// <c>https://api.apify.com/v2</c>. Tests may run concurrently on the same account, including from other language
+/// clients, so each creates uniquely named resources and cleans them up.
 /// </remarks>
 public abstract class IntegrationTestBase
 {
-    /// <summary>The integration-test contract fallback base URL.</summary>
+    /// <summary>The default base URL.</summary>
     private const string DefaultApiUrl = "https://api.apify.com/v2";
 
-    /// <summary>
-    /// Retry budget for <see cref="FindsAllEventuallyAsync{T}"/>: how many times a freshly created
-    /// resource's collection listing is re-scanned before giving up on it having propagated.
-    /// </summary>
+    /// <summary>How many times <see cref="FindsAllEventuallyAsync{T}"/> re-scans a listing for a freshly created resource.</summary>
     protected const int EventualConsistencyAttempts = 31;
 
     /// <summary>
-    /// Delay between retries in <see cref="FindsAllEventuallyAsync{T}"/>. Combined with
-    /// <see cref="EventualConsistencyAttempts"/>, the total wait budget is
-    /// <c>(EventualConsistencyAttempts - 1) * EventualConsistencyBackoff</c> = ~90s. The listing endpoints read
-    /// from database secondaries that may lag by up to 90 seconds, so a shorter budget makes the listing
-    /// checks fail now and then on a resource the test has just created.
+    /// Delay between the retries of <see cref="FindsAllEventuallyAsync{T}"/>. With <see cref="EventualConsistencyAttempts"/>
+    /// the budget is about 90 seconds, the lag listings can have, since they read from database secondaries.
     /// </summary>
     protected static readonly TimeSpan EventualConsistencyBackoff = TimeSpan.FromSeconds(3);
 
     /// <summary>
-    /// Derives the client base URL from an optional <c>APIFY_API_URL</c>. The variable includes the
-    /// <c>/v2</c> suffix (per the integration-test contract) and falls back to the default. Since the client
-    /// appends <c>/v2</c> itself, the suffix is stripped here.
+    /// Derives the client base URL from <c>APIFY_API_URL</c>, which includes <c>/v2</c>. The suffix is stripped, since the
+    /// client appends it.
     /// </summary>
     protected static string ResolveBaseUrl(string? apiUrl)
     {
@@ -68,10 +57,7 @@ public abstract class IntegrationTestBase
         return new ApifyClient(new ApifyClientOptions { Token = token, BaseUrl = ResolveBaseUrl(apiUrl) });
     }
 
-    /// <summary>
-    /// Generates a collision-resistant resource name for test isolation. The random component lets the same
-    /// test run in parallel (across processes and languages) without clobbering shared state.
-    /// </summary>
+    /// <summary>Generates a unique resource name, so the same test can run in parallel without clobbering shared state.</summary>
     protected static string UniqueName(string prefix)
         => "dotnet-test-" + prefix + "-" + Convert.ToHexString(RandomNumberGenerator.GetBytes(6)).ToLowerInvariant();
 
@@ -117,9 +103,8 @@ public abstract class IntegrationTestBase
     };
 
     /// <summary>
-    /// A minimal webhook definition that fires on runs of the given Actor. The API requires the condition to
-    /// reference an existing Actor by its ID (not its <c>username/name</c> slug), see
-    /// <see cref="ResolveHelloWorldActorIdAsync"/>.
+    /// A minimal webhook definition for runs of the given Actor. The condition needs the Actor's ID, not its slug (see
+    /// <see cref="ResolveHelloWorldActorIdAsync"/>).
     /// </summary>
     protected static object MinimalWebhook(string requestUrl, string actorId) => new
     {
@@ -133,10 +118,8 @@ public abstract class IntegrationTestBase
         => (await client.Actor("apify/hello-world").GetAsync())!.Id!;
 
     /// <summary>
-    /// Retries <paramref name="check"/> up to <paramref name="attempts"/> times, sleeping
-    /// <paramref name="backoff"/> between attempts, until it returns <c>true</c>. Used to tolerate
-    /// collection-listing eventual consistency: a resource created through a write endpoint is not always
-    /// immediately reflected in that collection's LIST response.
+    /// Retries <paramref name="check"/> up to <paramref name="attempts"/> times with <paramref name="backoff"/> between
+    /// them until it returns <c>true</c>, to tolerate listings that do not show a new resource at once.
     /// </summary>
     protected static async Task<bool> PollUntilAsync(int attempts, TimeSpan backoff, Func<Task<bool>> check)
     {
@@ -157,10 +140,9 @@ public abstract class IntegrationTestBase
     }
 
     /// <summary>
-    /// Drains <paramref name="items"/>, removing each item's id (via <paramref name="idOf"/>) from a copy of
-    /// <paramref name="targetIds"/>, stopping as soon as every target has been seen (or the sequence
-    /// completes). <paramref name="safetyLimit"/> bounds the scan purely as a safety net against an
-    /// unbounded sequence; no test in this suite scans anywhere near that many items.
+    /// Drains <paramref name="items"/>, removing each item's id (<paramref name="idOf"/>) from a copy of
+    /// <paramref name="targetIds"/>, until every target is seen or the sequence ends. <paramref name="safetyLimit"/> only
+    /// guards against an unbounded sequence.
     /// </summary>
     private static async Task<bool> FindsAllAsync<T>(IAsyncEnumerable<T> items, Func<T, string> idOf, IReadOnlySet<string> targetIds, int safetyLimit)
     {
@@ -179,10 +161,8 @@ public abstract class IntegrationTestBase
     }
 
     /// <summary>
-    /// Asserts that iterating a freshly-built sequence (via <paramref name="newSequence"/>, called again on
-    /// every retry) eventually yields every id in <paramref name="targetIds"/>, tolerating collection-listing
-    /// eventual consistency (see <see cref="PollUntilAsync"/>). An already-consistent account matches on the
-    /// first pass with no sleeping.
+    /// Asserts that a sequence built by <paramref name="newSequence"/> (called again on every retry) eventually yields every
+    /// id in <paramref name="targetIds"/>, tolerating listing lag (see <see cref="PollUntilAsync"/>).
     /// </summary>
     protected static Task<bool> FindsAllEventuallyAsync<T>(
         Func<IAsyncEnumerable<T>> newSequence,

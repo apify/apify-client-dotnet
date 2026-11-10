@@ -6,13 +6,10 @@ using System.Text.Json.Nodes;
 
 namespace Apify.Client.Models;
 
-/// <summary>
-/// Base class for API resource models.
-/// </summary>
+/// <summary>Base class of the API resource models.</summary>
 /// <remarks>
-/// Each model wraps the raw decoded JSON object and exposes commonly-used fields as typed properties.
-/// The full payload — including any field the API adds that is not modelled here — is always available
-/// via <see cref="ToJsonObject"/> and <see cref="Get"/>, so additive API changes never lose data.
+/// A model wraps the raw JSON object and exposes common fields as typed properties. Every field, including ones the API
+/// adds later, stays available through <see cref="ToJsonObject"/> and <see cref="Get"/>.
 /// </remarks>
 public abstract class ApifyResource
 {
@@ -45,12 +42,10 @@ public abstract class ApifyResource
     }
 
     /// <summary>
-    /// Reads a field the OpenAPI specification marks <c>format: uri</c> and normalizes it to its RFC 3986
-    /// absolute-URI form, matching the reference client's <c>z.url({ normalize: true })</c>: the host is
-    /// lowercased and punycoded, a default port is dropped, an empty path becomes <c>/</c>, and unsafe
-    /// characters are percent-encoded. <c>null</c> if the field is absent.
+    /// Reads a <c>format: uri</c> field and normalizes it to an RFC 3986 absolute URI, as the reference client's
+    /// <c>z.url({ normalize: true })</c> does: lowercase punycoded host, no default port, <c>/</c> for an empty path and
+    /// percent-encoded unsafe characters. <c>null</c> if the field is absent.
     /// </summary>
-    /// <exception cref="FormatException">The field is present but not a valid absolute URL.</exception>
     protected string? GetUrlString(string key)
     {
         var raw = GetString(key);

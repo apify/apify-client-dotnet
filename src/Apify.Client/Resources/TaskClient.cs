@@ -10,12 +10,9 @@ using Apify.Client.Options;
 namespace Apify.Client.Resources;
 
 /// <summary>
-/// A client for a specific Actor task.
+/// A client for a specific Actor task, a pre-configured Actor run with stored input: get, update, delete, publish,
+/// start, call, and access to its input, runs and webhooks.
 /// </summary>
-/// <remarks>
-/// Tasks are pre-configured Actor runs with stored input. The client provides CRUD methods plus
-/// convenience helpers to start/call the task and access its input, runs and webhooks.
-/// </remarks>
 public sealed class TaskClient
 {
     private readonly ApifyClient _root;
@@ -37,7 +34,7 @@ public sealed class TaskClient
         return data is JsonObject obj ? new ActorTask(obj) : null;
     }
 
-    /// <summary>Updates the task with the given fields and returns the updated object.</summary>
+    /// <summary>Updates the task and returns the updated task.</summary>
     /// <param name="newFields">Any JSON-serializable set of fields to update.</param>
     /// <param name="cancellationToken">A token to cancel the request.</param>
     public async Task<ActorTask> UpdateAsync(object newFields, CancellationToken cancellationToken = default)
@@ -49,44 +46,32 @@ public sealed class TaskClient
     /// <param name="cancellationToken">A token to cancel the request.</param>
     public Task DeleteAsync(CancellationToken cancellationToken = default) => _ctx.DeleteResourceAsync("", RequestTier.Short, cancellationToken);
 
-    /// <summary>
-    /// Publishes the task on its public landing page in Apify Store, by setting <c>isPublic</c>
-    /// through <see cref="UpdateAsync"/>.
-    /// </summary>
+    /// <summary>Publishes the task on its public landing page in Apify Store, by setting <c>isPublic</c>.</summary>
     /// <remarks>
-    /// The task's Actor must be public, <see cref="ActorTask.PublicConfig"/>'s <c>InputSchemaFields</c>
-    /// and <c>DatasetView</c> must already be set, and the Actor must not already have 10 published
-    /// tasks (accounts are capped at 100 published tasks across all Actors). If any condition isn't
-    /// met, the publish request fails and <c>isPublic</c> is left unchanged. Requires write permission
-    /// to the task's Actor. Publishing an already published task does nothing.
+    /// The task's Actor must be public, <see cref="ActorTask.PublicConfig"/> must have <c>InputSchemaFields</c> and
+    /// <c>DatasetView</c>, and the Actor must have fewer than 10 published tasks (100 per account). Otherwise the request
+    /// fails and <c>isPublic</c> is unchanged. Needs write permission to the Actor. Publishing a published task does nothing.
     /// </remarks>
     /// <param name="cancellationToken">A token to cancel the request.</param>
     public Task<ActorTask> PublishAsync(CancellationToken cancellationToken = default) =>
         UpdateAsync(new { isPublic = true }, cancellationToken);
 
-    /// <summary>
-    /// Unpublishes the task from its public landing page, by setting <c>isPublic</c> through
-    /// <see cref="UpdateAsync"/>.
-    /// </summary>
+    /// <summary>Unpublishes the task by clearing <c>isPublic</c>.</summary>
     /// <remarks>
-    /// The public display configuration (<see cref="ActorTask.PublicConfig"/>) is preserved, so the
-    /// task can be published again without re-entering it. Requires write permission to the task's
-    /// Actor. Unpublishing a task that is not published does nothing.
+    /// <see cref="ActorTask.PublicConfig"/> is kept, so the task can be published again. Needs write permission to the
+    /// Actor. Unpublishing an unpublished task does nothing.
     /// </remarks>
     /// <param name="cancellationToken">A token to cancel the request.</param>
     public Task<ActorTask> UnpublishAsync(CancellationToken cancellationToken = default) =>
         UpdateAsync(new { isPublic = false }, cancellationToken);
 
-    /// <summary>Starts the task and returns immediately with the created run.</summary>
+    /// <summary>Starts the task and returns the created run without waiting.</summary>
     /// <remarks>
-    /// Unlike <see cref="ActorClient.StartAsync"/>, <paramref name="input"/> does not accept raw bytes: a
-    /// task run's input always replaces the task's stored input as JSON, and the endpoint has no content
-    /// type to pair raw bytes with, matching the reference client's <c>TaskStartOptions</c> (which omits
-    /// <c>contentType</c> for the same reason).
+    /// Unlike <see cref="ActorClient.StartAsync"/>, <paramref name="input"/> cannot be raw bytes: the input always
+    /// replaces the stored input as JSON, as in the reference client.
     /// </remarks>
     /// <param name="input">
-    /// Optionally overrides the task's stored input: any JSON-serializable object or array, or <c>null</c>
-    /// to use the task's stored input.
+    /// Overrides the task's stored input: any JSON-serializable object or array, or <c>null</c> to use the stored input.
     /// </param>
     /// <param name="options">Optional run-start options.</param>
     /// <param name="cancellationToken">A token to cancel the request.</param>
@@ -104,24 +89,21 @@ public sealed class TaskClient
         var q = new QueryParams();
         options.AppendTo(q);
         var body = input is null ? null : Json.Encode(input);
-        // Long, not the reference's base "medium": options.WaitForFinish can ask the server to hold the
-        // connection open for up to 60s and this call does not clamp it, so the HTTP timeout must cover it.
+        // Long: options.WaitForFinish can make the server hold the connection for up to 60s, and it is not clamped here.
         return new ActorRun(await _ctx.PostWithBodyAsync("runs", q, body, ResourceContext.ContentTypeJson, RequestTier.Long, cancellationToken).ConfigureAwait(false));
     }
 
-    /// <summary>Starts the task and waits (client-side polling) for it to finish.</summary>
+    /// <summary>Starts the task and waits for it to finish by polling.</summary>
     /// <param name="input">Optionally overrides the task's stored input.</param>
     /// <param name="options">
-    /// Optional run-start options. Time spent retrying <see cref="TaskStartOptions.WaitForResources"/> does
-    /// not count toward <paramref name="waitSecs"/>, which only bounds the wait once the run starts.
+    /// Optional run-start options. Time spent retrying <see cref="TaskStartOptions.WaitForResources"/> does not count
+    /// toward <paramref name="waitSecs"/>.
     /// </param>
     /// <param name="waitSecs">Bounds the wait; <c>null</c> waits indefinitely.</param>
     /// <param name="log">
-    /// If provided, the run's live log is redirected to this sink (one complete message per call) for the
-    /// duration of the wait, matching the reference client's <c>log</c> call option. Unlike the reference
-    /// client, which redirects the log by default when the option is omitted, <c>null</c> (the default) does
-    /// not redirect anything; pass <see cref="StreamedLog.DefaultConsole"/> to get the reference's default
-    /// redirection, with its <c>&lt;Actor name&gt; runId:&lt;id&gt; -&gt; </c> prefix.
+    /// Redirects the run's live log to this sink, one complete message per call, while waiting. Unlike the reference
+    /// client, <c>null</c> redirects nothing; pass <see cref="StreamedLog.DefaultConsole"/> for the reference's default
+    /// redirection with the <c>&lt;Actor name&gt; runId:&lt;id&gt; -&gt; </c> prefix.
     /// </param>
     /// <param name="cancellationToken">A token to cancel the request.</param>
     public async Task<ActorRun> CallAsync(
@@ -136,9 +118,8 @@ public sealed class TaskClient
     }
 
     /// <summary>
-    /// Fetches the task's stored input. Throws if the task does not exist (no longer resolves to <c>null</c>
-    /// for that case): the input endpoint has no meaning apart from its parent task, matching the reference
-    /// client. A task without stored input yields an empty JSON object.
+    /// Fetches the task's stored input; an empty JSON object if there is none. Throws if the task does not exist, as in the
+    /// reference client.
     /// </summary>
     /// <param name="cancellationToken">A token to cancel the request.</param>
     public async Task<JsonNode?> GetInputAsync(CancellationToken cancellationToken = default)
@@ -162,7 +143,7 @@ public sealed class TaskClient
         return await response.ReadJsonAsync(cancellationToken).ConfigureAwait(false);
     }
 
-    /// <summary>Returns a client for the last run of this task, optionally filtered by status and/or origin.</summary>
+    /// <summary>Returns a client for the last run of this task, optionally filtered by status and origin.</summary>
     /// <param name="options">Optional last-run filters.</param>
     public RunClient LastRun(LastRunOptions? options = null)
     {
@@ -174,15 +155,13 @@ public sealed class TaskClient
     /// <summary>A client for this task's run collection.</summary>
     public RunCollectionClient Runs() => new(_http, _ctx.SubUrl(""), "runs");
 
-    /// <summary>A read-only client for this task's webhook collection (<c>GET /v2/actor-tasks/{id}/webhooks</c>).</summary>
+    /// <summary>A read-only client for this task's webhooks.</summary>
     public NestedWebhookCollectionClient Webhooks() => new(_http, _ctx.SubUrl(""));
 
     /// <summary>
-    /// Returns this client with every subsequent call's timeout set to <paramref name="timeout"/>,
-    /// overriding the tier default (see the "Timeout tiers" section of docs/README.md). Pass
-    /// <see cref="TimeSpan.Zero"/> for no timeout, matching the reference client's <c>'noTimeout'</c>. A
-    /// value above <see cref="ApifyClientOptions.TimeoutSecs"/> (the overall budget) is capped at it —
-    /// raise <see cref="ApifyClientOptions.TimeoutSecs"/> itself to allow a longer per-call timeout.
+    /// Returns this client with the timeout of every subsequent call set to <paramref name="timeout"/>, overriding the
+    /// tier default (see "Timeout tiers" in docs/README.md). <see cref="TimeSpan.Zero"/> means no timeout. A value above
+    /// <see cref="ApifyClientOptions.TimeoutSecs"/> is capped at it.
     /// </summary>
     /// <param name="timeout">The timeout to use for every call made through this client.</param>
     public TaskClient WithTimeout(TimeSpan timeout)

@@ -11,8 +11,7 @@ using Apify.Client.Models;
 namespace Apify.Client.Internal;
 
 /// <summary>
-/// The resolved context for a resource client: its base URL and the shared HTTP client. The methods
-/// here implement the CRUD primitives once, so each resource client stays small and consistent (DRY).
+/// The base URL and shared HTTP client of a resource client, with the CRUD primitives the resource clients build on.
 /// </summary>
 internal sealed class ResourceContext
 {
@@ -28,28 +27,24 @@ internal sealed class ResourceContext
     /// <summary>How long to wait between polls while waiting for a run/build to finish, in seconds.</summary>
     private const double WaitPollIntervalSecs = 0.25;
 
-    /// <summary>Server-side waitForFinish chunk size (the API caps server waiting at 60 seconds).</summary>
+    /// <summary>Longest server-side <c>waitForFinish</c> the API accepts, in seconds.</summary>
     private const int WaitRequestSecs = 60;
 
     /// <summary>
-    /// Safety margin subtracted from the configured per-request timeout when choosing the server-side
-    /// <c>waitForFinish</c> value, so the server responds before the client's socket timeout fires.
+    /// Subtracted from the request timeout when choosing the server-side <c>waitForFinish</c>, so the server answers
+    /// before the client times out.
     /// </summary>
     private const int WaitTimeoutMarginSecs = 5;
 
     /// <summary>
-    /// Finite upper bound used when the caller asks to wait "indefinitely" (<c>waitSecs == null</c>). The
-    /// API will not accept "Infinity" and an unbounded loop can spin forever on a transient 404; 999999s
-    /// (~11.5 days) is effectively indefinite while guaranteeing termination.
+    /// Upper bound for waiting indefinitely (<c>waitSecs</c> is <c>null</c>), about 11.5 days: the API rejects "Infinity",
+    /// and an unbounded loop could spin forever on a transient 404.
     /// </summary>
     private const int MaxWaitForFinishSecs = 999999;
 
     /// <summary>
-    /// How long <see cref="WaitForFinishAsync"/> keeps polling a resource that keeps answering 404 (to ride
-    /// out database replica lag just after creation) before giving up and throwing, instead of running out
-    /// the full wait budget. Matches the reference client's <c>MAX_WAIT_WHEN_JOB_NOT_EXIST_MILLIS</c> — a
-    /// job that never existed (e.g. a typo'd run id) would otherwise hang for up to
-    /// <see cref="MaxWaitForFinishSecs"/> (~11.5 days) when <c>waitSecs</c> is left unset.
+    /// How long <see cref="WaitForFinishAsync"/> keeps polling a resource that keeps answering 404 (replica lag right
+    /// after creation) before it reports the resource as missing. As in the reference client.
     /// </summary>
     private const int MaxWaitWhenJobNotExistMillis = 3000;
 
@@ -80,10 +75,9 @@ internal sealed class ResourceContext
     public TimeSpan? RequestTimeout => _requestTimeout;
 
     /// <summary>
-    /// Creates a context for a collection endpoint: <c>{base}/{resourcePath}</c>. Any
-    /// <paramref name="inheritedParams"/> are copied into <see cref="BaseParams"/> so they are applied to
-    /// every call on the nested resource (used to forward the last-run <c>status</c>/<c>origin</c> filters
-    /// to a run's nested storage and log clients, matching the reference client).
+    /// Creates a context for a collection endpoint, <c>{base}/{resourcePath}</c>. <paramref name="inheritedParams"/> are
+    /// applied to every call, which is how a run's nested storages and log get the last-run <c>status</c> and
+    /// <c>origin</c> filters.
     /// </summary>
     public static ResourceContext Collection(HttpClientCore http, string baseUrl, string resourcePath, QueryParams? inheritedParams = null)
     {
@@ -97,12 +91,10 @@ internal sealed class ResourceContext
         => new(http, baseUrl + "/" + resourcePath + "/" + ToSafeId(id, paramName), baseUrl);
 
     /// <summary>
-    /// Creates a context for a resource addressed without its own id: a run/build's nested default dataset,
-    /// key-value store, request queue or log (<c>{base}/{resourcePath}</c>, same shape as
-    /// <see cref="Collection"/>). A 404 through <see cref="GetResourceAsync"/>/<see cref="DeleteResourceAsync"/>
-    /// on such a context is ambiguous — it could mean the parent resource (e.g. the run) or the nested one is
-    /// missing — so those methods propagate it instead of resolving to <c>null</c>, matching the reference
-    /// client's <c>catchNotFoundForResourceOrThrow()</c> distinction between id-addressed and chained clients.
+    /// Creates a context for a resource addressed without its own id, such as a run's default dataset or log. A 404 for
+    /// such a resource is ambiguous (the parent or the nested resource may be missing), so
+    /// <see cref="GetResourceAsync"/> and <see cref="DeleteResourceAsync"/> propagate it. The reference client makes the
+    /// same distinction.
     /// </summary>
     public static ResourceContext NestedSingleton(HttpClientCore http, string baseUrl, string resourcePath, QueryParams? inheritedParams = null)
     {
@@ -145,14 +137,9 @@ internal sealed class ResourceContext
     /// <summary>Merges the inherited base params with per-call params.</summary>
     public QueryParams MergedParams(QueryParams? p) => BaseParams.Copy().Extend(p);
 
-    // ---- CRUD primitives ------------------------------------------------------
-
     /// <summary>
-    /// GET a single resource, returning its decoded <c>data</c>. A 404 resolves to <c>null</c>, unless
-    /// <paramref name="subPath"/> addresses this context's own resource (empty) <em>and</em> the context was
-    /// built with <see cref="NestedSingleton"/> — then the 404 is ambiguous (it could mean the parent
-    /// resource or the nested one is missing) and propagates instead. A non-empty <paramref name="subPath"/>
-    /// (e.g. a request looked up by its own id) is never ambiguous regardless of how this context was built.
+    /// GET a single resource and return its decoded <c>data</c>. A 404 resolves to <c>null</c>, except for the context's
+    /// own resource (empty <paramref name="subPath"/>) on a <see cref="NestedSingleton"/>, where it is ambiguous and propagates.
     /// </summary>
     public async Task<JsonObject?> GetResourceAsync(string subPath, QueryParams p, RequestTier tier, CancellationToken ct)
     {
@@ -188,10 +175,8 @@ internal sealed class ResourceContext
     }
 
     /// <summary>
-    /// Performs a DELETE. A not-found is treated as a successful no-op, unless <paramref name="subPath"/>
-    /// addresses this context's own resource (empty) <em>and</em> the context was built with
-    /// <see cref="NestedSingleton"/> — then the 404 is ambiguous (the parent resource or the nested one could
-    /// be missing) and propagates instead.
+    /// DELETE a resource. A 404 is a no-op, except for the context's own resource (empty <paramref name="subPath"/>) on a
+    /// <see cref="NestedSingleton"/>, where it is ambiguous and propagates.
     /// </summary>
     public async Task DeleteResourceAsync(string subPath, RequestTier tier, CancellationToken ct)
     {
@@ -220,11 +205,9 @@ internal sealed class ResourceContext
     }
 
     /// <summary>
-    /// Lazily iterates every item of an offset/limit-paginated listing, fetching pages on demand (see
-    /// <see cref="PagedIteration"/>). It starts at <paramref name="startOffset"/>; <paramref name="limit"/>
-    /// caps the total number of items (<c>null</c> or <c>0</c> for no cap) and <paramref name="chunkSize"/>
-    /// sizes each page request. <paramref name="baseQuery"/> carries the caller's filters; its
-    /// <c>offset</c>/<c>limit</c> are replaced per page.
+    /// Lazily iterates an offset/limit-paginated listing, fetching pages on demand. <paramref name="limit"/> caps the
+    /// total number of items (<c>null</c> or <c>0</c> for no cap), <paramref name="chunkSize"/> sizes each page and
+    /// <paramref name="baseQuery"/> carries the filters.
     /// </summary>
     public IAsyncEnumerable<T> IterateListAsync<T>(
         string subPath,
@@ -258,8 +241,7 @@ internal sealed class ResourceContext
     }
 
     /// <summary>
-    /// POST that gets-or-creates a named resource (<c>POST {collection}?name=...</c>). An optional
-    /// <paramref name="schema"/> is sent as <c>{"schema": ...}</c>, matching the reference client.
+    /// POST that gets or creates a named resource (<c>POST {collection}?name=...</c>), with an optional <c>schema</c>.
     /// </summary>
     public async Task<JsonObject> GetOrCreateNamedAsync(string? name, JsonNode? schema, CancellationToken ct)
     {
@@ -277,9 +259,8 @@ internal sealed class ResourceContext
     }
 
     /// <summary>
-    /// POST with an optional raw body and content type, unwrapping the data envelope. Pass
-    /// <paramref name="bodyBytes"/> instead of <paramref name="body"/> to send raw bytes (e.g. an Actor's raw
-    /// byte input, see <see cref="EncodeInputBody"/>) without re-encoding them as a JSON string.
+    /// POST with an optional raw body, returning the decoded <c>data</c>. <paramref name="bodyBytes"/> sends raw bytes
+    /// instead of <paramref name="body"/>.
     /// </summary>
     public async Task<JsonObject> PostWithBodyAsync(string subPath, QueryParams p, string? body, string contentType, RequestTier tier, CancellationToken ct, byte[]? bodyBytes = null)
     {
@@ -289,10 +270,8 @@ internal sealed class ResourceContext
     }
 
     /// <summary>
-    /// POST with a raw body, parsing the response directly <em>without</em> unwrapping a data envelope.
-    /// Used by endpoints (e.g. actor input validation) whose response is a plain object. Pass
-    /// <paramref name="bodyBytes"/> instead of <paramref name="body"/> to send raw bytes (see
-    /// <see cref="EncodeInputBody"/>) without re-encoding them as a JSON string.
+    /// POST with an optional raw body, returning the response without unwrapping a <c>data</c> envelope, for endpoints
+    /// (such as Actor input validation) that answer with a plain object.
     /// </summary>
     public async Task<JsonNode?> PostWithBodyNoEnvelopeAsync(string subPath, QueryParams p, string? body, string contentType, RequestTier tier, CancellationToken ct, byte[]? bodyBytes = null)
     {
@@ -302,9 +281,7 @@ internal sealed class ResourceContext
     }
 
     /// <summary>
-    /// Encodes an Actor/task run input for the request body: raw bytes (e.g. a pre-serialized or binary
-    /// payload, typically paired with an explicit content type) are sent as-is, and anything else is
-    /// JSON-encoded, matching the reference client's <c>ActorInput</c> (a plain object/array, or raw bytes).
+    /// Encodes a run input: <c>byte[]</c> is sent as it is and anything else as JSON, as in the reference client.
     /// </summary>
     /// <param name="input">The input value, or <c>null</c> for no input.</param>
     /// <param name="body">The JSON-encoded body, or <c>null</c> when <paramref name="bodyBytes"/> is used.</param>
@@ -322,7 +299,7 @@ internal sealed class ResourceContext
         bodyBytes = null;
     }
 
-    /// <summary>DELETE with a JSON body (used for batch request deletion), unwrapping the data envelope.</summary>
+    /// <summary>DELETE with a JSON body, returning the decoded <c>data</c>.</summary>
     public async Task<JsonObject> DeleteWithBodyAsync(string subPath, QueryParams p, object? body, RequestTier tier, CancellationToken ct)
     {
         var url = MergedParams(p).ApplyToUrl(SubUrl(subPath));
@@ -330,9 +307,7 @@ internal sealed class ResourceContext
         return await response.ReadDataObjectAsync(ct).ConfigureAwait(false);
     }
 
-    /// <summary>
-    /// GET returning the raw response body (no data envelope). Returns <c>null</c> on not-found.
-    /// </summary>
+    /// <summary>GET the raw response body; <c>null</c> on 404.</summary>
     public async Task<string?> GetRawAsync(string subPath, QueryParams p, RequestTier tier, CancellationToken ct)
     {
         var url = MergedParams(p).ApplyToUrl(SubUrl(subPath));
@@ -348,10 +323,8 @@ internal sealed class ResourceContext
     }
 
     /// <summary>
-    /// GET returning the raw response body (no data envelope); propagates a 404 instead of swallowing it.
-    /// Used by sub-path endpoints whose parent resource must already exist for the call to make sense (e.g.
-    /// dataset statistics, a schedule's log, a task's input), so a missing parent surfaces as an error rather
-    /// than as an ambiguous empty result.
+    /// GET the raw response body, propagating a 404. For sub-paths of a resource that must exist, such as dataset
+    /// statistics or a task's input.
     /// </summary>
     public async Task<string> GetRawRequiredAsync(string subPath, QueryParams p, RequestTier tier, CancellationToken ct)
     {
@@ -360,10 +333,7 @@ internal sealed class ResourceContext
         return await response.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
     }
 
-    /// <summary>
-    /// GET returning a JSON body that is not wrapped in a data envelope; propagates a 404 (see
-    /// <see cref="GetRawRequiredAsync"/> for why). Returns <c>null</c> for an empty body.
-    /// </summary>
+    /// <summary>GET a JSON body without a <c>data</c> envelope, propagating a 404; <c>null</c> for an empty body.</summary>
     public async Task<JsonNode?> GetJsonRequiredAsync(string subPath, QueryParams p, RequestTier tier, CancellationToken ct)
     {
         var url = MergedParams(p).ApplyToUrl(SubUrl(subPath));
@@ -371,9 +341,7 @@ internal sealed class ResourceContext
         return await response.ReadJsonAsync(ct).ConfigureAwait(false);
     }
 
-    /// <summary>
-    /// GET returning a JSON body that is not wrapped in a data envelope. Returns <c>null</c> on not-found.
-    /// </summary>
+    /// <summary>GET a JSON body without a <c>data</c> envelope; <c>null</c> on 404.</summary>
     public async Task<JsonNode?> GetJsonAsync(string subPath, QueryParams p, RequestTier tier, CancellationToken ct)
     {
         try
@@ -386,7 +354,7 @@ internal sealed class ResourceContext
         }
     }
 
-    /// <summary>GET returning a data-enveloped object; propagates a 404 (see <see cref="GetRawRequiredAsync"/> for why).</summary>
+    /// <summary>GET a <c>data</c> object, propagating a 404.</summary>
     public async Task<JsonObject> GetDataObjectRequiredAsync(string subPath, QueryParams p, RequestTier tier, CancellationToken ct)
     {
         var url = MergedParams(p).ApplyToUrl(SubUrl(subPath));
@@ -394,10 +362,7 @@ internal sealed class ResourceContext
         return await response.ReadDataObjectAsync(ct).ConfigureAwait(false);
     }
 
-    /// <summary>
-    /// GET returning the raw response body as bytes (no data envelope, no UTF-8 decoding — useful when the
-    /// body is not necessarily text). Returns <c>null</c> on not-found.
-    /// </summary>
+    /// <summary>GET the raw response body as bytes; <c>null</c> on 404.</summary>
     public async Task<byte[]?> GetRawBytesAsync(string subPath, QueryParams p, RequestTier tier, CancellationToken ct)
     {
         var url = MergedParams(p).ApplyToUrl(SubUrl(subPath));
@@ -412,11 +377,7 @@ internal sealed class ResourceContext
         }
     }
 
-    /// <summary>
-    /// GET returning the raw response body as bytes; propagates a 404 instead of swallowing it. The byte
-    /// counterpart of <see cref="GetRawRequiredAsync"/> (see its remarks on when a missing parent should
-    /// surface as an error rather than an ambiguous empty result).
-    /// </summary>
+    /// <summary>GET the raw response body as bytes, propagating a 404.</summary>
     public async Task<byte[]> GetRawBytesRequiredAsync(string subPath, QueryParams p, RequestTier tier, CancellationToken ct)
     {
         var url = MergedParams(p).ApplyToUrl(SubUrl(subPath));
@@ -440,9 +401,8 @@ internal sealed class ResourceContext
     }
 
     /// <summary>
-    /// PUT with raw bytes and a content type, with an explicit per-request timeout and retry control.
-    /// <paramref name="contentEncoding"/>, when given, is sent verbatim as the <c>Content-Encoding</c>
-    /// header and skips the client's own compression — used for a value that is already compressed.
+    /// PUT raw bytes with a content type. A <paramref name="contentEncoding"/> is sent as the <c>Content-Encoding</c>
+    /// header and skips the client's own compression, for an already compressed value.
     /// </summary>
     public async Task PutRawAsync(string subPath, QueryParams p, byte[] body, string contentType, TimeSpan? timeout, bool doNotRetryTimeouts, RequestTier tier, CancellationToken ct, string? contentEncoding = null)
     {
@@ -450,11 +410,8 @@ internal sealed class ResourceContext
         using var response = await Http.CallAsync(HttpMethod.Put, url, null, contentType, timeout ?? _requestTimeout, doNotRetryTimeouts, bodyBytes: body, tier: tier, explicitContentEncoding: contentEncoding, cancellationToken: ct).ConfigureAwait(false);
     }
 
-    // ---- Wait-for-finish ------------------------------------------------------
-
     /// <summary>
-    /// The largest server-side <c>waitForFinish</c> value that is safe to send: below the configured
-    /// per-request timeout by a safety margin (or the API's 60s cap when no finite timeout is set).
+    /// The largest <c>waitForFinish</c> to send: below the request timeout by a margin, or the API's cap when the timeout is not finite.
     /// </summary>
     private int ServerWaitCapSecs()
     {
@@ -463,9 +420,7 @@ internal sealed class ResourceContext
     }
 
     /// <summary>
-    /// Clamps a caller-supplied server-side <c>waitForFinish</c> value (seconds) to the server wait cap,
-    /// so a synchronous get/wait never asks the server to hold the connection longer than the client's own
-    /// per-request timeout. Returns <c>null</c> for a <c>null</c> input.
+    /// Clamps a server-side <c>waitForFinish</c> (seconds) to <see cref="ServerWaitCapSecs"/>; <c>null</c> stays <c>null</c>.
     /// </summary>
     public int? ClampServerWait(int? waitForFinishSecs)
     {
@@ -478,12 +433,9 @@ internal sealed class ResourceContext
     }
 
     /// <summary>
-    /// Polls a GET endpoint with <c>waitForFinish</c> until the resource reaches a terminal state or the
-    /// wait budget elapses. <paramref name="waitSecs"/> == <c>null</c> means "wait indefinitely",
-    /// implemented as a finite but very large bound so the loop always terminates. A 404 is treated as "not
-    /// yet available" (database replica lag just after creation) for up to
-    /// <see cref="MaxWaitWhenJobNotExistMillis"/> of continuous 404s, after which it is reported as a
-    /// genuine not-found rather than retried for the rest of the (possibly multi-day) wait budget.
+    /// Polls a resource with <c>waitForFinish</c> until it reaches a terminal state or <paramref name="waitSecs"/> runs
+    /// out (<c>null</c> waits for <see cref="MaxWaitForFinishSecs"/>). A 404 is retried for up to
+    /// <see cref="MaxWaitWhenJobNotExistMillis"/>, then reported as a missing resource.
     /// </summary>
     public async Task<JsonObject> WaitForFinishAsync(int? waitSecs, string resourceName, Func<JsonObject, bool> isTerminal, CancellationToken ct)
     {
@@ -510,9 +462,7 @@ internal sealed class ResourceContext
             var isNotFoundNow = false;
             try
             {
-                // Long tier (the overall per-request budget): the server may hold the connection open for
-                // up to requestSecs (derived from that same budget via ServerWaitCapSecs), so the HTTP
-                // timeout for this call must cover the full budget, not a shorter tier.
+                // Long tier: the server may hold the connection for up to the whole wait budget, so the HTTP timeout must cover it.
                 var data = await GetResourceRequiredAsync(string.Empty, p, RequestTier.Long, ct).ConfigureAwait(false);
                 if (data is JsonObject obj)
                 {
@@ -559,12 +509,9 @@ internal sealed class ResourceContext
             $"waiting for {resourceName} to finish failed: cannot fetch {resourceName} details from the server");
     }
 
-    // ---- URL / id helpers -----------------------------------------------------
-
     /// <summary>
-    /// Turns a resource id into a single URL path segment. Apify uses the <c>username~resourcename</c> form,
-    /// so every <c>/</c> of an id is replaced with <c>~</c>; the result is then percent-encoded by
-    /// <see cref="EncodePathSegment"/>, so a hostile id cannot restructure the request path.
+    /// Turns a resource id into one URL path segment: <c>username/name</c> becomes <c>username~name</c>, then the id is
+    /// percent-encoded by <see cref="EncodePathSegment"/>.
     /// </summary>
     /// <param name="id">The raw resource id.</param>
     /// <param name="paramName">The name of the caller's parameter, reported by the argument exception.</param>
@@ -572,10 +519,8 @@ internal sealed class ResourceContext
     public static string ToSafeId(string id, string paramName = "id") => EncodePathSegment(id.Replace('/', '~'), paramName);
 
     /// <summary>
-    /// Percent-encodes a single URL path segment, so values interpolated into the path (resource ids, record
-    /// keys, request IDs) cannot break out of the segment. Empty values and the dot segments <c>.</c> and
-    /// <c>..</c> are rejected instead of encoded, because URL parsers resolve dot segments after decoding, so
-    /// <c>%2E%2E</c> would collapse to the parent endpoint just like <c>..</c>.
+    /// Percent-encodes a URL path segment so a resource id, record key or request ID cannot break out of it. Empty
+    /// values and the dot segments <c>.</c> and <c>..</c> are rejected, because URL parsers resolve <c>%2E%2E</c> like <c>..</c>.
     /// </summary>
     /// <param name="input">The raw, caller-supplied path segment.</param>
     /// <param name="paramName">The name of the caller's parameter, reported by the argument exception.</param>

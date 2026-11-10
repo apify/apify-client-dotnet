@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.10.0
+
+- Added `RequestCompression.Zstd` and `ZstdHttpCompressor` (quality 1 to 19, default 3), which compress request
+  bodies with `Content-Encoding: zstd`. The client now depends on `ZstdSharp.Port`, because .NET 8 has no zstd
+  encoder.
+- Added `ActorServerRequestOptions.ParentRequestId`, which `ActorServerClient.RequestAsync` sends as the
+  `X-Actor-Request-ID` header, over one passed in `Headers`.
+- Documented `zstd` as an accepted `SetRecordOptions.ContentEncoding`, and that `RunChargeOptions.RequestId` is
+  ignored by runs of single-tenant Server Actors.
+- Shortened the code comments and documentation: removed restated, outdated and repeated text.
+- Bumped `ApifyClientVersion.ApiSpecVersion` to the Apify OpenAPI spec `v2-2026-11-09T143926Z` and the project
+  version to `0.10.0`; regenerated the embedded response schemas.
+
 ## 0.9.0
 
 - Added `ActorClient.Server()`, which returns an `ActorServerClient` for Server Actors (formerly Actor

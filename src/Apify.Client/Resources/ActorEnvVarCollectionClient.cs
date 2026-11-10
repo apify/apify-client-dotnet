@@ -38,11 +38,9 @@ public sealed class ActorEnvVarCollectionClient
     }
 
     /// <summary>
-    /// Lazily iterates over the version's environment variables. The env-var endpoint returns the whole
-    /// list in a single page, so this yields that page's items; it exists for API parity with the other
-    /// collection iterators and the reference client.
+    /// Iterates the version's environment variables. The endpoint returns the whole list in one page, so this yields that
+    /// page's items; it exists for parity with the other collection iterators and the reference client.
     /// </summary>
-    /// <param name="cancellationToken">A token to cancel the iteration.</param>
     public async IAsyncEnumerable<ActorEnvVar> IterateAsync([EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
         var page = await ListAsync(cancellationToken).ConfigureAwait(false);
@@ -54,11 +52,9 @@ public sealed class ActorEnvVarCollectionClient
 
 
     /// <summary>
-    /// Returns this client with every subsequent call's timeout set to <paramref name="timeout"/>,
-    /// overriding the tier default (see the "Timeout tiers" section of docs/README.md). Pass
-    /// <see cref="TimeSpan.Zero"/> for no timeout, matching the reference client's <c>'noTimeout'</c>. A
-    /// value above <see cref="ApifyClientOptions.TimeoutSecs"/> (the overall budget) is capped at it —
-    /// raise <see cref="ApifyClientOptions.TimeoutSecs"/> itself to allow a longer per-call timeout.
+    /// Returns this client with the timeout of every subsequent call set to <paramref name="timeout"/>, overriding the
+    /// tier default (see "Timeout tiers" in docs/README.md). <see cref="TimeSpan.Zero"/> means no timeout. A value above
+    /// <see cref="ApifyClientOptions.TimeoutSecs"/> is capped at it.
     /// </summary>
     /// <param name="timeout">The timeout to use for every call made through this client.</param>
     public ActorEnvVarCollectionClient WithTimeout(TimeSpan timeout)

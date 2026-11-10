@@ -15,12 +15,9 @@ using Apify.Client.Options;
 namespace Apify.Client.Resources;
 
 /// <summary>
-/// A client for a specific Actor run.
+/// A client for a specific Actor run: get, update, delete, abort, metamorph, reboot, resurrect, charge and wait for
+/// it to finish, plus accessors for its default storages and log.
 /// </summary>
-/// <remarks>
-/// It provides CRUD methods plus convenience helpers (abort, metamorph, reboot, resurrect, charge,
-/// wait-for-finish) and accessors for the run's default storages and log.
-/// </remarks>
 public sealed class RunClient
 {
     /// <summary>Header the API uses to deduplicate charge requests.</summary>
@@ -40,8 +37,8 @@ public sealed class RunClient
     }
 
     /// <summary>
-    /// Pins the <c>status</c>/<c>origin</c> query parameters inherited by all calls on this client (used by
-    /// the last-run accessors). Empty values are skipped.
+    /// Pins the <c>status</c> and <c>origin</c> query parameters of every call on this client, for the last-run
+    /// accessors. Empty values are skipped.
     /// </summary>
     internal void SetLastRunParams(LastRunOptions options)
     {
@@ -57,8 +54,8 @@ public sealed class RunClient
     }
 
     /// <summary>
-    /// Fetches the run, optionally asking the API to wait up to <paramref name="waitForFinishSecs"/>
-    /// seconds (max 60) for the run to reach a terminal state. Returns <c>null</c> if it does not exist.
+    /// Fetches the run, optionally asking the API to wait up to <paramref name="waitForFinishSecs"/> seconds (at most
+    /// 60) for it to finish. Returns <c>null</c> if the run does not exist.
     /// </summary>
     /// <param name="waitForFinishSecs">Optional server-side wait in seconds.</param>
     /// <param name="cancellationToken">A token to cancel the request.</param>
@@ -66,8 +63,7 @@ public sealed class RunClient
     {
         var q = new QueryParams();
         q.AddInt("waitForFinish", _ctx.ClampServerWait(waitForFinishSecs));
-        // Long: the clamped waitForFinish can hold the connection open close to the overall budget, so the
-        // HTTP timeout for this call must cover it (matches the reference's short-base-extended-for-wait).
+        // Long tier: the server may hold the connection for most of the wait.
         var data = await _ctx.GetResourceAsync("", q, RequestTier.Long, cancellationToken).ConfigureAwait(false);
         return data is JsonObject obj ? new ActorRun(obj) : null;
     }
@@ -85,9 +81,8 @@ public sealed class RunClient
     public Task DeleteAsync(CancellationToken cancellationToken = default) => _ctx.DeleteResourceAsync("", RequestTier.Short, cancellationToken);
 
     /// <summary>
-    /// Aborts the run. If <paramref name="gracefully"/> is <c>true</c>, the run is signalled so it can
-    /// finish the current request before terminating; <c>false</c> aborts immediately. <c>null</c> omits
-    /// the parameter and lets the server apply its default (immediate abort).
+    /// Aborts the run. <c>true</c> lets it finish the current request first, <c>false</c> aborts at once and <c>null</c>
+    /// leaves the choice to the server (an immediate abort).
     /// </summary>
     /// <param name="gracefully">Whether to abort gracefully, or <c>null</c> for the server default.</param>
     /// <param name="cancellationToken">A token to cancel the request.</param>
@@ -100,10 +95,7 @@ public sealed class RunClient
 
     /// <summary>Transforms the run into a run of another Actor with a new input.</summary>
     /// <param name="targetActorId">The Actor to metamorph into.</param>
-    /// <param name="input">
-    /// The new input: a plain object or array serialized to JSON, raw bytes (<c>byte[]</c>) sent as-is, or
-    /// <c>null</c> for none.
-    /// </param>
+    /// <param name="input">The new input: <c>byte[]</c> is sent as it is, anything else as JSON, <c>null</c> for none.</param>
     /// <param name="options">Optional metamorph options.</param>
     /// <param name="cancellationToken">A token to cancel the request.</param>
     public async Task<ActorRun> MetamorphAsync(
@@ -124,7 +116,7 @@ public sealed class RunClient
         return new ActorRun(await _ctx.PostWithBodyAsync("metamorph", q, body, options.ContentTypeOrDefault(), RequestTier.Medium, cancellationToken, bodyBytes).ConfigureAwait(false));
     }
 
-    /// <summary>Reboots the run (restarts its container while keeping the same run).</summary>
+    /// <summary>Restarts the run's container, keeping the same run.</summary>
     /// <param name="cancellationToken">A token to cancel the request.</param>
     public async Task<ActorRun> RebootAsync(CancellationToken cancellationToken = default)
     {
@@ -132,8 +124,8 @@ public sealed class RunClient
     }
 
     /// <summary>
-    /// Resurrects a finished run (status <c>SUCCEEDED</c>, <c>FAILED</c>, <c>ABORTED</c> or <c>TIMED-OUT</c>) and
-    /// restarts its container with the same storages.
+    /// Restarts a finished run (<c>SUCCEEDED</c>, <c>FAILED</c>, <c>ABORTED</c> or <c>TIMED-OUT</c>) in its container,
+    /// with the same storages.
     /// </summary>
     /// <param name="options">Optional resurrect options.</param>
     /// <param name="cancellationToken">A token to cancel the request.</param>
@@ -144,13 +136,10 @@ public sealed class RunClient
         return new ActorRun(await _ctx.PostWithBodyAsync("resurrect", q, null, "", RequestTier.Medium, cancellationToken).ConfigureAwait(false));
     }
 
-    /// <summary>
-    /// Charges for a pay-per-event Actor run: records occurrences of a named event. Only meaningful for
-    /// runs of pay-per-event Actors.
-    /// </summary>
+    /// <summary>Charges for events of a pay-per-event Actor run.</summary>
     /// <remarks>
-    /// An idempotency key is always sent (auto-generated if not provided), so a charge that is retried by
-    /// the transport is applied at most once, matching the reference client.
+    /// The request always carries an idempotency key (generated when not given), so a charge the transport retries is
+    /// applied once.
     /// </remarks>
     /// <param name="options">The charge event details.</param>
     /// <param name="cancellationToken">A token to cancel the request.</param>
@@ -188,10 +177,7 @@ public sealed class RunClient
             cancellationToken: cancellationToken).ConfigureAwait(false);
     }
 
-    /// <summary>
-    /// Builds a per-charge idempotency key of the form <c>"{runId}-{eventName}-{millis}-{random}"</c>. It
-    /// need not be cryptographically secure, only unique enough to avoid collisions within a request.
-    /// </summary>
+    /// <summary>Builds an idempotency key <c>{runId}-{eventName}-{millis}-{random}</c>; it only has to be unique, not secure.</summary>
     private string GenerateIdempotencyKey(string eventName)
     {
         return string.Format(
@@ -204,8 +190,8 @@ public sealed class RunClient
     }
 
     /// <summary>
-    /// Polls until the run reaches a terminal state or <paramref name="waitSecs"/> elapses (<c>null</c>
-    /// waits indefinitely). Returns the latest run.
+    /// Polls until the run reaches a terminal state or <paramref name="waitSecs"/> elapses (<c>null</c> waits
+    /// indefinitely) and returns the latest run.
     /// </summary>
     /// <param name="waitSecs">The wait budget in seconds, or <c>null</c> to wait indefinitely.</param>
     /// <param name="cancellationToken">A token to cancel the wait.</param>
@@ -216,8 +202,7 @@ public sealed class RunClient
     }
 
     /// <summary>
-    /// Builds the reference client's default sink: the run and its Actor are fetched for the
-    /// <c>&lt;Actor name&gt; runId:&lt;id&gt; -&gt; </c> prefix.
+    /// Builds the default log sink of the reference client: lines prefixed with <c>&lt;Actor name&gt; runId:&lt;id&gt; -&gt; </c>.
     /// </summary>
     private async Task<Action<string>> CreateDefaultSinkAsync(CancellationToken cancellationToken)
     {
@@ -227,10 +212,7 @@ public sealed class RunClient
         return StreamedLog.CreatePrefixedSink(run?.Id ?? _id, actor?.Name);
     }
 
-    /// <summary>
-    /// Waits for the run to finish, optionally redirecting its live log to <paramref name="log"/> for the
-    /// duration of the wait. Shared by <c>Actor.Call</c>/<c>Task.Call</c>'s log option.
-    /// </summary>
+    /// <summary>Waits for the run to finish, redirecting its live log to <paramref name="log"/> meanwhile.</summary>
     internal async Task<ActorRun> WaitForFinishWithLogAsync(int? waitSecs, Action<string>? log, CancellationToken cancellationToken)
     {
         if (log is null)
@@ -256,18 +238,14 @@ public sealed class RunClient
     }
 
     /// <summary>
-    /// Lazily iterates over the items of the run's default dataset while the run is still producing them.
-    /// Mirrors the reference client's <c>iterateDatasetItems()</c>.
+    /// Lazily iterates the items of the run's default dataset while the run is still producing them, as the reference
+    /// client's <c>iterateDatasetItems()</c> does.
     /// </summary>
     /// <remarks>
-    /// While the run has not finished, each poll yields the rows below the dataset's <c>itemCount</c> and
-    /// then waits up to <see cref="RunIterateDatasetItemsOptions.PollIntervalSecs"/> for the run to finish,
-    /// so the last rows are read as soon as it does. Each page is requested with a limit that ends at
-    /// <c>itemCount</c>, so it covers exactly the rows it asks for, whatever the filters or
-    /// <see cref="RunIterateDatasetItemsOptions.Unwind"/> do to the items. <c>itemCount</c> lags a few
-    /// seconds behind the pushed items, so once the run reaches a terminal status the rows past it are read
-    /// a page at a time until none are left. On a last-run client, the iteration sticks to the run its
-    /// first request resolves to, so a newer run cannot swap the dataset mid-iteration.
+    /// While the run is active, each poll yields the rows below the dataset's <c>itemCount</c>, then waits up to
+    /// <see cref="RunIterateDatasetItemsOptions.PollIntervalSecs"/> for the run to finish. <c>itemCount</c> lags a few
+    /// seconds behind the pushed items, so after the run finishes the remaining rows are read page by page. A last-run
+    /// client sticks to the run its first request resolved to.
     /// </remarks>
     /// <param name="options">Optional pagination, filtering and polling options.</param>
     /// <param name="cancellationToken">A token to cancel the iteration.</param>
@@ -284,12 +262,11 @@ public sealed class RunClient
         ArgumentOutOfRangeException.ThrowIfNegative(options.Limit ?? 0, nameof(RunIterateDatasetItemsOptions.Limit));
 
         var position = options.Offset ?? 0;
-        // Wider than int: Offset + Limit can exceed int.MaxValue (e.g. Limit = int.MaxValue as "everything").
+        // Wider than int: Offset + Limit can exceed int.MaxValue.
         long? end = options.Limit is > 0 ? (long)position + options.Limit.Value : null;
 
         var run = await GetAsync(cancellationToken: cancellationToken).ConfigureAwait(false);
-        // A last-run client resolves `runs/last` on each request, so a newer run would swap the dataset
-        // mid-iteration: pin to the run the first request resolved to.
+        // A last-run client resolves `runs/last` on each request; pin the run of the first one so a newer run cannot swap the dataset.
         var runClient = this;
         if (run?.Id is { } resolvedId && resolvedId != _id)
         {
@@ -347,9 +324,8 @@ public sealed class RunClient
                 yield return item;
             }
 
-            // Only a page that returned nothing and scanned no rows marks the end: filters can shorten a
-            // full page, or empty one that still scanned rows. When a filter could have hidden every row
-            // past a lagging `itemCount`, a plain one-row read confirms nothing is left.
+            // Only a page that returned nothing and scanned no rows ends the iteration, since filters can shorten a full page.
+            // When a filter could have hidden every row past a lagging `itemCount`, a plain one-row read confirms nothing is left.
             if (page.Count == 0
                 && (!options.HasRowFilters || await IsDatasetExhaustedAsync(datasetClient, position, cancellationToken).ConfigureAwait(false)))
             {
@@ -385,8 +361,7 @@ public sealed class RunClient
         return page.Items.Count == 0;
     }
 
-    // Nested accessors inherit this client's params, so last-run status/origin filters (see SetLastRunParams)
-    // resolve the intended run's storage/log rather than the latest run's, and its WithTimeout override.
+    // Nested accessors inherit this client's params and timeout, so last-run filters resolve the intended run.
 
     /// <summary>A client for this run's default dataset.</summary>
     public DatasetClient Dataset() => DatasetClient.Nested(_http, _ctx.SubUrl(""), "dataset", _ctx.BaseParams, _ctx.RequestTimeout);
@@ -401,42 +376,36 @@ public sealed class RunClient
     public LogClient Log() => LogClient.Nested(_http, _ctx.SubUrl(""), _ctx.BaseParams, _ctx.RequestTimeout);
 
     /// <summary>
-    /// Opens a live stream of this run's raw log bytes. The caller reads (and disposes) the returned
-    /// stream. For automatic redirection into a sink, prefer <see cref="GetStreamedLog"/>.
+    /// Opens a live stream of the run's raw log bytes; the caller disposes it. Prefer <see cref="GetStreamedLog"/> to
+    /// redirect the log to a sink.
     /// </summary>
     /// <param name="cancellationToken">A token to cancel the request.</param>
     public async Task<Stream> GetStreamedLogAsync(CancellationToken cancellationToken = default)
     {
-        // Log() is this run's nested (ambiguous) log client, which never resolves a 404 to null — it throws
-        // instead, since the run itself could be what's missing — so the stream is always non-null here.
+        // Log() never resolves a 404 to null, since the run itself may be missing, so the stream is not null.
         var stream = await Log().StreamAsync(new LogOptions { Raw = true }, cancellationToken).ConfigureAwait(false);
         return stream!;
     }
 
     /// <summary>
-    /// Creates a <see cref="StreamedLog"/> that redirects this run's live log to <paramref name="toLog"/>,
-    /// one complete message at a time. Call <see cref="StreamedLog.Start"/> to begin and
-    /// <see cref="StreamedLog.StopAsync"/> (or dispose it) to end. Consistent with the reference client's
-    /// run-log redirection convenience.
+    /// Creates a <see cref="StreamedLog"/> that redirects this run's live log to <paramref name="toLog"/>, one complete
+    /// message at a time. Call <see cref="StreamedLog.Start"/> to begin and <see cref="StreamedLog.StopAsync"/> (or
+    /// dispose it) to end.
     /// </summary>
     /// <param name="toLog">
-    /// The sink each complete log message is written to, used as it is: unlike in <c>CallAsync</c>,
-    /// <see cref="StreamedLog.DefaultConsole"/> is not resolved here and adds no prefix; use
-    /// <see cref="StreamedLog.CreatePrefixedSink"/> for the reference's <c>&lt;Actor name&gt; runId:&lt;id&gt; -&gt; </c> prefix.
+    /// The sink for each complete message, used as it is. Unlike in <c>CallAsync</c> there is no prefix; use
+    /// <see cref="StreamedLog.CreatePrefixedSink"/> for the <c>&lt;Actor name&gt; runId:&lt;id&gt; -&gt; </c> prefix.
     /// </param>
     /// <param name="fromStart">
-    /// If <c>true</c> (default), redirect the whole log including messages from before this call; if
-    /// <c>false</c>, skip messages older than the moment the helper is created.
+    /// If <c>true</c> (default), redirect the whole log; if <c>false</c>, skip messages older than the moment of this call.
     /// </param>
     public StreamedLog GetStreamedLog(Action<string> toLog, bool fromStart = true)
         => new(Log(), toLog, fromStart);
 
     /// <summary>
-    /// Returns this client with every subsequent call's timeout set to <paramref name="timeout"/>,
-    /// overriding the tier default (see the "Timeout tiers" section of docs/README.md). Pass
-    /// <see cref="TimeSpan.Zero"/> for no timeout, matching the reference client's <c>'noTimeout'</c>. A
-    /// value above <see cref="ApifyClientOptions.TimeoutSecs"/> (the overall budget) is capped at it —
-    /// raise <see cref="ApifyClientOptions.TimeoutSecs"/> itself to allow a longer per-call timeout.
+    /// Returns this client with the timeout of every subsequent call set to <paramref name="timeout"/>, overriding the
+    /// tier default (see "Timeout tiers" in docs/README.md). <see cref="TimeSpan.Zero"/> means no timeout. A value above
+    /// <see cref="ApifyClientOptions.TimeoutSecs"/> is capped at it.
     /// </summary>
     /// <param name="timeout">The timeout to use for every call made through this client.</param>
     public RunClient WithTimeout(TimeSpan timeout)

@@ -7,16 +7,13 @@ using Xunit;
 
 namespace Apify.Client.Tests.Integration;
 
-/// <summary>
-/// Live iteration tests for the collection-of-resources <c>IterateAsync</c> clients, plus dataset item
-/// iteration. Where creation is cheap, a test creates a couple of uniquely-named resources and asserts that
-/// iterating the collection (newest-first) eventually surfaces every one of them. Builds, runs and webhook
-/// dispatches are slow to create on demand, so those tests drain a <c>Limit</c>-bounded slice of what
-/// already exists on the account and check the iterator terminates, respects the cap and yields
-/// well-formed items. <see cref="StoreIntegrationTests.IterateStore"/> covers the store collection; key
-/// iteration and request iteration have their own tests below and in
-/// <c>RequestQueueIntegrationTests.RequestQueuePaginateMultiplePages</c>.
-/// </summary>
+/// <summary>Live tests of the <c>IterateAsync</c> collection clients and dataset item iteration.</summary>
+/// <remarks>
+/// Where creation is cheap, a test creates a couple of resources and asserts that iterating the collection newest-first
+/// surfaces them. Builds, runs and webhook dispatches are slow to create, so those tests drain a <c>Limit</c>-bounded
+/// slice of what exists and check that the iterator ends, respects the cap and yields well-formed items. Store, key and
+/// request iteration have their own tests.
+/// </remarks>
 [Trait("Category", "Integration")]
 public sealed class IterationIntegrationTests : IntegrationTestBase
 {
@@ -228,9 +225,8 @@ public sealed class IterationIntegrationTests : IntegrationTestBase
         {
             var actorClient = client.Actor(actor.Id!);
 
-            // The versions endpoint is not paginated (one fetch returns every version); draining the
-            // iterator fully must terminate and must not re-yield a version. The minimal Actor ships with
-            // version 0.0, so iteration yields at least that one version, exactly once.
+            // The endpoint is not paginated, so draining the iterator must end without re-yielding a version. The minimal Actor has
+            // version 0.0, so it is yielded exactly once.
             var versionNumbers = new HashSet<string>();
             var versionCount = 0;
             await foreach (var version in actorClient.Versions().IterateAsync())

@@ -1,14 +1,10 @@
 namespace Apify.Client.Models;
 
-/// <summary>
-/// A single record retrieved from a key-value store.
-/// </summary>
+/// <summary>A record from a key-value store.</summary>
 /// <remarks>
-/// <see cref="Value"/> holds the record's <b>raw bytes</b> exactly as stored, so binary records (images,
-/// gzip, protobuf, XLSX, …) survive a round-trip intact. Decode it according to <see cref="ContentType"/>:
-/// for text use <c>System.Text.Encoding.UTF8.GetString(record.Value)</c>, and for JSON
-/// (e.g. records written with <see cref="Apify.Client.Resources.KeyValueStoreClient.SetRecordJsonAsync"/>)
-/// deserialize the bytes with <c>System.Text.Json.JsonSerializer.Deserialize&lt;T&gt;(record.Value)</c>.
+/// <see cref="Value"/> holds the raw bytes exactly as stored, so binary records survive intact. Decode it by
+/// <see cref="ContentType"/>: text with <c>System.Text.Encoding.UTF8.GetString(record.Value)</c>, JSON with
+/// <c>System.Text.Json.JsonSerializer.Deserialize&lt;T&gt;(record.Value)</c>.
 /// </remarks>
 public sealed class KeyValueStoreRecord
 {
@@ -26,10 +22,7 @@ public sealed class KeyValueStoreRecord
     /// <summary>The record key.</summary>
     public string Key { get; }
 
-    /// <summary>
-    /// The raw record bytes, exactly as stored. Decode according to <see cref="ContentType"/> (see the
-    /// class remarks for text/JSON decoding).
-    /// </summary>
+    /// <summary>The raw record bytes, exactly as stored.</summary>
     public byte[] Value { get; }
 
     /// <summary>The record's MIME type, as reported by the API.</summary>

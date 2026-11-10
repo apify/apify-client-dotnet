@@ -7,9 +7,8 @@ using System.Threading.Tasks;
 namespace Apify.Client.Internal;
 
 /// <summary>
-/// A read-only stream over an HTTP response body that also owns the <see cref="HttpResponseMessage"/>,
-/// disposing it (and thus releasing the connection) when the stream is disposed. Used for live log
-/// streaming, where the response must stay open while the caller reads the body incrementally.
+/// A read-only stream over a response body that owns the <see cref="HttpResponseMessage"/> and disposes it, releasing
+/// the connection, with the stream. For live log streaming.
 /// </summary>
 internal sealed class ResponseOwningStream : Stream
 {

@@ -30,8 +30,8 @@ public sealed class KeyValueStoreCollectionClient
     }
 
     /// <summary>
-    /// Gets the store with the given name, creating it if it does not exist. An empty/<c>null</c> name
-    /// creates a new unnamed store. An optional <paramref name="schema"/> is sent when creating the store.
+    /// Gets the store with the given name, creating it if it does not exist. An empty or <c>null</c> name creates an
+    /// unnamed store. An optional <paramref name="schema"/> is sent on creation.
     /// </summary>
     /// <param name="name">The store name, or <c>null</c> for a new unnamed store.</param>
     /// <param name="schema">An optional store schema to send on creation.</param>
@@ -55,11 +55,9 @@ public sealed class KeyValueStoreCollectionClient
 
 
     /// <summary>
-    /// Returns this client with every subsequent call's timeout set to <paramref name="timeout"/>,
-    /// overriding the tier default (see the "Timeout tiers" section of docs/README.md). Pass
-    /// <see cref="TimeSpan.Zero"/> for no timeout, matching the reference client's <c>'noTimeout'</c>. A
-    /// value above <see cref="ApifyClientOptions.TimeoutSecs"/> (the overall budget) is capped at it —
-    /// raise <see cref="ApifyClientOptions.TimeoutSecs"/> itself to allow a longer per-call timeout.
+    /// Returns this client with the timeout of every subsequent call set to <paramref name="timeout"/>, overriding the
+    /// tier default (see "Timeout tiers" in docs/README.md). <see cref="TimeSpan.Zero"/> means no timeout. A value above
+    /// <see cref="ApifyClientOptions.TimeoutSecs"/> is capped at it.
     /// </summary>
     /// <param name="timeout">The timeout to use for every call made through this client.</param>
     public KeyValueStoreCollectionClient WithTimeout(TimeSpan timeout)

@@ -20,28 +20,27 @@ public sealed class Build : ApifyResource
     public string? ActId => GetString("actId");
 
     /// <summary>
-    /// The current build status. One of the eight <c>ActorJobStatus</c> values: <c>READY</c>, <c>RUNNING</c>,
-    /// <c>SUCCEEDED</c>, <c>FAILED</c>, <c>TIMING-OUT</c>, <c>TIMED-OUT</c>, <c>ABORTING</c>, <c>ABORTED</c>.
+    /// The build status: <c>READY</c>, <c>RUNNING</c>, <c>SUCCEEDED</c>, <c>FAILED</c>, <c>TIMING-OUT</c>, <c>TIMED-OUT</c>,
+    /// <c>ABORTING</c> or <c>ABORTED</c>.
     /// </summary>
     public string? Status => GetString("status");
 
-    /// <summary>When the build started (ISO-8601 string).</summary>
+    /// <summary>When the build started (ISO 8601).</summary>
     public string? StartedAt => GetString("startedAt");
 
-    /// <summary>When the build finished (absent while still building).</summary>
+    /// <summary>When the build finished; absent while it is running.</summary>
     public string? FinishedAt => GetString("finishedAt");
 
     /// <summary>The human-readable build number (e.g. <c>0.1.2</c>).</summary>
     public string? BuildNumber => GetString("buildNumber");
 
     /// <summary>
-    /// Digest of the built Docker image manifest, without the <c>sha256:</c> prefix. Compare the digests of
-    /// two builds to find out whether their image contents differ. <c>null</c> if the digest is not
-    /// available.
+    /// Digest of the built Docker image manifest, without the <c>sha256:</c> prefix; builds with different digests have
+    /// different image contents. <c>null</c> if unavailable.
     /// </summary>
     public string? ImageDigest => GetString("imageDigest");
 
-    /// <summary>Whether the build has reached a terminal (finished) status.</summary>
+    /// <summary>Whether the build has reached a terminal status.</summary>
     public bool IsTerminal => Statuses.IsTerminal(Status);
 
     /// <summary>The changelog the Actor's source provided for this build, if any.</summary>
@@ -56,9 +55,6 @@ public sealed class Build : ApifyResource
     /// <summary>The ID of the Git commit the build's source was taken from, if it came from a Git repository.</summary>
     public string? GitCommitId => GetString("gitCommitId");
 
-    /// <summary>
-    /// The Actor definition the build was made from (the <c>actorDefinition</c> object, including its
-    /// <c>webServerSchema</c>), or <c>null</c> when absent.
-    /// </summary>
+    /// <summary>The Actor definition of the build (<c>actorDefinition</c>, with its <c>webServerSchema</c>), or <c>null</c> when absent.</summary>
     public JsonObject? ActorDefinition => Get("actorDefinition") as JsonObject;
 }

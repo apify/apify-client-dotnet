@@ -124,11 +124,8 @@ public sealed class ResponseDecompressionTests
         public void Dispose() => _listener.Close();
 
         /// <summary>
-        /// Binds and starts the listener on a free loopback port, returning its base URL. A port is reserved
-        /// by briefly binding a <see cref="TcpListener"/> to port 0 and reusing the number; because that
-        /// leaves a race where the port could be re-taken before <see cref="HttpListener"/> claims it,
-        /// binding is retried on conflict rather than assumed to succeed the first time. The listener is left
-        /// running so <see cref="Start"/> can begin accepting immediately.
+        /// Starts the listener on a free loopback port and returns its base URL. The port is reserved by briefly binding a
+        /// <see cref="TcpListener"/> to port 0, which leaves a race with <see cref="HttpListener"/>, so binding is retried.
         /// </summary>
         private static string ClaimListenerPort(HttpListener listener)
         {

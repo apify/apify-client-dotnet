@@ -6,7 +6,7 @@
 
     <!-- NuGet package metadata (see the publish workflow). -->
     <PackageId>Apify.Client</PackageId>
-    <Version>0.9.0</Version>
+    <Version>0.10.0</Version>
     <Authors>Apify</Authors>
     <Company>Apify</Company>
     <Product>Apify API client for .NET</Product>
@@ -33,6 +33,10 @@
   <ItemGroup>
     <!-- The test project exercises internal helpers (signatures, query params) directly. -->
     <InternalsVisibleTo Include="Apify.Client.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="ZstdSharp.Port" Version="0.8.8" />
   </ItemGroup>
 
 </Project>

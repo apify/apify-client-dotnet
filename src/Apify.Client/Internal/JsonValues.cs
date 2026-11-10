@@ -5,10 +5,7 @@ using System.Text.Json.Nodes;
 
 namespace Apify.Client.Internal;
 
-/// <summary>
-/// Small helpers for reading typed values out of a decoded <see cref="JsonObject"/> with fallbacks,
-/// used by the page/head models. Absent or mistyped fields fall back rather than throwing.
-/// </summary>
+/// <summary>Reads typed values out of a <see cref="JsonObject"/>, falling back instead of throwing on absent or mistyped fields.</summary>
 internal static class JsonValues
 {
     /// <summary>The object as a <see cref="JsonObject"/>, or an empty object if it is not one.</summary>

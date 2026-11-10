@@ -5,10 +5,7 @@ using System.Text;
 
 namespace Apify.Client.Internal;
 
-/// <summary>
-/// An ordered collection of query parameters that omits absent (<c>null</c>) values and encodes
-/// booleans as <c>1</c>/<c>0</c>, matching the Apify API conventions.
-/// </summary>
+/// <summary>An ordered set of query parameters that omits <c>null</c> values and encodes booleans as <c>1</c>/<c>0</c>.</summary>
 internal sealed class QueryParams
 {
     private readonly List<KeyValuePair<string, string>> _pairs = new();
@@ -48,10 +45,7 @@ internal sealed class QueryParams
         return this;
     }
 
-    /// <summary>
-    /// Adds a boolean parameter, encoded as <c>1</c>/<c>0</c>, if the value is non-null. This matches the
-    /// JS reference client, whose axios <c>paramsSerializer</c> converts booleans via <c>Number(value)</c>.
-    /// </summary>
+    /// <summary>Adds a boolean as <c>1</c>/<c>0</c>, like the reference client's <c>paramsSerializer</c>, if the value is non-null.</summary>
     public QueryParams AddBool(string key, bool? value)
     {
         if (value is not null)
@@ -80,11 +74,7 @@ internal sealed class QueryParams
         return this;
     }
 
-    /// <summary>
-    /// Sets an integer parameter, replacing any existing occurrences of <paramref name="key"/>. Used by
-    /// auto-paging iteration to overwrite the per-page <c>offset</c>/<c>limit</c> without emitting the
-    /// parameter twice.
-    /// </summary>
+    /// <summary>Sets an integer parameter, replacing existing ones, so iteration can overwrite the per-page <c>offset</c> and <c>limit</c>.</summary>
     public QueryParams Set(string key, long value)
     {
         _pairs.RemoveAll(pair => string.Equals(pair.Key, key, StringComparison.Ordinal));
@@ -92,10 +82,7 @@ internal sealed class QueryParams
         return this;
     }
 
-    /// <summary>
-    /// Returns a copy with the page's <c>offset</c> and <c>limit</c> set, the latter left out when
-    /// <paramref name="limit"/> is <c>null</c> (so a caller's own limit does not leak into every page).
-    /// </summary>
+    /// <summary>Returns a copy with the page's <c>offset</c> and <c>limit</c>; a <c>null</c> limit is left out, so a caller's limit does not leak into every page.</summary>
     public QueryParams PageQuery(int offset, int? limit)
     {
         var page = Copy().Set("offset", offset).Remove("limit");

@@ -145,6 +145,35 @@ public sealed class KeyValueStoreIntegrationTests : IntegrationTestBase
     }
 
     [SkippableFact]
+    public async Task ZstdCompressedRecordRoundTrips()
+    {
+        var token = Environment.GetEnvironmentVariable("APIFY_TOKEN");
+        Skip.If(string.IsNullOrEmpty(token), "APIFY_TOKEN is not set");
+        var client = new ApifyClient(new ApifyClientOptions
+        {
+            Token = token,
+            BaseUrl = ResolveBaseUrl(Environment.GetEnvironmentVariable("APIFY_API_URL")),
+            RequestCompression = RequestCompression.Zstd,
+        });
+        var store = await client.KeyValueStores().GetOrCreateAsync(UniqueName("kvs-zstd"));
+        try
+        {
+            var kvs = client.KeyValueStore(store.Id!);
+            var plaintext = System.Text.Encoding.UTF8.GetBytes("{\"blob\":\"" + new string('x', 4096) + "\"}");
+
+            await kvs.SetRecordAsync("zstd", plaintext, "application/json");
+
+            var record = await kvs.GetRecordAsync("zstd");
+            Assert.NotNull(record);
+            Assert.Equal(plaintext, record!.Value);
+        }
+        finally
+        {
+            await client.KeyValueStore(store.Id!).DeleteAsync();
+        }
+    }
+
+    [SkippableFact]
     public async Task RecordPublicUrlIsFetchable()
     {
         var client = RequireClient();

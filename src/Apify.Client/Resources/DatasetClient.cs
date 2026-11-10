@@ -15,7 +15,7 @@ using Apify.Client.Options;
 
 namespace Apify.Client.Resources;
 
-/// <summary>A client for a specific dataset (and run-nested variants).</summary>
+/// <summary>A client for a specific dataset.</summary>
 public sealed class DatasetClient
 {
     private readonly HttpClientCore _http;
@@ -47,7 +47,7 @@ public sealed class DatasetClient
         return data is JsonObject obj ? new Dataset(obj) : null;
     }
 
-    /// <summary>Updates the dataset metadata (e.g. name, title) and returns the updated object.</summary>
+    /// <summary>Updates the dataset metadata, such as its name or title, and returns the updated dataset.</summary>
     /// <param name="newFields">Any JSON-serializable set of fields to update.</param>
     /// <param name="cancellationToken">A token to cancel the request.</param>
     public async Task<Dataset> UpdateAsync(object newFields, CancellationToken cancellationToken = default)
@@ -59,15 +59,12 @@ public sealed class DatasetClient
     /// <param name="cancellationToken">A token to cancel the request.</param>
     public Task DeleteAsync(CancellationToken cancellationToken = default) => _ctx.DeleteResourceAsync("", RequestTier.Short, cancellationToken);
 
-    /// <summary>
-    /// Lists items from the dataset, each decoded to a <see cref="JsonNode"/> (objects become
-    /// <see cref="JsonObject"/>).
-    /// </summary>
+    /// <summary>Lists items from the dataset, each decoded to a <see cref="JsonNode"/>.</summary>
     /// <remarks>
-    /// The dataset items endpoint returns a bare JSON array (not a data envelope) and reports pagination via
-    /// <c>X-Apify-Pagination-*</c> headers, surfaced in the returned page.
+    /// The endpoint returns a bare JSON array and reports pagination in <c>X-Apify-Pagination-*</c> headers, which end up
+    /// in the returned page.
     /// </remarks>
-    /// <param name="options">Optional item filtering/projection and pagination.</param>
+    /// <param name="options">Optional item filtering, projection and pagination.</param>
     /// <param name="cancellationToken">A token to cancel the request.</param>
     public async Task<PaginationList<JsonNode?>> ListItemsAsync(DatasetListItemsOptions? options = null, CancellationToken cancellationToken = default)
     {
@@ -77,23 +74,19 @@ public sealed class DatasetClient
         return await FetchItemsPageAsync(q, options.Desc ?? false, cancellationToken).ConfigureAwait(false);
     }
 
-    /// <summary>
-    /// Lazily iterates over all items of the dataset across pages, fetching each page on demand. Mirrors
-    /// the reference client's auto-paging <c>listItems</c> iterator.
-    /// </summary>
+    /// <summary>Lazily iterates all items of the dataset across pages, fetching each page on demand.</summary>
     /// <remarks>
-    /// The offset for the next page, and whether iteration continues, follow the number of rows the API
-    /// scanned (<c>X-Apify-Pagination-Count</c>) rather than the number of items a page returned: the
-    /// <see cref="DatasetListItemsOptions.Clean"/>/<see cref="DatasetListItemsOptions.SkipEmpty"/>/
-    /// <see cref="DatasetListItemsOptions.SkipHidden"/> filters apply after <c>offset</c>/<c>limit</c>, so a
-    /// page can scan up to the requested limit of rows while returning fewer of them, or none at all, and
-    /// <see cref="DatasetListItemsOptions.Unwind"/> can return more items than rows scanned.
-    /// <see cref="DatasetListItemsOptions.Limit"/> therefore caps the rows scanned (<c>0</c> or <c>null</c>
-    /// for no cap). The header can lag behind items that were just pushed, so the larger of it and the
-    /// returned item count is used, capped at the page's requested limit; see <see cref="PagedIteration"/>.
+    /// Pagination follows the rows the API scanned (<c>X-Apify-Pagination-Count</c>), not the items a page returned. The
+    /// <see cref="DatasetListItemsOptions.Clean"/>, <see cref="DatasetListItemsOptions.SkipEmpty"/> and
+    /// <see cref="DatasetListItemsOptions.SkipHidden"/> filters apply after <c>offset</c> and <c>limit</c>, so a page can
+    /// scan its full limit and return fewer items, and <see cref="DatasetListItemsOptions.Unwind"/> can return more items
+    /// than rows. <see cref="DatasetListItemsOptions.Limit"/> therefore caps the rows scanned (<c>0</c> or <c>null</c> for no
+    /// cap). The header lags behind fresh pushes, so the larger of it and the item count is used, capped at the page limit.
     /// </remarks>
-    /// <param name="options">Optional item filtering/projection; <c>Offset</c>/<c>Limit</c> bound where
-    /// iteration starts and the rows scanned, and <c>ChunkSize</c> sets the page size.</param>
+    /// <param name="options">
+    /// Optional filtering and projection. <c>Offset</c> and <c>Limit</c> bound where iteration starts and the rows scanned,
+    /// and <c>ChunkSize</c> sets the page size.
+    /// </param>
     /// <param name="cancellationToken">A token to cancel the iteration.</param>
     public IAsyncEnumerable<JsonNode?> IterateItemsAsync(
         DatasetListItemsOptions? options = null,
@@ -116,7 +109,7 @@ public sealed class DatasetClient
             cancellationToken);
     }
 
-    /// <summary>Fetches a single page of items for the given options (see the query overload).</summary>
+    /// <summary>Fetches one page of items.</summary>
     internal Task<PaginationList<JsonNode?>> FetchItemsPageAsync(DatasetListItemsOptions options, CancellationToken cancellationToken)
     {
         var q = new QueryParams();
@@ -125,11 +118,9 @@ public sealed class DatasetClient
     }
 
     /// <summary>
-    /// Fetches a single page of dataset items. The endpoint returns a bare JSON array with pagination in
-    /// <c>X-Apify-Pagination-*</c> response headers. The page's <see cref="PaginationList{T}.Count"/> is the
-    /// number of rows the API scanned to produce it (<c>X-Apify-Pagination-Count</c>), which the offset
-    /// iterator paginates by (see <see cref="IterateItemsAsync"/>). The header is derived from the dataset's
-    /// item count, which lags a fresh push, so the item count is used when it is larger or the header is absent.
+    /// Fetches one page of items. The page's <see cref="PaginationList{T}.Count"/> is the number of rows the API scanned
+    /// (<c>X-Apify-Pagination-Count</c>), or the item count when that is larger or the header is missing, since the header
+    /// lags fresh pushes.
     /// </summary>
     private async Task<PaginationList<JsonNode?>> FetchItemsPageAsync(QueryParams q, bool desc, CancellationToken cancellationToken)
     {
@@ -152,11 +143,8 @@ public sealed class DatasetClient
     }
 
     /// <summary>
-    /// Downloads dataset items serialized in the given format, returning the raw bytes. Unlike
-    /// <see cref="ListItemsAsync"/> (parsed items), this returns the items already serialized to JSON, CSV,
-    /// XLSX, XML, RSS or HTML — useful for exporting. Bytes (not a decoded string) are returned so binary
-    /// formats such as <see cref="DownloadItemsFormat.Xlsx"/> (a ZIP-based export) are not corrupted; decode
-    /// text formats yourself, e.g. <c>System.Text.Encoding.UTF8.GetString(bytes)</c>.
+    /// Downloads the items serialized in the given format (JSON, CSV, XLSX, XML, RSS or HTML) as raw bytes, which keeps
+    /// binary formats such as <see cref="DownloadItemsFormat.Xlsx"/> intact. Decode text formats yourself.
     /// </summary>
     /// <param name="format">The output format.</param>
     /// <param name="options">Optional format-specific and filtering options.</param>
@@ -172,15 +160,11 @@ public sealed class DatasetClient
     }
 
     /// <summary>
-    /// Downloads dataset items serialized in the given format as a stream, so a large export is processed
-    /// incrementally without holding it all in memory. Takes the same arguments as
-    /// <see cref="DownloadItemsAsync"/>; only how the response body is consumed differs.
+    /// Downloads the items serialized in the given format as a stream, so a large export need not fit in memory. Takes the
+    /// same arguments as <see cref="DownloadItemsAsync"/>.
     /// </summary>
     /// <remarks>
-    /// Unlike <see cref="DownloadItemsAsync"/>, this bypasses the buffered/retrying transport so the body
-    /// can be read incrementally as it arrives (a single attempt, not retried, matching
-    /// <see cref="LogClient.StreamAsync"/>). The caller must dispose the returned stream; disposing it also
-    /// releases the underlying HTTP response/connection.
+    /// A single attempt, not retried, like <see cref="LogClient.StreamAsync"/>. Dispose the stream to release the connection.
     /// </remarks>
     /// <param name="format">The output format.</param>
     /// <param name="options">Optional format-specific and filtering options.</param>
@@ -206,11 +190,9 @@ public sealed class DatasetClient
 
     /// <summary>Pushes one or more items to the dataset.</summary>
     /// <remarks>
-    /// The API only accepts a JSON object or an array of JSON objects, so any other shape (a bare number, a
-    /// plain string, an array holding anything but objects) is rejected before a request is sent. A
-    /// <see cref="string"/> is treated as already-serialized JSON and sent as it is, so it has to hold such an
-    /// object or array. A push that times out is not retried, because the API may already have stored the
-    /// items and a retry would store them twice; the <see cref="Exceptions.ApifyTransportException"/> is thrown instead.
+    /// The API accepts only a JSON object or an array of objects, so any other shape is rejected before a request is sent.
+    /// A <see cref="string"/> is sent as already serialized JSON. A push that times out is not retried, because the API
+    /// may have stored the items already; an <see cref="Exceptions.ApifyTransportException"/> is thrown instead.
     /// </remarks>
     /// <param name="items">A single item, an array of items, or the JSON serialization of either.</param>
     /// <param name="cancellationToken">A token to cancel the request.</param>
@@ -233,8 +215,8 @@ public sealed class DatasetClient
     }
 
     /// <summary>
-    /// Serializes the items to UTF-8 JSON once, requiring an object or an array of objects. The shape is
-    /// checked by reading the tokens of the serialized bytes, so no document tree is built.
+    /// Serializes the items to UTF-8 JSON once and checks that they are an object or an array of objects, by reading the
+    /// tokens instead of building a document tree.
     /// </summary>
     private static byte[] SerializeItems(object items)
     {
@@ -278,30 +260,22 @@ public sealed class DatasetClient
         return true;
     }
 
-    /// <summary>Returns statistical information about the dataset.</summary>
-    /// <remarks>
-    /// Throws if the dataset does not exist (no longer resolves to <c>null</c>): the statistics endpoint has
-    /// no meaning apart from its parent dataset, so a missing dataset is reported as an error rather than an
-    /// ambiguous empty result, matching the reference client.
-    /// </remarks>
+    /// <summary>Returns statistics about the dataset.</summary>
+    /// <remarks>Throws if the dataset does not exist, as in the reference client.</remarks>
     /// <param name="cancellationToken">A token to cancel the request.</param>
     public async Task<JsonObject> GetStatisticsAsync(CancellationToken cancellationToken = default)
     {
         return await _ctx.GetDataObjectRequiredAsync("statistics", new QueryParams(), RequestTier.Short, cancellationToken).ConfigureAwait(false);
     }
 
-    /// <summary>
-    /// Builds a public URL for downloading this dataset's items.
-    /// </summary>
+    /// <summary>Builds a public URL for downloading the dataset's items.</summary>
     /// <remarks>
-    /// It fetches the dataset, and if the dataset exposes a URL-signing secret key (i.e. it is private),
-    /// appends an HMAC-SHA256 signature so the URL grants access without an API token.
-    /// <paramref name="expiresInSecs"/> optionally bounds the validity of a signed URL (<c>null</c> for
-    /// non-expiring). The URL is built from the configured public base URL.
+    /// For a private dataset (one with a URL-signing secret key), the URL carries an HMAC-SHA256 signature, so it works
+    /// without an API token.
     /// </remarks>
-    /// <param name="options">Optional item filtering/projection options forwarded into the URL.</param>
-    /// <param name="expiresInSecs">Optional expiry in seconds for a signed URL; must be positive (omit it for a URL that never expires).</param>
-    /// <param name="format">Output format served by the URL (<c>null</c> defaults to <see cref="DownloadItemsFormat.Json"/>).</param>
+    /// <param name="options">Optional item filtering and projection, forwarded into the URL.</param>
+    /// <param name="expiresInSecs">Expiry of a signed URL in seconds; must be positive. Omit it for a URL that never expires.</param>
+    /// <param name="format">The format served by the URL (<c>null</c> for <see cref="DownloadItemsFormat.Json"/>).</param>
     /// <param name="cancellationToken">A token to cancel the request.</param>
     public async Task<string> CreateItemsPublicUrlAsync(
         DatasetListItemsOptions? options = null,
@@ -349,11 +323,9 @@ public sealed class DatasetClient
     }
 
     /// <summary>
-    /// Returns this client with every subsequent call's timeout set to <paramref name="timeout"/>,
-    /// overriding the tier default (see the "Timeout tiers" section of docs/README.md). Pass
-    /// <see cref="TimeSpan.Zero"/> for no timeout, matching the reference client's <c>'noTimeout'</c>. A
-    /// value above <see cref="ApifyClientOptions.TimeoutSecs"/> (the overall budget) is capped at it —
-    /// raise <see cref="ApifyClientOptions.TimeoutSecs"/> itself to allow a longer per-call timeout.
+    /// Returns this client with the timeout of every subsequent call set to <paramref name="timeout"/>, overriding the
+    /// tier default (see "Timeout tiers" in docs/README.md). <see cref="TimeSpan.Zero"/> means no timeout. A value above
+    /// <see cref="ApifyClientOptions.TimeoutSecs"/> is capped at it.
     /// </summary>
     /// <param name="timeout">The timeout to use for every call made through this client.</param>
     public DatasetClient WithTimeout(TimeSpan timeout)

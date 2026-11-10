@@ -1,15 +1,11 @@
 # Examples
 
-Each example below is a complete, runnable scenario. The canonical, compiled versions live in the
-client's source repository under
+Each example is a complete scenario. Compiled versions live in the repository under
 [`tests/Apify.Client.Tests/Examples`](https://github.com/apify/apify-client-dotnet/tree/master/tests/Apify.Client.Tests/Examples)
-— a repo-internal path that is not part of the published NuGet package — and are executed end-to-end against the live API by the
-**Test examples** CI step (they require an `APIFY_TOKEN`), so the snippets here are guaranteed to stay
-valid and working.
+and run against the live API in the **Test examples** CI step, so they stay working. They need an `APIFY_TOKEN`.
 
-Every snippet runs inside an `async` context and assumes the following `using` directives appear at the
-top of the file, **before** any top-level statements (a `using` after the first statement is a `CS1529`
-compile error). `ImplicitUsings` is disabled in this repository, so even `System` is listed explicitly:
+Every snippet runs in an `async` context after these directives, which must come before any top-level statement.
+`System` is listed because `ImplicitUsings` is disabled:
 
 ```csharp
 using System;
@@ -26,10 +22,10 @@ var client = new ApifyClient(
 ## Run a store Actor and read its dataset
 
 ```csharp
-// The third argument bounds the wait in seconds (120 here); pass null to wait indefinitely.
+// The third argument bounds the wait in seconds; null waits indefinitely.
 var run = await client.Actor("apify/hello-world").CallAsync(null, null, 120);
 var items = await client.Dataset(run.DefaultDatasetId!).ListItemsAsync(new DatasetListItemsOptions());
-// Items.Count is the number of items in THIS page; Total is the dataset's full count across all pages.
+// Items.Count is the number of items on this page; Total is the count across all pages.
 Console.WriteLine($"Items on this page: {items.Items.Count} (of {items.Total} total)");
 ```
 

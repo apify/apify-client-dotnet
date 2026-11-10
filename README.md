@@ -36,7 +36,7 @@ var run = await client.Actor("apify/hello-world").CallAsync();
 
 // Read items from the run's default dataset.
 var items = await client.Dataset(run.DefaultDatasetId!).ListItemsAsync();
-// Items.Count is the number of items in THIS page; Total is the dataset's full count across all pages.
+// Items.Count is the number of items on this page; Total is the count across all pages.
 Console.WriteLine($"Items on this page: {items.Items.Count} (of {items.Total} total)");
 ```
 

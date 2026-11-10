@@ -2,12 +2,10 @@ using Apify.Client.Internal;
 
 namespace Apify.Client.Options;
 
-/// <summary>
-/// Configures starting a task run.
-/// </summary>
+/// <summary>Configures starting a task run.</summary>
 /// <remarks>
-/// It mirrors <see cref="ActorStartOptions"/> but omits the fields the task run endpoint does not accept
-/// (the Actor-only <c>ContentType</c> and <c>ForcePermissionLevel</c>), matching the reference client.
+/// Like <see cref="ActorStartOptions"/> without the fields the task run endpoint does not accept (<c>ContentType</c> and
+/// <c>ForcePermissionLevel</c>), as in the reference client.
 /// </remarks>
 public sealed class TaskStartOptions
 {
@@ -33,9 +31,9 @@ public sealed class TaskStartOptions
     public bool? RestartOnError { get; init; }
 
     /// <summary>
-    /// Retries the start while the account lacks the memory or a concurrent-run slot for the run (an
-    /// <c>actor-memory-limit-exceeded</c>/<c>concurrent-runs-limit-exceeded</c> error), instead of throwing
-    /// immediately. <c>null</c> (the default) disables retrying.
+    /// Retries the start while the account lacks the memory or a concurrent-run slot
+    /// (<c>actor-memory-limit-exceeded</c>, <c>concurrent-runs-limit-exceeded</c>) instead of throwing. <c>null</c> (the
+    /// default) does not retry.
     /// </summary>
     public WaitForResources? WaitForResources { get; init; }
 

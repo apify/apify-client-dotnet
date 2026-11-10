@@ -217,10 +217,8 @@ public sealed class RequestShapeTests
     [Fact]
     public async Task WithTimeoutOverridesTheTierDefaultForEveryCallOnThatClient()
     {
-        // WithTimeout is the client's general per-call(-instance) timeout override — the fluent equivalent
-        // of the reference client's per-call `timeoutSecs` option — and always wins over the tier default,
-        // as long as it doesn't exceed the overall budget (ApifyClientOptions.TimeoutSecs — see the
-        // dedicated cap test below).
+        // WithTimeout overrides the tier default, as the reference client's per-call `timeoutSecs`, up to the overall budget
+        // (ApifyClientOptions.TimeoutSecs, see the cap test below).
         var transport = new MockTransport()
             .QueueResponse(200, SpecFixtures.Actor("x"))
             .QueueResponse(200, SpecFixtures.Actor("x"));
@@ -244,9 +242,7 @@ public sealed class RequestShapeTests
     [Fact]
     public async Task WithTimeoutAboveTheOverallBudgetIsCappedAtIt()
     {
-        // Matches the reference client: a requested timeout above timeoutMaxSecs (here,
-        // ApifyClientOptions.TimeoutSecs) is capped at it rather than silently exceeding it — raising the
-        // overall budget itself is how a caller gets a longer per-call timeout.
+        // As in the reference client, a timeout above timeoutMaxSecs (ApifyClientOptions.TimeoutSecs) is capped at it.
         var transport = new MockTransport().QueueResponse(200, SpecFixtures.Actor("x"));
         var client = new ApifyClient(new ApifyClientOptions
         {
@@ -264,9 +260,7 @@ public sealed class RequestShapeTests
     [Fact]
     public async Task WithTimeoutZeroMeansNoTimeout()
     {
-        // TimeSpan.Zero is the client's "no timeout" sentinel (HttpClientTransport skips CancelAfter for a
-        // non-positive duration), matching the reference client's 'noTimeout' — which, like here, bypasses
-        // the overall-budget cap entirely rather than being clamped to it.
+        // TimeSpan.Zero means no timeout, as the reference client's 'noTimeout': it bypasses the overall-budget cap.
         var transport = new MockTransport().QueueResponse(200, SpecFixtures.Actor("x"));
 
         await Client(transport).Actor("x").WithTimeout(TimeSpan.Zero).GetAsync();
@@ -280,10 +274,8 @@ public sealed class RequestShapeTests
     [InlineData("user")]
     public async Task WithTimeoutIsHonoredByMethodsCallingHttpClientCoreDirectly(string which)
     {
-        // Regression test: RunClient.ChargeAsync, TaskClient.UpdateInputAsync and
-        // UserClient.UpdateLimitsAsync call HttpClientCore directly rather than through a ResourceContext
-        // CRUD primitive, and each one previously forgot to pass the context's timeout override through,
-        // so WithTimeout silently had no effect on them.
+        // Regression test: RunClient.ChargeAsync, TaskClient.UpdateInputAsync and UserClient.UpdateLimitsAsync call
+        // HttpClientCore directly and used to ignore the context's timeout override.
         var transport = new MockTransport().QueueResponse(200, "{\"data\":{}}");
         var client = new ApifyClient(new ApifyClientOptions
         {
@@ -460,9 +452,8 @@ public sealed class RequestShapeTests
     [Fact]
     public async Task LargeRequestBodyIsGzipCompressedWhenGzipSelected()
     {
-        // With RequestCompression.Gzip selected, a body at or above the 1 KiB threshold is sent
-        // gzip-compressed: the transport sees the "gzip" Content-Encoding, and gzip-decompressing the raw
-        // bytes recovers the original JSON. This exercises the gzip code path end to end.
+        // With RequestCompression.Gzip, a body of at least 1 KiB is sent with the "gzip" Content-Encoding, and decompressing it
+        // recovers the JSON.
         var transport = new MockTransport().QueueResponse(200, string.Empty);
         var client = new ApifyClient(new ApifyClientOptions
         {
@@ -500,9 +491,7 @@ public sealed class RequestShapeTests
     [Fact]
     public async Task LargeAlreadyCompressedContentTypeIsSentUncompressed()
     {
-        // image/png already carries its own compression, so the client skips compressing the record body
-        // even though it is well above the 1 KiB threshold: no Content-Encoding header, and the bytes on
-        // the wire are the exact bytes passed in.
+        // image/png carries its own compression, so the body is not compressed: no Content-Encoding, and the bytes are unchanged.
         var transport = new MockTransport().QueueResponse(200, string.Empty);
         var bigPng = new byte[4096];
         Array.Fill(bigPng, (byte)0xAB);
@@ -707,9 +696,7 @@ public sealed class RequestShapeTests
     [Fact]
     public async Task SetRecordWithContentEncodingSendsItVerbatimAndSkipsClientCompression()
     {
-        // A value already gzip-compressed by the caller, well above the auto-compression threshold: if the
-        // client applied its own (brotli) compression on top, the bytes on the wire would no longer be
-        // valid single-pass gzip and the header would read "br", not "gzip".
+        // A body the caller already gzipped must not be compressed again: the header stays "gzip" and the bytes are valid single-pass gzip.
         var plaintext = Encoding.UTF8.GetBytes(new string('x', 2048));
         var preCompressed = Gzip(plaintext);
 

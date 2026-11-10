@@ -32,8 +32,6 @@ public sealed class WaitForResourcesTests
         HttpTransport = transport,
     });
 
-    // ---- ResourceLimitRetry (the shared retry primitive) -----------------------------------------------
-
     [Fact]
     public async Task DisabledByDefaultThrowsTheFirstResourceLimitErrorImmediately()
     {
@@ -109,8 +107,6 @@ public sealed class WaitForResourcesTests
     private static ApifyApiException MakeError(string type) =>
         new(402, type, "test error", attempt: 1, httpMethod: "POST", path: "/v2/acts/act/runs");
 
-    // ---- WaitForResources value type ---------------------------------------------------------------------
-
     [Theory]
     [InlineData(-1)]
     [InlineData(double.NaN)]
@@ -130,8 +126,6 @@ public sealed class WaitForResourcesTests
         Assert.Equal(30, Options.WaitForResources.For(30).MaxWaitSecs);
     }
 
-    // ---- ActorClient / TaskClient wiring ----------------------------------------------------------------
-
     [Fact]
     public async Task ActorStartWithoutWaitForResourcesThrowsOnFirstResourceLimitError()
     {
@@ -147,10 +141,8 @@ public sealed class WaitForResourcesTests
     [Fact]
     public async Task ActorStartNeverSendsWaitForResourcesAsAQueryParameter()
     {
-        // waitForResources is a client-side retry policy, not an API parameter; the retry loop's cooldown is
-        // a real 10s per attempt in production (see ResourceLimitRetry), which the generic retry tests above
-        // already cover with an injectable cooldown, so this only checks the request shape of a single
-        // (immediately failing) attempt.
+        // waitForResources is a client-side retry policy, not an API parameter. The generic retry tests above cover the 10s
+        // cooldown with an injectable one, so this checks only the request shape of one failing attempt.
         var transport = new MockTransport().QueueResponse(402, MemoryLimitBody);
 
         var error = await Assert.ThrowsAsync<ApifyApiException>(

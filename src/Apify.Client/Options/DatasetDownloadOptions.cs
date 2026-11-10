@@ -2,10 +2,7 @@ using Apify.Client.Internal;
 
 namespace Apify.Client.Options;
 
-/// <summary>
-/// Adds format-specific options for downloading dataset items on top of the shared item
-/// filtering/projection options (<see cref="DatasetListItemsOptions"/>).
-/// </summary>
+/// <summary>Format-specific options for downloading dataset items, on top of the filtering and projection options of <see cref="DatasetListItemsOptions"/>.</summary>
 public sealed class DatasetDownloadOptions
 {
     /// <summary>The shared filtering/projection options.</summary>

@@ -28,10 +28,7 @@ public sealed class RequestQueueCollectionClient
         return _ctx.ListResourceAsync("", q, static d => new RequestQueue(d), RequestTier.Medium, cancellationToken);
     }
 
-    /// <summary>
-    /// Gets the queue with the given name, creating it if it does not exist. An empty/<c>null</c> name
-    /// creates a new unnamed queue.
-    /// </summary>
+    /// <summary>Gets the queue with the given name, creating it if it does not exist. An empty or <c>null</c> name creates an unnamed queue.</summary>
     /// <param name="name">The queue name, or <c>null</c> for a new unnamed queue.</param>
     /// <param name="cancellationToken">A token to cancel the request.</param>
     public async Task<RequestQueue> GetOrCreateAsync(string? name = null, CancellationToken cancellationToken = default)
@@ -53,11 +50,9 @@ public sealed class RequestQueueCollectionClient
 
 
     /// <summary>
-    /// Returns this client with every subsequent call's timeout set to <paramref name="timeout"/>,
-    /// overriding the tier default (see the "Timeout tiers" section of docs/README.md). Pass
-    /// <see cref="TimeSpan.Zero"/> for no timeout, matching the reference client's <c>'noTimeout'</c>. A
-    /// value above <see cref="ApifyClientOptions.TimeoutSecs"/> (the overall budget) is capped at it —
-    /// raise <see cref="ApifyClientOptions.TimeoutSecs"/> itself to allow a longer per-call timeout.
+    /// Returns this client with the timeout of every subsequent call set to <paramref name="timeout"/>, overriding the
+    /// tier default (see "Timeout tiers" in docs/README.md). <see cref="TimeSpan.Zero"/> means no timeout. A value above
+    /// <see cref="ApifyClientOptions.TimeoutSecs"/> is capped at it.
     /// </summary>
     /// <param name="timeout">The timeout to use for every call made through this client.</param>
     public RequestQueueCollectionClient WithTimeout(TimeSpan timeout)

@@ -40,9 +40,7 @@ public sealed class ConfigTests
         Assert.EndsWith("; my-suffix", client.UserAgent, System.StringComparison.Ordinal);
     }
 
-    // The exact set of Node `os.platform()` tokens the reference JS client can emit. Every Apify client
-    // must report one of these (plus "unknown" for platforms Node cannot run on at all), so the OS token
-    // is identical across clients.
+    // The Node `os.platform()` tokens the reference client can emit, plus "unknown" for platforms Node does not run on.
     private static readonly string[] ReferenceOsTokens =
     {
         "win32", "darwin", "linux", "android", "freebsd", "openbsd", "netbsd", "sunos", "aix",
@@ -51,8 +49,7 @@ public sealed class ConfigTests
     [Fact]
     public void UserAgentOsTokenUsesShortLowercasePlatformIdentifier()
     {
-        // The OS token must be a short, lowercase platform identifier aligned with the other Apify
-        // clients' Node `os.platform()` values, not a uname-style name (e.g. "win32", never "windows").
+        // The OS token is a short lowercase Node `os.platform()` value, never a uname-style name ("win32", not "windows").
         var client = new ApifyClient(new ApifyClientOptions
         {
             Token = "t",
@@ -66,8 +63,7 @@ public sealed class ConfigTests
     }
 
     [Theory]
-    // .NET's OperatingSystem helpers map exactly to the reference Node os.platform() tokens. macOS must be
-    // "darwin" (never "osx"/"macos") and Windows must be "win32" (never "windows").
+    // OperatingSystem helpers map to the Node tokens: "darwin" (not "osx" or "macos") and "win32" (not "windows").
     [InlineData(true, false, false, false, false, "win32")]
     [InlineData(false, true, false, false, false, "darwin")]
     // Android is Linux-based, so it must win over the Linux check and report "android".
@@ -84,8 +80,8 @@ public sealed class ConfigTests
     }
 
     [Theory]
-    // Unix platforms .NET has no dedicated helper for, matched via RuntimeInformation.IsOSPlatform. Both
-    // Solaris and illumos report as "sunos", matching Node.
+    // Unix platforms without an OperatingSystem helper are matched with RuntimeInformation.IsOSPlatform. Solaris and
+    // illumos report "sunos", as in Node.
     [InlineData("OPENBSD", "openbsd")]
     [InlineData("NETBSD", "netbsd")]
     [InlineData("SOLARIS", "sunos")]
@@ -105,8 +101,7 @@ public sealed class ConfigTests
     [Fact]
     public void ResolveOsTokenFallsBackToUnknownForNonNodePlatforms()
     {
-        // A platform with no OperatingSystem helper match and no extended-platform match (e.g. iOS or the
-        // browser, where the reference's Node runtime cannot run) has no reference token and reports "unknown".
+        // A platform that no helper or extended lookup matches (iOS, the browser) has no Node token and reports "unknown".
         Assert.Equal("unknown", ApifyClient.ResolveOsToken(false, false, false, false, false, _ => false));
     }
 
@@ -146,9 +141,8 @@ public sealed class ConfigTests
     }
 
     /// <summary>
-    /// Every id-addressed top-level accessor rejects an empty id, matching the reference client's uniform
-    /// <c>id.min(1)</c> validation: an empty id would otherwise flow into a collection-shaped URL (e.g.
-    /// <c>Run("")</c> addressing <c>.../actor-runs/</c>) and silently mis-address the wrong resource.
+    /// Every id-addressed accessor rejects an empty id, as the reference client does: it would otherwise address a
+    /// collection URL such as <c>.../actor-runs/</c>.
     /// </summary>
     public static TheoryData<string, Action<ApifyClient>> EmptyIdAccessors()
     {

@@ -4,10 +4,7 @@ using Apify.Client.Internal;
 
 namespace Apify.Client.Models;
 
-/// <summary>
-/// A single, cursor-paginated page of a request queue's requests (as returned by
-/// <see cref="Apify.Client.Resources.RequestQueueClient.ListRequestsAsync"/>).
-/// </summary>
+/// <summary>A cursor-paginated page of requests, from <see cref="Apify.Client.Resources.RequestQueueClient.ListRequestsAsync"/>.</summary>
 public sealed class RequestQueueRequestsPage
 {
     private RequestQueueRequestsPage(

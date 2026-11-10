@@ -8,10 +8,9 @@ using Apify.Client.Options;
 namespace Apify.Client.Resources;
 
 /// <summary>
-/// Shared read-only behavior for webhook collections. Both the account-wide collection
-/// (<see cref="WebhookCollectionClient"/>) and the read-only collections nested under an Actor or task
-/// (<see cref="NestedWebhookCollectionClient"/>) can list webhooks; only the account-wide collection can
-/// create them.
+/// Read-only behavior shared by the webhook collections. The account-wide <see cref="WebhookCollectionClient"/> and the
+/// collections nested under an Actor or task (<see cref="NestedWebhookCollectionClient"/>) can list webhooks; only the
+/// account-wide one can create them.
 /// </summary>
 public abstract class AbstractWebhookCollectionClient
 {

@@ -18,11 +18,7 @@ public sealed class ActorVersionCollectionClient
         _ctx = ResourceContext.Collection(http, actorUrl, "versions");
     }
 
-    /// <summary>
-    /// Lists the Actor's versions. The endpoint returns every version in one response; it does not support
-    /// pagination, so unlike most collection clients this takes no filtering/paging options.
-    /// </summary>
-    /// <param name="cancellationToken">A token to cancel the request.</param>
+    /// <summary>Lists the Actor's versions. The endpoint returns all of them in one response, so this takes no paging options.</summary>
     public Task<PaginationList<ActorVersion>> ListAsync(CancellationToken cancellationToken = default)
     {
         return _ctx.ListResourceAsync("", new QueryParams(), static d => new ActorVersion(d), RequestTier.Short, cancellationToken);
@@ -37,11 +33,9 @@ public sealed class ActorVersionCollectionClient
     }
 
     /// <summary>
-    /// Iterates over the Actor's versions. The endpoint returns the whole list in a single page, so this
-    /// yields that page's items; it exists for API parity with the other collection iterators and the
-    /// reference client.
+    /// Iterates the Actor's versions. The endpoint returns the whole list in one page, so this yields that page's items; it
+    /// exists for parity with the other collection iterators and the reference client.
     /// </summary>
-    /// <param name="cancellationToken">A token to cancel the iteration.</param>
     public async IAsyncEnumerable<ActorVersion> IterateAsync([EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
         var page = await ListAsync(cancellationToken).ConfigureAwait(false);
@@ -52,11 +46,9 @@ public sealed class ActorVersionCollectionClient
     }
 
     /// <summary>
-    /// Returns this client with every subsequent call's timeout set to <paramref name="timeout"/>,
-    /// overriding the tier default (see the "Timeout tiers" section of docs/README.md). Pass
-    /// <see cref="TimeSpan.Zero"/> for no timeout, matching the reference client's <c>'noTimeout'</c>. A
-    /// value above <see cref="ApifyClientOptions.TimeoutSecs"/> (the overall budget) is capped at it —
-    /// raise <see cref="ApifyClientOptions.TimeoutSecs"/> itself to allow a longer per-call timeout.
+    /// Returns this client with the timeout of every subsequent call set to <paramref name="timeout"/>, overriding the
+    /// tier default (see "Timeout tiers" in docs/README.md). <see cref="TimeSpan.Zero"/> means no timeout. A value above
+    /// <see cref="ApifyClientOptions.TimeoutSecs"/> is capped at it.
     /// </summary>
     /// <param name="timeout">The timeout to use for every call made through this client.</param>
     public ActorVersionCollectionClient WithTimeout(TimeSpan timeout)

@@ -2,12 +2,10 @@ using System;
 
 namespace Apify.Client.Exceptions;
 
-/// <summary>
-/// Marks a transport-level (network/timeout) failure, which is retryable by the client.
-/// </summary>
+/// <summary>A network or timeout failure, which the client retries.</summary>
 /// <remarks>
-/// A custom <see cref="Apify.Client.Http.IHttpTransport"/> should throw this for connection, DNS and
-/// timeout failures; a non-2xx HTTP status must be returned as a normal response instead.
+/// A custom <see cref="Apify.Client.Http.IHttpTransport"/> throws this for connection, DNS and timeout failures, and
+/// returns a non-2xx status as a response.
 /// </remarks>
 public sealed class ApifyTransportException : ApifyClientException
 {

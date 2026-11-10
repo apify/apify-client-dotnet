@@ -1,15 +1,10 @@
 namespace Apify.Client.Options;
 
-/// <summary>
-/// Filters which "last" run the last-run accessors resolve to. Leave a field <c>null</c> to leave that
-/// filter unset.
-/// </summary>
+/// <summary>Filters which last run the last-run accessors resolve to. A <c>null</c> field leaves that filter unset.</summary>
 /// <remarks>
-/// <c>Status</c> and <c>Origin</c> are both spec-declared query parameters on the last-run endpoints
-/// (<c>GET /v2/actors/{actorId}/runs/last</c> and <c>GET /v2/actor-tasks/{actorTaskId}/runs/last</c>),
-/// matching the reference client's <c>lastRun({ status, origin })</c>. The spec also declares
-/// <c>waitForFinish</c> on those endpoints, but the reference client does not expose it on <c>lastRun</c>,
-/// so it is intentionally omitted here for parity.
+/// <c>Status</c> and <c>Origin</c> are the query parameters of the last-run endpoints, as in the reference client's
+/// <c>lastRun({ status, origin })</c>. <c>waitForFinish</c> is left out because the reference client does not expose it
+/// there.
 /// </remarks>
 public sealed class LastRunOptions
 {

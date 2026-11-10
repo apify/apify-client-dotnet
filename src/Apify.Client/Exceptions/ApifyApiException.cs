@@ -5,13 +5,11 @@ using System.Text.Json.Nodes;
 
 namespace Apify.Client.Exceptions;
 
-/// <summary>
-/// Thrown for HTTP requests that reach the Apify API but receive a non-success status code.
-/// </summary>
+/// <summary>Thrown when the Apify API answers with a non-success status.</summary>
 /// <remarks>
-/// It mirrors the <c>ApifyApiError</c> of the reference JavaScript client and exposes the parsed error
-/// <see cref="Type"/>, the human-readable <see cref="ApiMessage"/>, the HTTP <see cref="StatusCode"/>,
-/// the number of the final <see cref="Attempt"/>, and the request <see cref="HttpMethod"/>/<see cref="Path"/>.
+/// Mirrors the reference client's <c>ApifyApiError</c>: the error <see cref="Type"/>, <see cref="ApiMessage"/>,
+/// <see cref="StatusCode"/>, the final <see cref="Attempt"/> and the request <see cref="HttpMethod"/> and
+/// <see cref="Path"/>.
 /// </remarks>
 public class ApifyApiException : ApifyClientException
 {
@@ -48,7 +46,7 @@ public class ApifyApiException : ApifyClientException
     /// <summary>The machine-readable error type returned by the API (e.g. <c>record-not-found</c>).</summary>
     public string? Type { get; }
 
-    /// <summary>The raw error message returned by the API, without the status/type prefix.</summary>
+    /// <summary>The error message returned by the API, without the status and type prefix.</summary>
     public string ApiMessage { get; }
 
     /// <summary>The number of the API call attempt that produced this error (1-based).</summary>
@@ -60,10 +58,7 @@ public class ApifyApiException : ApifyClientException
     /// <summary>The path of the API endpoint (URL excluding origin).</summary>
     public string Path { get; }
 
-    /// <summary>
-    /// Additional structured data provided by the API about the error, if any. Named <c>ErrorData</c>
-    /// (not <c>Data</c>) to avoid hiding <see cref="System.Exception.Data"/>.
-    /// </summary>
+    /// <summary>Additional structured error data from the API. Not named <c>Data</c>, to avoid hiding <see cref="System.Exception.Data"/>.</summary>
     public JsonObject? ErrorData { get; }
 
     private static string FormatMessage(int statusCode, string? type, string message)
@@ -99,12 +94,9 @@ public class ApifyApiException : ApifyClientException
     private const int StatusServerErrorFloor = 500;
 
     /// <summary>
-    /// Creates the <see cref="ApifyApiException"/> subclass matching <paramref name="statusCode"/> (see the
-    /// per-status types in this namespace, e.g. <see cref="NotFoundException"/>), so callers can branch with
-    /// a type check instead of comparing status codes or error-type strings. Any other status falls back to
-    /// the base <see cref="ApifyApiException"/>; every subclass still satisfies an
-    /// <c>is ApifyApiException</c>/<c>catch (ApifyApiException)</c> check, matching the reference client's
-    /// <c>ApifyApiError</c> subclass hierarchy.
+    /// Creates the <see cref="ApifyApiException"/> subclass for <paramref name="statusCode"/>, such as
+    /// <see cref="NotFoundException"/>, so callers can branch on the type. Other statuses give the base type, as in the
+    /// reference client's <c>ApifyApiError</c> hierarchy.
     /// </summary>
     internal static ApifyApiException Create(
         int statusCode,
