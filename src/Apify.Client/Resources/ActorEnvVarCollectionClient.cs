@@ -41,6 +41,7 @@ public sealed class ActorEnvVarCollectionClient
     /// Iterates the version's environment variables. The endpoint returns the whole list in one page, so this yields that
     /// page's items; it exists for parity with the other collection iterators and the reference client.
     /// </summary>
+    /// <param name="cancellationToken">A token to cancel the iteration.</param>
     public async IAsyncEnumerable<ActorEnvVar> IterateAsync([EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
         var page = await ListAsync(cancellationToken).ConfigureAwait(false);

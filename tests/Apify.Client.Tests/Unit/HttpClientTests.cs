@@ -109,7 +109,7 @@ public sealed class HttpClientTests
     public async Task PaginationCountIsTheApiCountWhileTheIndexerCoversTheItems()
     {
         // The server reports a total and count larger than the items returned, as the Store listing does when it drops entries
-        // after counting. Count and Total keep the API's values, while the list's own count, enumeration and indexer cover the items.
+        // after counting. Count and Total keep the API's values, while the list's own count, enumeration, and indexer cover the items.
         var body = SpecFixtures.ActorPage(2, "a", "b").Replace("\"total\":2", "\"total\":100", StringComparison.Ordinal).Replace("\"count\":2", "\"count\":100", StringComparison.Ordinal);
         var transport = new MockTransport().QueueResponse(200, body);
         var page = await Client(transport).Actors().ListAsync();

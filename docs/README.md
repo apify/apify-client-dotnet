@@ -12,16 +12,16 @@ the `Async` suffix (`GetAsync`, `ListAsync`, `CallAsync`, …).
 
 ## Contents
 
-- [Actors](actors.md) — create, run, build, validate input, Server Actors, versions and environment variables.
-- [Builds](builds.md) — fetch, wait, abort, logs, OpenAPI definition.
-- [Runs](runs.md) — get/wait, abort, metamorph, reboot, resurrect, charge, storages, logs.
-- [Storages](storages.md) — datasets, key-value stores, request queues.
-- [Tasks](tasks.md) — pre-configured Actor runs.
+- [Actors](actors.md): create, run, build, validate input, Server Actors, versions, and environment variables.
+- [Builds](builds.md): fetch, wait, abort, logs, OpenAPI definition.
+- [Runs](runs.md): get/wait, abort, metamorph, reboot, resurrect, charge, storages, logs.
+- [Storages](storages.md): datasets, key-value stores, request queues.
+- [Tasks](tasks.md): pre-configured Actor runs.
 - [Schedules](schedules.md)
-- [Webhooks](webhooks.md) — webhooks and dispatches.
-- [Misc](misc.md) — the Apify Store, users, logs.
-- [Data models](models.md) — property reference for every returned model (`Actor`, `ActorRun`, `Build`, `PaginationList<T>`, …).
-- [Examples](examples.md) — runnable end-to-end examples.
+- [Webhooks](webhooks.md): webhooks and dispatches.
+- [Misc](misc.md): the Apify Store, users, logs.
+- [Data models](models.md): property reference for every returned model (`Actor`, `ActorRun`, `Build`, `PaginationList<T>`, …).
+- [Examples](examples.md): runnable end-to-end examples.
 
 ## Requirements
 
@@ -60,13 +60,13 @@ Get a token in [Apify Console → Settings → API & Integrations](https://conso
 
 | Namespace | Contents |
 |---|---|
-| `Apify.Client` | `ApifyClient`, `ApifyClientOptions`, `ApifyClientVersion`, `RequestCompression`, `Statistics` and `StreamedLog`. |
+| `Apify.Client` | `ApifyClient`, `ApifyClientOptions`, `ApifyClientVersion`, `RequestCompression`, `Statistics`, and `StreamedLog`. |
 | `Apify.Client.Resources` | The resource clients the entry point returns (`ActorClient`, `RunClient`, `DatasetClient`, the `…CollectionClient` types, …). |
 | `Apify.Client.Models` | The models the clients return (`Actor`, `ActorRun`, `Build`, `PaginationList<T>`, …). |
 | `Apify.Client.Options` | The option objects passed to methods (`ActorStartOptions`, `ListOptions`, `SetRecordOptions`, …). |
 | `Apify.Client.Exceptions` | `ApifyClientException` and its subclasses. |
-| `Apify.Client.Http` | `IHttpTransport`, `HttpClientTransport` and the request body compressors. |
-| `System.Text.Json.Nodes` | Not an Apify namespace, but needed to name `JsonObject` and `JsonNode`, which the clients use for dataset items, inputs and other free-form data. |
+| `Apify.Client.Http` | `IHttpTransport`, `HttpClientTransport`, and the request body compressors. |
+| `System.Text.Json.Nodes` | Not an Apify namespace, but needed to name `JsonObject` and `JsonNode`, which the clients use for dataset items, inputs, and other free-form data. |
 
 Fluent chains such as `client.Actor("id").Builds()` need only `using Apify.Client;`. Add
 `using Apify.Client.Resources;` to name a resource client type, for example in a variable:
@@ -106,16 +106,16 @@ var configured = new ApifyClient(new ApifyClientOptions
 | `MinDelayBetweenRetriesMillis` | `500` | Minimum delay between retries (exponential backoff). |
 | `MaxDelayBetweenRetriesMillis` | request timeout | Upper bound of the growing delay between retries. |
 | `TimeoutSecs` | `360` | The overall per-request cap (the reference client's `timeoutMaxSecs`): every attempt's timeout, a `WithTimeout` override included, is clamped to it. Also the base of the `Long` tier unless `TimeoutLongSecs` is set. |
-| `TimeoutLongSecs` | `TimeoutSecs` | Base duration of the `Long` tier: downloads, uploads and streaming. |
+| `TimeoutLongSecs` | `TimeoutSecs` | Base duration of the `Long` tier: downloads, uploads, and streaming. |
 | `TimeoutShortSecs` | `5` | Base duration of the `Short` tier: metadata reads and writes. |
-| `TimeoutMediumSecs` | `30` | Base duration of the `Medium` tier: listing, batch and trigger calls. |
+| `TimeoutMediumSecs` | `30` | Base duration of the `Medium` tier: listing, batch, and trigger calls. |
 | `UserAgentSuffix` | `null` | Custom suffix appended to the `User-Agent` header. |
 | `RequestCompression` | `RequestCompression.Brotli` | Algorithm used to compress request bodies ≥ 1024 bytes: `Brotli` (`Content-Encoding: br`), `Gzip` (`Content-Encoding: gzip`) or `Zstd` (`Content-Encoding: zstd`). |
 | `Compressor` | `null` | A custom `HttpCompressor` for another quality or algorithm; takes precedence over `RequestCompression`. |
 | `Headers` | `null` | Headers sent with every request, such as an integration marker. They win over the built-in `User-Agent` and `Authorization`; names are case-insensitive. A content header such as `Content-Type` makes the constructor throw. |
 | `HttpTransport` | `HttpClientTransport` | The replaceable transport (`Apify.Client.Http.IHttpTransport`). |
 
-Requests are retried with exponential backoff and jitter on network errors, 429 and 5xx responses. Other 4xx
+Requests are retried with exponential backoff and jitter on network errors, 429, and 5xx responses. Other 4xx
 responses throw `ApifyApiException` at once.
 
 ### Request statistics
@@ -126,8 +126,8 @@ index 0 is the first attempt, index 1 the first retry, and so on), as the refere
 ### Timeout tiers
 
 Each method picks the timeout tier that fits its request: `Short` for metadata reads and writes, `Medium` for
-listing, batch and trigger calls, `Long` for downloads, uploads and streaming. The tier durations are set by
-`TimeoutShortSecs`, `TimeoutMediumSecs` and `TimeoutLongSecs`; `TimeoutSecs` is the cap none can exceed.
+listing, batch, and trigger calls, `Long` for downloads, uploads, and streaming. The tier durations are set by
+`TimeoutShortSecs`, `TimeoutMediumSecs`, and `TimeoutLongSecs`; `TimeoutSecs` is the cap none can exceed.
 
 Every resource client has `WithTimeout(TimeSpan timeout)`, which overrides the tier default for the calls made
 through that client instance, for example `client.Dataset(id).WithTimeout(TimeSpan.FromMinutes(5)).DownloadItemsAsync(...)`.
@@ -247,8 +247,8 @@ catch (ApifyClientException e)
 
 ## Versioning
 
-- `Apify.Client.ApifyClientVersion.ClientVersion` — the semantic version of this library.
-- `Apify.Client.ApifyClientVersion.ApiSpecVersion` — the Apify OpenAPI spec version this client was
+- `Apify.Client.ApifyClientVersion.ClientVersion`: the semantic version of this library.
+- `Apify.Client.ApifyClientVersion.ApiSpecVersion`: the Apify OpenAPI spec version this client was
   built against.
 
 ```csharp

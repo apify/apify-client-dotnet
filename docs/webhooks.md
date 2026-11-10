@@ -4,7 +4,7 @@ Webhooks notify an external service when specific events occur. Access the accou
 `client.Webhooks()` and a specific webhook with `client.Webhook(id)`. Webhook dispatches are read with
 `client.WebhookDispatches()` and `client.WebhookDispatch(id)`.
 
-## Webhook collection — `client.Webhooks()`
+## Webhook collection: `client.Webhooks()`
 
 - `ListAsync(ListOptions? options = null)` → `PaginationList<Webhook>`;
   `IterateAsync(ListOptions? options = null)` → `IAsyncEnumerable<Webhook>` (lazy, all pages). Webhook
@@ -15,7 +15,7 @@ Webhooks nested under an Actor or task (`client.Actor(id).Webhooks()`, `client.T
 are **read-only** (list only); create account-wide webhooks that target an Actor/task via the webhook's
 `condition`.
 
-## Single webhook — `client.Webhook(id)`
+## Single webhook: `client.Webhook(id)`
 
 - `GetAsync()`, `UpdateAsync(newFields)`, `DeleteAsync()`.
 - `TestAsync()` → `WebhookDispatch` (dispatch immediately).

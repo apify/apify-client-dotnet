@@ -14,7 +14,7 @@ using Apify.Client.Http;
 namespace Apify.Client.Internal;
 
 /// <summary>
-/// The HTTP client shared by every resource client. It owns the transport, token, <c>User-Agent</c> and the
+/// The HTTP client shared by every resource client. It owns the transport, token, <c>User-Agent</c>, and the
 /// retry and timeout policy, and applies them to every request.
 /// </summary>
 internal sealed class HttpClientCore
@@ -153,7 +153,7 @@ internal sealed class HttpClientCore
     public double RequestTimeoutSecs => _retry.TimeoutSecs;
 
     /// <summary>
-    /// Sends a request with auth, <c>User-Agent</c> and the retry policy, and returns the successful response, which the
+    /// Sends a request with auth, <c>User-Agent</c>, and the retry policy, and returns the successful response, which the
     /// caller disposes. A <paramref name="policy"/> other than <see cref="RequestPolicy.Default"/> changes the
     /// authentication, the retried responses and whether an error response is returned instead of thrown.
     /// </summary>
@@ -267,7 +267,7 @@ internal sealed class HttpClientCore
     }
 
     /// <summary>
-    /// Rejects a default header that is a content header (<c>Content-Type</c>, <c>Content-Length</c> and so on), because
+    /// Rejects a default header that is a content header (<c>Content-Type</c>, <c>Content-Length</c>, and so on), because
     /// the client sets those per request, or not a valid header name.
     /// </summary>
     /// <exception cref="ArgumentException">A header name is a content header or not a valid header name.</exception>
@@ -432,8 +432,8 @@ internal sealed class HttpClientCore
     /// <c>isCompressibleContentType()</c> does.
     /// </summary>
     /// <remarks>
-    /// Images, audio, video and archives already carry their own compression, so compressing them wastes CPU and memory
-    /// for no gain. Raw formats under such a type (<c>image/bmp</c>, <c>audio/wav</c>) and <c>+json</c> or <c>+xml</c>
+    /// Images, audio, video, and archives already carry their own compression, so compressing them wastes CPU and memory
+    /// for no gain. Raw formats under such a type (<c>image/bmp</c>, <c>audio/wav</c>), and <c>+json</c> or <c>+xml</c>
     /// types (<c>image/svg+xml</c>) are still compressed. <c>application/octet-stream</c> counts as compressible, since it
     /// holds unknown binary data and is the fallback of <c>SetRecordAsync</c>. A missing content type is not compressible.
     /// </remarks>

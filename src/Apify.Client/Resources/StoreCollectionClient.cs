@@ -33,7 +33,7 @@ public sealed class StoreCollectionClient
     /// Optional listing filters. <c>Offset</c> and <c>Limit</c> bound where iteration starts and the total number of Actors,
     /// and <c>ChunkSize</c> sets the page size (at most 10 with <c>IncludeInputSchema</c>).
     /// </param>
-    /// <param name="cancellationToken">A token to cancel the request.</param>
+    /// <param name="cancellationToken">A token to cancel the iteration.</param>
     public IAsyncEnumerable<ActorStoreListItem> IterateAsync(StoreListOptions? options = null, CancellationToken cancellationToken = default)
     {
         options ??= new StoreListOptions();

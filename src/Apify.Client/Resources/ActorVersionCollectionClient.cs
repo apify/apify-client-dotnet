@@ -19,6 +19,7 @@ public sealed class ActorVersionCollectionClient
     }
 
     /// <summary>Lists the Actor's versions. The endpoint returns all of them in one response, so this takes no paging options.</summary>
+    /// <param name="cancellationToken">A token to cancel the request.</param>
     public Task<PaginationList<ActorVersion>> ListAsync(CancellationToken cancellationToken = default)
     {
         return _ctx.ListResourceAsync("", new QueryParams(), static d => new ActorVersion(d), RequestTier.Short, cancellationToken);
@@ -36,6 +37,7 @@ public sealed class ActorVersionCollectionClient
     /// Iterates the Actor's versions. The endpoint returns the whole list in one page, so this yields that page's items; it
     /// exists for parity with the other collection iterators and the reference client.
     /// </summary>
+    /// <param name="cancellationToken">A token to cancel the iteration.</param>
     public async IAsyncEnumerable<ActorVersion> IterateAsync([EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
         var page = await ListAsync(cancellationToken).ConfigureAwait(false);

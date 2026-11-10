@@ -9,7 +9,7 @@ Schedules automatically start Actor or task runs at specified times. Access the 
   `IterateAsync(ListOptions? options = null)` → `IAsyncEnumerable<Schedule>` (lazy, all pages).
 - `CreateAsync(object schedule)` → `Schedule`.
 
-## Single schedule — `client.Schedule(id)`
+## Single schedule: `client.Schedule(id)`
 
 - `GetAsync()` → `Schedule?`; `UpdateAsync(object newFields)` → `Schedule`; `DeleteAsync()`.
 - `GetLogAsync()` → `string` (invocation log; throws if the schedule does not exist).

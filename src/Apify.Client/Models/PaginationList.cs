@@ -11,7 +11,7 @@ namespace Apify.Client.Models;
 /// The page metadata (<see cref="Total"/>, <see cref="Offset"/>, <see cref="Limit"/>, <see cref="Count"/>,
 /// <see cref="Desc"/>) accompanies the <see cref="Items"/>. <see cref="Count"/> is the number of entries the API went
 /// through for this page, which can differ from the number of items, so use <c>Items.Count</c> for the items. The
-/// list's own <c>Count</c> (<see cref="IReadOnlyCollection{T}"/>, LINQ's <c>Count()</c>), enumeration and indexer
+/// list's own <c>Count</c> (<see cref="IReadOnlyCollection{T}"/>, LINQ's <c>Count()</c>), enumeration, and indexer
 /// cover the items only. <see cref="Total"/> can lag briefly after a write, since the API computes it asynchronously.
 /// </remarks>
 /// <typeparam name="T">The hydrated item type.</typeparam>

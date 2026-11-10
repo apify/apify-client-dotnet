@@ -40,7 +40,7 @@ public sealed class ApifyClientOptions
     public int TimeoutSecs { get; set; } = ApifyClient.DefaultTimeoutSecs;
 
     /// <summary>
-    /// Base duration of the <c>Long</c> timeout tier in seconds: downloads, uploads and streaming. Defaults to
+    /// Base duration of the <c>Long</c> timeout tier in seconds: downloads, uploads, and streaming. Defaults to
     /// <see cref="TimeoutSecs"/>, which still caps it.
     /// </summary>
     public int? TimeoutLongSecs { get; set; }
@@ -48,7 +48,7 @@ public sealed class ApifyClientOptions
     /// <summary>Base duration of the <c>Short</c> timeout tier in seconds (default 5): metadata reads and writes.</summary>
     public int TimeoutShortSecs { get; set; } = ApifyClient.DefaultTimeoutShortSecs;
 
-    /// <summary>Base duration of the <c>Medium</c> timeout tier in seconds (default 30): listing, batch and trigger calls.</summary>
+    /// <summary>Base duration of the <c>Medium</c> timeout tier in seconds (default 30): listing, batch, and trigger calls.</summary>
     public int TimeoutMediumSecs { get; set; } = ApifyClient.DefaultTimeoutMediumSecs;
 
     /// <summary>Custom suffix appended to the <c>User-Agent</c> header.</summary>

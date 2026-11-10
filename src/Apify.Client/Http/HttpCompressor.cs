@@ -8,7 +8,7 @@ namespace Apify.Client.Http;
 /// Derive from this class and pass it as <see cref="ApifyClientOptions.Compressor"/>: set <see cref="ContentEncoding"/>
 /// to the <c>Content-Encoding</c> value and implement <see cref="CompressAsync"/>. The client calls it only for large
 /// bodies whose content type has no compression of its own, and never for a body the caller sent with a
-/// <c>Content-Encoding</c>. The API accepts <c>gzip</c>, <c>br</c>, <c>zstd</c>, <c>deflate</c> and <c>identity</c>.
+/// <c>Content-Encoding</c>. The API accepts <c>gzip</c>, <c>br</c>, <c>zstd</c>, <c>deflate</c>, and <c>identity</c>.
 /// Matches the reference client's <c>HttpCompressor</c>.
 /// </remarks>
 public abstract class HttpCompressor

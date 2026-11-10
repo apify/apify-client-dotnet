@@ -48,13 +48,16 @@ public abstract class IntegrationTestBase
     }
 
     /// <summary>Returns a configured client, or skips the test if <c>APIFY_TOKEN</c> is unset.</summary>
-    protected static ApifyClient RequireClient()
+    /// <param name="configure">Optional changes to the client options.</param>
+    protected static ApifyClient RequireClient(Action<ApifyClientOptions>? configure = null)
     {
         var token = Environment.GetEnvironmentVariable("APIFY_TOKEN");
         Skip.If(string.IsNullOrEmpty(token), "skipping: APIFY_TOKEN is not set");
 
         var apiUrl = Environment.GetEnvironmentVariable("APIFY_API_URL");
-        return new ApifyClient(new ApifyClientOptions { Token = token, BaseUrl = ResolveBaseUrl(apiUrl) });
+        var options = new ApifyClientOptions { Token = token, BaseUrl = ResolveBaseUrl(apiUrl) };
+        configure?.Invoke(options);
+        return new ApifyClient(options);
     }
 
     /// <summary>Generates a unique resource name, so the same test can run in parallel without clobbering shared state.</summary>

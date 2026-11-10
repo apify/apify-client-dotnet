@@ -10,7 +10,7 @@ namespace Apify.Client.Tests.Integration;
 /// <summary>Live tests of the <c>IterateAsync</c> collection clients and dataset item iteration.</summary>
 /// <remarks>
 /// Where creation is cheap, a test creates a couple of resources and asserts that iterating the collection newest-first
-/// surfaces them. Builds, runs and webhook dispatches are slow to create, so those tests drain a <c>Limit</c>-bounded
+/// surfaces them. Builds, runs, and webhook dispatches are slow to create, so those tests drain a <c>Limit</c>-bounded
 /// slice of what exists and check that the iterator ends, respects the cap and yields well-formed items. Store, key and
 /// request iteration have their own tests.
 /// </remarks>

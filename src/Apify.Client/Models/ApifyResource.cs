@@ -30,6 +30,7 @@ public abstract class ApifyResource
     public JsonNode? Get(string key) => _data.TryGetPropertyValue(key, out var value) ? value : null;
 
     /// <summary>Reads a string field, coercing numbers to their text form; <c>null</c> if absent or unsupported.</summary>
+    /// <param name="key">The field name.</param>
     protected string? GetString(string key)
     {
         var node = Get(key);
@@ -46,6 +47,8 @@ public abstract class ApifyResource
     /// <c>z.url({ normalize: true })</c> does: lowercase punycoded host, no default port, <c>/</c> for an empty path and
     /// percent-encoded unsafe characters. <c>null</c> if the field is absent.
     /// </summary>
+    /// <param name="key">The field name.</param>
+    /// <exception cref="FormatException">The field is present but not a valid absolute URL.</exception>
     protected string? GetUrlString(string key)
     {
         var raw = GetString(key);
@@ -64,6 +67,7 @@ public abstract class ApifyResource
     }
 
     /// <summary>Reads an integer field, coercing numeric strings and fractional numbers; <c>null</c> if absent.</summary>
+    /// <param name="key">The field name.</param>
     protected long? GetInt(string key)
     {
         var node = Get(key);
@@ -97,6 +101,7 @@ public abstract class ApifyResource
     }
 
     /// <summary>Reads a boolean field; <c>null</c> if absent or not a JSON boolean.</summary>
+    /// <param name="key">The field name.</param>
     protected bool? GetBool(string key)
     {
         return Get(key)?.GetValueKind() switch
@@ -108,6 +113,7 @@ public abstract class ApifyResource
     }
 
     /// <summary>Reads a string-array field (numbers coerced to text); <c>null</c> if absent or not an array.</summary>
+    /// <param name="key">The field name.</param>
     protected IReadOnlyList<string>? GetStringList(string key)
     {
         if (Get(key) is not JsonArray array)

@@ -1,6 +1,6 @@
 # Storages
 
-The three storage types — datasets, key-value stores and request queues — share the same collection
+The three storage types (datasets, key-value stores and request queues) share the same collection
 shape: `ListAsync(StorageListOptions? options = null)` (one page),
 `IterateAsync(StorageListOptions? options = null)` → `IAsyncEnumerable<T>` (lazy, all pages), and
 `GetOrCreateAsync(string? name = null)` (dataset and key-value store collections additionally accept an
@@ -29,7 +29,7 @@ reached from a run (`client.Run(id).Dataset()`, `.KeyValueStore()`, `.RequestQue
   response headers). The page's `Count` is the larger of the dataset rows the API scanned and the items returned,
   so `Clean`/`SkipEmpty` can leave it above `Items.Count`; to page by hand, request the next page at
   `Offset + Math.Min(Count, Limit)`, and use `Items.Count` for the number of items.
-- `IterateItemsAsync(DatasetListItemsOptions? options = null)` → `IAsyncEnumerable<JsonNode?>` — lazily iterate every
+- `IterateItemsAsync(DatasetListItemsOptions? options = null)` → `IAsyncEnumerable<JsonNode?>`: lazily iterate every
   item across pages, fetching each page on demand.
 - `DownloadItemsAsync(DownloadItemsFormat format, DatasetDownloadOptions? options = null)` → serialized items as
   `byte[]` (raw bytes, so binary formats like `Xlsx` are not corrupted; decode text formats yourself).
@@ -37,7 +37,7 @@ reached from a run (`client.Run(id).Dataset()`, `.KeyValueStore()`, `.RequestQue
   `Stream`, so a large export is processed incrementally instead of buffered into memory. Unlike
   `DownloadItemsAsync`, this is a single attempt (not retried); dispose the stream when done, which also
   releases the underlying connection.
-- `PushItemsAsync(object items)` — push one object or an array of objects (or a string holding their JSON
+- `PushItemsAsync(object items)`: push one object or an array of objects (or a string holding their JSON
   serialization). Anything else, such as a bare number or an array of non-objects, throws `ArgumentException`
   before a request is sent, because the API accepts only objects.
 - `GetStatisticsAsync()` → `JsonObject` (throws if the dataset does not exist).
@@ -105,12 +105,12 @@ await csvStream.CopyToAsync(file);
 
 - `GetAsync()` → `KeyValueStore?`; `UpdateAsync(object newFields)` → `KeyValueStore`; `DeleteAsync()`.
 - `ListKeysAsync(ListKeysOptions? options = null)` → `KeyValueStoreKeysPage` (one page).
-- `IterateKeysAsync(IterateKeysOptions? options = null)` → `IAsyncEnumerable<KeyValueStoreKey>` — lazily
+- `IterateKeysAsync(IterateKeysOptions? options = null)` → `IAsyncEnumerable<KeyValueStoreKey>`: lazily
   iterate every key across pages, fetching each page (sized by `ChunkSize`) on demand.
 - `RecordExistsAsync(string key)` → `bool`.
 - `GetRecordAsync(string key, GetRecordOptions? options = null)` → `KeyValueStoreRecord?`.
   `KeyValueStoreRecord.Value` is a `byte[]` of the record's raw bytes (so binary records survive intact);
-  decode it according to `KeyValueStoreRecord.ContentType` — e.g. `Encoding.UTF8.GetString(record.Value)`
+  decode it according to `KeyValueStoreRecord.ContentType`, for example `Encoding.UTF8.GetString(record.Value)`
   for text, or `JsonSerializer.Deserialize<T>(record.Value)` for JSON.
 - `SetRecordAsync(string key, byte[] value, string contentType, SetRecordOptions? options = null)` and
   `SetRecordJsonAsync(string key, object? value)` (serializes `value` to JSON bytes).
@@ -121,10 +121,10 @@ await csvStream.CopyToAsync(file);
 `ListKeysOptions` fields: `Limit` (page size), `ExclusiveStartKey` (start after this key),
 `Prefix` (only keys with this prefix), `Collection` (a named record collection), and `Signature`
 (for signed public URLs). `IterateKeysOptions` fields: `Limit` (total across all pages),
-`ChunkSize` (page size; client-side only, never sent to the API — defaults to 1000; `MaxPageLimit` is its
+`ChunkSize` (page size; client-side only, never sent to the API; defaults to 1000; `MaxPageLimit` is its
 older name, and `ChunkSize` wins if both are set), `ExclusiveStartKey`, `Collection`, and `Prefix`. `GetRecordOptions` fields: `Attachment` (request a
 download disposition) and `Signature`. `SetRecordOptions` fields: `TimeoutSecs`, `DoNotRetryTimeouts`,
-and `ContentEncoding` (upload a value that is already compressed — see below).
+and `ContentEncoding` (upload a value that is already compressed, see below).
 
 ```csharp
 using System;
@@ -199,16 +199,16 @@ options set a stable `ClientKey` (required to manage locks the client created) a
   `ListAndLockHeadAsync(int lockSecs, int? limit = null)` → `LockedRequestQueueHead` (each item's
   `RequestQueueRequest.LockExpiresAt`/`RetryCount` is populated).
 - `BatchAddRequestsAsync(IReadOnlyList<RequestQueueRequest> requests, bool forefront = false, BatchAddRequestsOptions? options = null)`
-  → `BatchAddResult` — auto-chunks by count (25) and payload size (~9 MiB) and retries unprocessed
+  → `BatchAddResult`: auto-chunks by count (25) and payload size (~9 MiB) and retries unprocessed
   requests. Every request needs a non-empty `UniqueKey`.
-- `BatchDeleteRequestsAsync(IReadOnlyList<RequestQueueRequest> requests)` → `BatchDeleteResult` — delete a
+- `BatchDeleteRequestsAsync(IReadOnlyList<RequestQueueRequest> requests)` → `BatchDeleteResult`: delete a
   batch of requests in one call; each entry identifies the request to delete via `Id` and/or `UniqueKey`.
 - `ListRequestsAsync(ListRequestsOptions? options = null)` → `RequestQueueRequestsPage` and
   `PaginateRequestsAsync(PaginateRequestsOptions? options = null)` → `IAsyncEnumerable<RequestQueueRequest>`.
 - Lock management: `ProlongRequestLockAsync(string id, int lockSecs, bool forefront = false)` →
   `RequestLockInfo`, `DeleteRequestLockAsync(string id, bool forefront = false)`,
   `UnlockRequestsAsync()` → `UnlockRequestsResult`.
-- `WithClientKey(string clientKey)` → `RequestQueueClient` — returns a copy of this client bound to the
+- `WithClientKey(string clientKey)` → `RequestQueueClient`: returns a copy of this client bound to the
   given client key (a fluent alternative to passing `RequestQueueClientOptions.ClientKey` on
   `client.RequestQueue(id, options)`); the client key ties lock ownership to this client.
 
@@ -216,7 +216,7 @@ options set a stable `ClientKey` (required to manage locks the client created) a
 leaves unprocessed), `MaxParallel` (how many chunks are sent concurrently), and
 `MinDelayBetweenUnprocessedRequestsRetriesMillis` (backoff before retrying unprocessed requests).
 `ListRequestsOptions`/`PaginateRequestsOptions` fields: `Limit`, `ExclusiveStartId`, `Cursor`, and
-`Filter` (an `IReadOnlyList<string>?` — one or more of `"pending"`/`"locked"`, so several states can be
+`Filter` (an `IReadOnlyList<string>?`, one, or more of `"pending"`/`"locked"`, so several states can be
 requested at once); `PaginateRequestsOptions` also has `ChunkSize` (page size, defaults to 1000; `MaxPageLimit` is its older name).
 
 ```csharp

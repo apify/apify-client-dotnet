@@ -19,6 +19,7 @@ public sealed class GzipHttpCompressor : HttpCompressor
     /// The compression level. <see cref="CompressionLevel.Fastest"/> is zlib level 1, <see cref="CompressionLevel.Optimal"/>
     /// level 6 (the default, as in the reference client) and <see cref="CompressionLevel.SmallestSize"/> level 9.
     /// </param>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="level"/> is not a defined <see cref="CompressionLevel"/>.</exception>
     public GzipHttpCompressor(CompressionLevel level = CompressionLevel.Optimal)
     {
         if (!Enum.IsDefined(level))

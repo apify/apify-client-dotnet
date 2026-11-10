@@ -11,7 +11,7 @@ namespace Apify.Client.Resources;
 
 /// <summary>
 /// A client for a specific Actor task, a pre-configured Actor run with stored input: get, update, delete, publish,
-/// start, call, and access to its input, runs and webhooks.
+/// start, call, and access to its input, runs, and webhooks.
 /// </summary>
 public sealed class TaskClient
 {

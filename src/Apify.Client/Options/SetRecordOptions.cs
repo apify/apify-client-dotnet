@@ -11,7 +11,7 @@ public sealed class SetRecordOptions
 
     /// <summary>
     /// The encoding already applied to the value, sent as the <c>Content-Encoding</c> header, to upload a pre-compressed value
-    /// (<c>gzip</c>, <c>br</c>, <c>zstd</c>, <c>deflate</c> or <c>identity</c>). The client sends the bytes as they are and
+    /// (<c>gzip</c>, <c>br</c>, <c>zstd</c>, <c>deflate</c>, or <c>identity</c>). The client sends the bytes as they are and
     /// skips its own compression. Must not be empty or whitespace-only.
     /// </summary>
     public string? ContentEncoding { get; init; }

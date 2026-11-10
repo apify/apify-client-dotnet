@@ -4,7 +4,7 @@ namespace Apify.Client.Exceptions;
 
 /// <summary>A network or timeout failure, which the client retries.</summary>
 /// <remarks>
-/// A custom <see cref="Apify.Client.Http.IHttpTransport"/> throws this for connection, DNS and timeout failures, and
+/// A custom <see cref="Apify.Client.Http.IHttpTransport"/> throws this for connection, DNS, and timeout failures, and
 /// returns a non-2xx status as a response.
 /// </remarks>
 public sealed class ApifyTransportException : ApifyClientException

@@ -9,16 +9,16 @@ a specific task with `client.Task(id)`.
   `IterateAsync(ListOptions? options = null)` → `IAsyncEnumerable<ActorTask>` (lazy, all pages).
 - `CreateAsync(object task)` → `ActorTask`.
 
-## Single task — `client.Task(id)`
+## Single task: `client.Task(id)`
 
 - `GetAsync()` → `ActorTask?`; `UpdateAsync(object newFields)` → `ActorTask`; `DeleteAsync()`.
-- `PublishAsync()` → `ActorTask` — publishes the task on its public landing page in Apify Store
+- `PublishAsync()` → `ActorTask`: publishes the task on its public landing page in Apify Store
   (sets `isPublic: true`). The task's Actor must be public, `PublicConfig.InputSchemaFields` and
   `PublicConfig.DatasetView` must already be set, and the Actor must not already have 10 published
   tasks (accounts are capped at 100 published tasks across all Actors). If any condition isn't met,
   the publish request fails and `isPublic` is left unchanged. Requires write permission to the task's
   Actor. Publishing an already published task does nothing.
-- `UnpublishAsync()` → `ActorTask` — unpublishes the task (sets `isPublic: false`); `PublicConfig` is
+- `UnpublishAsync()` → `ActorTask`: unpublishes the task (sets `isPublic: false`); `PublicConfig` is
   preserved so the task can be published again without re-entering it. Requires write permission to
   the task's Actor. Unpublishing a task that is not published does nothing.
 - `StartAsync(object? input = null, TaskStartOptions? options = null)` → `ActorRun`.

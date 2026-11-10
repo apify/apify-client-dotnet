@@ -64,7 +64,7 @@ public sealed class DatasetClient
     /// The endpoint returns a bare JSON array and reports pagination in <c>X-Apify-Pagination-*</c> headers, which end up
     /// in the returned page.
     /// </remarks>
-    /// <param name="options">Optional item filtering, projection and pagination.</param>
+    /// <param name="options">Optional item filtering, projection, and pagination.</param>
     /// <param name="cancellationToken">A token to cancel the request.</param>
     public async Task<PaginationList<JsonNode?>> ListItemsAsync(DatasetListItemsOptions? options = null, CancellationToken cancellationToken = default)
     {
@@ -143,7 +143,7 @@ public sealed class DatasetClient
     }
 
     /// <summary>
-    /// Downloads the items serialized in the given format (JSON, CSV, XLSX, XML, RSS or HTML) as raw bytes, which keeps
+    /// Downloads the items serialized in the given format (JSON, CSV, XLSX, XML, RSS, or HTML) as raw bytes, which keeps
     /// binary formats such as <see cref="DownloadItemsFormat.Xlsx"/> intact. Decode text formats yourself.
     /// </summary>
     /// <param name="format">The output format.</param>

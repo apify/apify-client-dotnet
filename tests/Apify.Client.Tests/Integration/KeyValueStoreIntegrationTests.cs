@@ -147,18 +147,11 @@ public sealed class KeyValueStoreIntegrationTests : IntegrationTestBase
     [SkippableFact]
     public async Task ZstdCompressedRecordRoundTrips()
     {
-        var token = Environment.GetEnvironmentVariable("APIFY_TOKEN");
-        Skip.If(string.IsNullOrEmpty(token), "APIFY_TOKEN is not set");
-        var client = new ApifyClient(new ApifyClientOptions
-        {
-            Token = token,
-            BaseUrl = ResolveBaseUrl(Environment.GetEnvironmentVariable("APIFY_API_URL")),
-            RequestCompression = RequestCompression.Zstd,
-        });
+        var client = RequireClient(o => o.RequestCompression = RequestCompression.Zstd);
         var store = await client.KeyValueStores().GetOrCreateAsync(UniqueName("kvs-zstd"));
+        var kvs = client.KeyValueStore(store.Id!);
         try
         {
-            var kvs = client.KeyValueStore(store.Id!);
             var plaintext = System.Text.Encoding.UTF8.GetBytes("{\"blob\":\"" + new string('x', 4096) + "\"}");
 
             await kvs.SetRecordAsync("zstd", plaintext, "application/json");
@@ -169,7 +162,7 @@ public sealed class KeyValueStoreIntegrationTests : IntegrationTestBase
         }
         finally
         {
-            await client.KeyValueStore(store.Id!).DeleteAsync();
+            await kvs.DeleteAsync();
         }
     }
 

@@ -82,7 +82,7 @@ public sealed class ActorServerClient
     /// </summary>
     /// <remarks>
     /// The URL is the Actor's <c>standbyUrl</c>. The first call of this method, <see cref="GetOpenApiSpecAsync"/> or
-    /// <see cref="RequestAsync"/> fetches it and the client reuses it afterwards.
+    /// <see cref="RequestAsync"/> fetches it and the client reuses it afterwards; concurrent first calls may each fetch it.
     /// </remarks>
     /// <param name="cancellationToken">A token to cancel the request.</param>
     /// <exception cref="ActorServerException">The Actor is not a Server Actor.</exception>

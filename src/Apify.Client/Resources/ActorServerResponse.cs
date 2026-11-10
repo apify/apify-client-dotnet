@@ -52,6 +52,7 @@ public sealed class ActorServerResponse : IDisposable
     /// Reads the response body as a stream. With <see cref="Options.ActorServerRequestOptions.StreamResponse"/> the body
     /// arrives as it is received. The stream is valid until this response is disposed.
     /// </summary>
+    /// <param name="cancellationToken">A token to cancel the read.</param>
     public Task<Stream> ReadAsStreamAsync(CancellationToken cancellationToken = default)
         => _response.Content.ReadAsStreamAsync(cancellationToken);
 

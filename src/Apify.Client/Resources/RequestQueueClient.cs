@@ -522,7 +522,7 @@ public sealed class RequestQueueClient
     /// <remarks>
     /// Without options it fetches pages of up to <see cref="PaginateRequestsOptions.DefaultMaxPageLimit"/> requests until
     /// the queue is exhausted. <c>Limit</c> caps the total, <c>ChunkSize</c> (or its older name <c>MaxPageLimit</c>) the
-    /// page size, <c>ExclusiveStartId</c> and <c>Cursor</c> choose the starting point and <c>Filter</c> restricts the
+    /// page size, <c>ExclusiveStartId</c>, and <c>Cursor</c> choose the starting point and <c>Filter</c> restricts the
     /// requests to locked or pending ones.
     /// </remarks>
     /// <param name="options">Optional iteration options.</param>

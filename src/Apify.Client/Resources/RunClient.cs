@@ -15,7 +15,7 @@ using Apify.Client.Options;
 namespace Apify.Client.Resources;
 
 /// <summary>
-/// A client for a specific Actor run: get, update, delete, abort, metamorph, reboot, resurrect, charge and wait for
+/// A client for a specific Actor run: get, update, delete, abort, metamorph, reboot, resurrect, charge, and wait for
 /// it to finish, plus accessors for its default storages and log.
 /// </summary>
 public sealed class RunClient
@@ -124,7 +124,7 @@ public sealed class RunClient
     }
 
     /// <summary>
-    /// Restarts a finished run (<c>SUCCEEDED</c>, <c>FAILED</c>, <c>ABORTED</c> or <c>TIMED-OUT</c>) in its container,
+    /// Restarts a finished run (<c>SUCCEEDED</c>, <c>FAILED</c>, <c>ABORTED</c>, or <c>TIMED-OUT</c>) in its container,
     /// with the same storages.
     /// </summary>
     /// <param name="options">Optional resurrect options.</param>

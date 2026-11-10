@@ -5,7 +5,7 @@ namespace Apify.Client.Exceptions;
 /// <summary>
 /// Thrown when a successful response is valid JSON but does not match the schema the API specification declares for
 /// its operation: a missing envelope or required property, a wrong type, a <c>null</c> where it is not allowed, or a
-/// value outside the documented format, pattern or range. Unknown properties and enum values are accepted. The response
+/// value outside the documented format, pattern, or range. Unknown properties and enum values are accepted. The response
 /// arrived in full, so it is not retried. Mirrors the reference client's <c>ResponseValidationError</c>.
 /// </summary>
 public sealed class ResponseValidationException : ApifyClientException

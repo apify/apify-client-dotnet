@@ -274,7 +274,7 @@ public sealed class RequestShapeTests
     [InlineData("user")]
     public async Task WithTimeoutIsHonoredByMethodsCallingHttpClientCoreDirectly(string which)
     {
-        // Regression test: RunClient.ChargeAsync, TaskClient.UpdateInputAsync and UserClient.UpdateLimitsAsync call
+        // Regression test: RunClient.ChargeAsync, TaskClient.UpdateInputAsync, and UserClient.UpdateLimitsAsync call
         // HttpClientCore directly and used to ignore the context's timeout override.
         var transport = new MockTransport().QueueResponse(200, "{\"data\":{}}");
         var client = new ApifyClient(new ApifyClientOptions

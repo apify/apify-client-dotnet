@@ -38,6 +38,7 @@ public sealed class ScheduleClient
     public Task DeleteAsync(CancellationToken cancellationToken = default) => _ctx.DeleteResourceAsync("", RequestTier.Short, cancellationToken);
 
     /// <summary>Fetches the schedule's invocation log as text. Throws if the schedule does not exist, as in the reference client.</summary>
+    /// <param name="cancellationToken">A token to cancel the request.</param>
     public Task<string> GetLogAsync(CancellationToken cancellationToken = default)
         => _ctx.GetRawRequiredAsync("log", new QueryParams(), RequestTier.Medium, cancellationToken);
 
