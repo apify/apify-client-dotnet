@@ -31,7 +31,7 @@ public abstract class IntegrationTestBase
     /// Derives the client base URL from <c>APIFY_API_URL</c>, which includes <c>/v2</c>. The suffix is stripped, since the
     /// client appends it.
     /// </summary>
-    protected static string ResolveBaseUrl(string? apiUrl)
+    private static string ResolveBaseUrl(string? apiUrl)
     {
         if (string.IsNullOrEmpty(apiUrl))
         {

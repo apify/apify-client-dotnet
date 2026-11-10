@@ -519,7 +519,7 @@ internal sealed class ResourceContext
     public static string ToSafeId(string id, string paramName = "id") => EncodePathSegment(id.Replace('/', '~'), paramName);
 
     /// <summary>
-    /// Percent-encodes a URL path segment so a resource id, record key or request ID cannot break out of it. Empty
+    /// Percent-encodes a URL path segment so a resource id, record key, or request ID cannot break out of it. Empty
     /// values and the dot segments <c>.</c> and <c>..</c> are rejected, because URL parsers resolve <c>%2E%2E</c> like <c>..</c>.
     /// </summary>
     /// <param name="input">The raw, caller-supplied path segment.</param>

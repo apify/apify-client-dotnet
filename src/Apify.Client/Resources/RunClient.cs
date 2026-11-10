@@ -81,7 +81,7 @@ public sealed class RunClient
     public Task DeleteAsync(CancellationToken cancellationToken = default) => _ctx.DeleteResourceAsync("", RequestTier.Short, cancellationToken);
 
     /// <summary>
-    /// Aborts the run. <c>true</c> lets it finish the current request first, <c>false</c> aborts at once and <c>null</c>
+    /// Aborts the run. <c>true</c> lets it finish the current request first, <c>false</c> aborts at once, and <c>null</c>
     /// leaves the choice to the server (an immediate abort).
     /// </summary>
     /// <param name="gracefully">Whether to abort gracefully, or <c>null</c> for the server default.</param>

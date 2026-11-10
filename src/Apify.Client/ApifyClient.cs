@@ -13,10 +13,10 @@ namespace Apify.Client;
 
 /// <summary>
 /// The entry point of the client: create it with an API token (and optionally <see cref="ApifyClientOptions"/>), then
-/// get resource clients from its accessors, such as <see cref="Actor"/>, <see cref="Dataset"/> and <see cref="Run"/>.
+/// get resource clients from its accessors, such as <see cref="Actor"/>, <see cref="Dataset"/>, and <see cref="Run"/>.
 /// </summary>
 /// <remarks>
-/// Authentication, the <c>User-Agent</c> header, retries with exponential backoff and timeouts are applied to every
+/// Authentication, the <c>User-Agent</c> header, retries with exponential backoff, and timeouts are applied to every
 /// request. Pass a custom <see cref="IHttpTransport"/> in <see cref="ApifyClientOptions.HttpTransport"/> to replace
 /// the default <see cref="HttpClientTransport"/>.
 /// </remarks>

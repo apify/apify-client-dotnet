@@ -247,7 +247,7 @@
   `SetRecordOptions.TimeoutSecs` are unaffected: both are absolute per-call/per-client overrides that
   already took priority over any default and still do.
 - Added `WithTimeout(TimeSpan)` to every resource client (every accessor on `ApifyClient`, such as `Actor()`,
-  `Dataset()` and `Actors()`), the client's general per-call(-instance) timeout override
+  `Dataset()`, and `Actors()`), the client's general per-call(-instance) timeout override
   matching the reference client's per-call `timeoutSecs` option: every call made through that client
   instance uses the given timeout instead of its tier default. A value above
   `ApifyClientOptions.TimeoutSecs` (the overall budget) is capped at it, matching the reference client

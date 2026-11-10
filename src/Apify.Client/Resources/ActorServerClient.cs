@@ -81,7 +81,7 @@ public sealed class ActorServerClient
     /// server's OpenAPI specification (see <see cref="GetOpenApiSpecAsync"/>).
     /// </summary>
     /// <remarks>
-    /// The URL is the Actor's <c>standbyUrl</c>. The first call of this method, <see cref="GetOpenApiSpecAsync"/> or
+    /// The URL is the Actor's <c>standbyUrl</c>. The first call of this method, <see cref="GetOpenApiSpecAsync"/>, or
     /// <see cref="RequestAsync"/> fetches it and the client reuses it afterwards; concurrent first calls may each fetch it.
     /// </remarks>
     /// <param name="cancellationToken">A token to cancel the request.</param>
@@ -304,7 +304,7 @@ public sealed class ActorServerClient
         return null;
     }
 
-    /// <summary>Fetches the Actor, checks that it is a Server Actor and remembers its server URL.</summary>
+    /// <summary>Fetches the Actor, checks that it is a Server Actor, and remembers its server URL.</summary>
     private async Task<Actor> GetServerActorAsync(CancellationToken cancellationToken)
     {
         var actor = new Actor(await _ctx.GetResourceRequiredAsync("", new QueryParams(), RequestTier.Short, cancellationToken).ConfigureAwait(false));

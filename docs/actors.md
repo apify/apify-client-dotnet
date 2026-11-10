@@ -173,7 +173,7 @@ header of each request it forwards. The Actor uses it to charge the caller of th
 pricing tier on to the Actors it calls. When your multi-tenant Server Actor calls another one while handling a
 request, pass the incoming header value as `ParentRequestId`. The client sends it as the same header, so the called
 Actor charges at the pricing tier of your incoming request. Use a client created with the run's `APIFY_TOKEN`. See
-[Compose multi-tenant Server Actors](https://docs.apify.com/platform/actors/development/programming-interface/server-actors#compose-server-actors).
+[Call another multi-tenant Server Actor](https://docs.apify.com/platform/actors/monetize/server-actors#call-another-multi-tenant-server-actor).
 
 ```csharp
 using System;

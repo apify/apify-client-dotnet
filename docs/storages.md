@@ -1,6 +1,6 @@
 # Storages
 
-The three storage types (datasets, key-value stores and request queues) share the same collection
+The three storage types (datasets, key-value stores, and request queues) share the same collection
 shape: `ListAsync(StorageListOptions? options = null)` (one page),
 `IterateAsync(StorageListOptions? options = null)` → `IAsyncEnumerable<T>` (lazy, all pages), and
 `GetOrCreateAsync(string? name = null)` (dataset and key-value store collections additionally accept an
@@ -121,10 +121,10 @@ await csvStream.CopyToAsync(file);
 `ListKeysOptions` fields: `Limit` (page size), `ExclusiveStartKey` (start after this key),
 `Prefix` (only keys with this prefix), `Collection` (a named record collection), and `Signature`
 (for signed public URLs). `IterateKeysOptions` fields: `Limit` (total across all pages),
-`ChunkSize` (page size; client-side only, never sent to the API; defaults to 1000; `MaxPageLimit` is its
+`ChunkSize` (page size, defaults to 1000; client-side only, never sent to the API; `MaxPageLimit` is its
 older name, and `ChunkSize` wins if both are set), `ExclusiveStartKey`, `Collection`, and `Prefix`. `GetRecordOptions` fields: `Attachment` (request a
 download disposition) and `Signature`. `SetRecordOptions` fields: `TimeoutSecs`, `DoNotRetryTimeouts`,
-and `ContentEncoding` (upload a value that is already compressed, see below).
+and `ContentEncoding` (upload a value that is already compressed; see below).
 
 ```csharp
 using System;
@@ -216,7 +216,7 @@ options set a stable `ClientKey` (required to manage locks the client created) a
 leaves unprocessed), `MaxParallel` (how many chunks are sent concurrently), and
 `MinDelayBetweenUnprocessedRequestsRetriesMillis` (backoff before retrying unprocessed requests).
 `ListRequestsOptions`/`PaginateRequestsOptions` fields: `Limit`, `ExclusiveStartId`, `Cursor`, and
-`Filter` (an `IReadOnlyList<string>?`, one, or more of `"pending"`/`"locked"`, so several states can be
+`Filter` (an `IReadOnlyList<string>?` of one or more of `"pending"`/`"locked"`, so several states can be
 requested at once); `PaginateRequestsOptions` also has `ChunkSize` (page size, defaults to 1000; `MaxPageLimit` is its older name).
 
 ```csharp

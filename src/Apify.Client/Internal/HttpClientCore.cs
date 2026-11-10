@@ -155,7 +155,7 @@ internal sealed class HttpClientCore
     /// <summary>
     /// Sends a request with auth, <c>User-Agent</c>, and the retry policy, and returns the successful response, which the
     /// caller disposes. A <paramref name="policy"/> other than <see cref="RequestPolicy.Default"/> changes the
-    /// authentication, the retried responses and whether an error response is returned instead of thrown.
+    /// authentication, the retried responses, and whether an error response is returned instead of thrown.
     /// </summary>
     public async Task<HttpResponseMessage> CallAsync(
         HttpMethod method,
@@ -335,7 +335,7 @@ internal sealed class HttpClientCore
 
     private static bool IsContentHeader(string name) => name.StartsWith(ContentHeaderPrefix, StringComparison.OrdinalIgnoreCase);
 
-    /// <summary>Builds a request with auth, <c>User-Agent</c>, content type and extra headers.</summary>
+    /// <summary>Builds a request with auth, <c>User-Agent</c>, content type, and extra headers.</summary>
     private HttpRequestMessage BuildRequest(
         HttpMethod method,
         string url,
@@ -433,7 +433,7 @@ internal sealed class HttpClientCore
     /// </summary>
     /// <remarks>
     /// Images, audio, video, and archives already carry their own compression, so compressing them wastes CPU and memory
-    /// for no gain. Raw formats under such a type (<c>image/bmp</c>, <c>audio/wav</c>), and <c>+json</c> or <c>+xml</c>
+    /// for no gain. Raw formats under such a type (<c>image/bmp</c>, <c>audio/wav</c>) and <c>+json</c> or <c>+xml</c>
     /// types (<c>image/svg+xml</c>) are still compressed. <c>application/octet-stream</c> counts as compressible, since it
     /// holds unknown binary data and is the fallback of <c>SetRecordAsync</c>. A missing content type is not compressible.
     /// </remarks>

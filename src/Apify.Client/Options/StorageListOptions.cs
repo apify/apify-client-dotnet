@@ -2,7 +2,7 @@ using Apify.Client.Internal;
 
 namespace Apify.Client.Options;
 
-/// <summary>Options for listing datasets, key-value stores and request queues: pagination plus <c>unnamed</c> and <c>ownership</c> filters.</summary>
+/// <summary>Options for listing datasets, key-value stores, and request queues: pagination plus <c>unnamed</c> and <c>ownership</c> filters.</summary>
 public sealed class StorageListOptions
 {
     /// <summary>Number of items to skip from the beginning of the list.</summary>
