@@ -2,13 +2,8 @@ using System.Text.Json.Nodes;
 
 namespace Apify.Client.Models;
 
-/// <summary>
-/// A pre-configured Actor run (an Actor task).
-/// </summary>
-/// <remarks>
-/// Named <c>ActorTask</c> rather than <c>Task</c> to avoid colliding with
-/// <see cref="System.Threading.Tasks.Task"/>; it corresponds to the reference client's task resource.
-/// </remarks>
+/// <summary>An Actor task, a pre-configured Actor run.</summary>
+/// <remarks>Named <c>ActorTask</c> to avoid colliding with <see cref="System.Threading.Tasks.Task"/>.</remarks>
 public sealed class ActorTask : ApifyResource
 {
     /// <summary>Wraps a raw task object.</summary>
@@ -36,16 +31,16 @@ public sealed class ActorTask : ApifyResource
     /// <summary>The human-readable description shown in the UI and on the task's public landing page.</summary>
     public string? Description => GetString("description");
 
-    /// <summary>When the task was created (ISO-8601 string).</summary>
+    /// <summary>When the task was created (ISO 8601).</summary>
     public string? CreatedAt => GetString("createdAt");
 
-    /// <summary>When the task was last modified (ISO-8601 string).</summary>
+    /// <summary>When the task was last modified (ISO 8601).</summary>
     public string? ModifiedAt => GetString("modifiedAt");
 
     /// <summary>
-    /// Whether the task is published on its public landing page in Apify Store. Derived from
-    /// <see cref="PublicConfig"/>'s <c>publishedAt</c>; set it via <see cref="Resources.TaskClient.PublishAsync"/>
-    /// or <see cref="Resources.TaskClient.UnpublishAsync"/>, not by writing this field directly.
+    /// Whether the task is published on its public landing page in Apify Store, derived from <see cref="PublicConfig"/>'s
+    /// <c>publishedAt</c>. Change it with <see cref="Resources.TaskClient.PublishAsync"/> or
+    /// <see cref="Resources.TaskClient.UnpublishAsync"/>.
     /// </summary>
     public bool? IsPublic => GetBool("isPublic");
 

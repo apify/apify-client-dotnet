@@ -12,26 +12,24 @@ public sealed class ActorServerRequestOptions
     public HttpMethod? Method { get; init; }
 
     /// <summary>
-    /// The query parameters of the request, converted as for API calls: <c>null</c> values are left out, booleans
-    /// become <c>1</c>/<c>0</c>, dates become ISO 8601 in UTC (a <see cref="DateTime"/> of unspecified kind is
-    /// taken as UTC), lists become their comma-joined values and other values use their invariant text form. A
-    /// query in the path is kept and these are appended to it.
+    /// The query parameters, converted as for API calls: <c>null</c> values are left out, booleans become <c>1</c>/<c>0</c>,
+    /// dates ISO 8601 in UTC (a <see cref="DateTime"/> of unspecified kind is taken as UTC), lists their comma-joined values
+    /// and other values their invariant text. A query in the path is kept and these are appended.
     /// </summary>
     public IReadOnlyDictionary<string, object?>? Query { get; init; }
 
     /// <summary>
     /// Additional request headers. They reach the Actor's server as they are, <c>Authorization</c> included, and
-    /// a header of the token's name (<c>X-Apify-Authorization</c>) replaces the token. A <c>Content-Type</c> header
-    /// is the same as <see cref="ContentType"/>. A <c>Content-Encoding</c> header marks a body that is already
-    /// encoded, which is then sent without compressing it (<c>identity</c> opts out of compression). Other
-    /// <c>Content-*</c> headers, such as <c>Content-Disposition</c>, describe the body and are sent only with a
-    /// <see cref="Body"/>; a <c>Content-Length</c> header is ignored, since the client sets the length itself.
+    /// <c>X-Apify-Authorization</c> replaces the token. <c>Content-Type</c> equals <see cref="ContentType"/>. A
+    /// <c>Content-Encoding</c> marks a body that is already encoded and is sent without compressing it (<c>identity</c> opts
+    /// out of compression). Other <c>Content-*</c> headers, such as <c>Content-Disposition</c>, are sent only with a
+    /// <see cref="Body"/>. <c>Content-Length</c> is ignored, since the client sets it.
     /// </summary>
     public IReadOnlyDictionary<string, string>? Headers { get; init; }
 
     /// <summary>
-    /// The request body, serialized as for API calls: raw bytes (<c>byte[]</c>) and a <c>string</c> are sent as
-    /// they are, and any other value is serialized to JSON. <c>null</c> sends no body.
+    /// The request body: <c>byte[]</c> and <c>string</c> are sent as they are, any other value is serialized to JSON, and
+    /// <c>null</c> sends no body.
     /// </summary>
     public object? Body { get; init; }
 
@@ -42,24 +40,29 @@ public sealed class ActorServerRequestOptions
     public string? ContentType { get; init; }
 
     /// <summary>
-    /// The compressor for the request body, for example <see cref="GzipHttpCompressor"/>. The body is sent
-    /// uncompressed when it is not set, since the Actor's server may not decode a compressed body. The body is
-    /// compressed under the same conditions as for API calls. Set it only if the Actor's server decodes the
+    /// The <c>X-Actor-Request-ID</c> header of the request a multi-tenant Server Actor is handling, sent on as the
+    /// same header so the called Actor charges at that request's pricing tier. It replaces an
+    /// <c>X-Actor-Request-ID</c> in <see cref="Headers"/>. Use a client created with the run's <c>APIFY_TOKEN</c>.
+    /// </summary>
+    public string? ParentRequestId { get; init; }
+
+    /// <summary>
+    /// The compressor of the request body, for example <see cref="GzipHttpCompressor"/>. Without it the body is sent
+    /// uncompressed, since the Actor's server may not decode a compressed body. Set it only if the server decodes the
     /// resulting <c>Content-Encoding</c>. Matches the reference client's <c>compression</c> option.
     /// </summary>
     public HttpCompressor? Compressor { get; init; }
 
     /// <summary>
-    /// Whether to return the response body unread, to read it as a stream with
-    /// <see cref="Resources.ActorServerResponse.ReadAsStreamAsync"/>. The response then holds its connection open
-    /// until it is disposed. Defaults to <c>false</c>, which reads the whole body before returning.
+    /// Whether to return the response body unread, to read it with <see cref="Resources.ActorServerResponse.ReadAsStreamAsync"/>.
+    /// The response holds its connection until disposed. Defaults to <c>false</c>, which reads the whole body first.
     /// </summary>
     public bool StreamResponse { get; init; }
 
     /// <summary>
-    /// The timeout of the HTTP request. Defaults to the client's <c>Long</c> timeout tier, which covers the cold
-    /// start of an idle Actor. With <see cref="StreamResponse"/>, it bounds the wait for the server to start
-    /// responding. A value above <see cref="ApifyClientOptions.TimeoutSecs"/> is capped at it.
+    /// The timeout of the HTTP request. Defaults to the <c>Long</c> tier, which covers the cold start of an idle Actor. With
+    /// <see cref="StreamResponse"/> it bounds the wait for the server to start responding. A value above
+    /// <see cref="ApifyClientOptions.TimeoutSecs"/> is capped at it.
     /// </summary>
     public TimeSpan? Timeout { get; init; }
 }

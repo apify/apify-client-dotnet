@@ -3,9 +3,9 @@ using System.Collections.Generic;
 namespace Apify.Client.Options;
 
 /// <summary>
-/// Configures <see cref="Apify.Client.Resources.RunClient.IterateDatasetItemsAsync"/>, which iterates over
-/// the items of a run's default dataset while the run is still producing them. Mirrors the reference
-/// client's <c>RunIterateDatasetItemsOptions</c>. All fields are optional.
+/// Configures <see cref="Apify.Client.Resources.RunClient.IterateDatasetItemsAsync"/>, which iterates the items of a
+/// run's default dataset while the run is still producing them. As the reference client's
+/// <c>RunIterateDatasetItemsOptions</c>. All fields are optional.
 /// </summary>
 public sealed class RunIterateDatasetItemsOptions
 {
@@ -19,8 +19,8 @@ public sealed class RunIterateDatasetItemsOptions
     public int? Offset { get; init; }
 
     /// <summary>
-    /// Maximum number of dataset rows to scan (<c>null</c> or <c>0</c> for no limit). Fewer items are
-    /// yielded when filters drop some, more when <see cref="Unwind"/> splits a row into several.
+    /// Maximum dataset rows to scan (<c>null</c> or <c>0</c> for no limit). Filters can drop items and <see cref="Unwind"/>
+    /// can split a row into several.
     /// </summary>
     public int? Limit { get; init; }
 

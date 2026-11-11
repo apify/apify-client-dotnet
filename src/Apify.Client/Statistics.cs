@@ -3,10 +3,7 @@ using System.Threading;
 
 namespace Apify.Client;
 
-/// <summary>
-/// Counters of what an <see cref="ApifyClient"/> has sent so far, matching the reference client's
-/// <c>stats</c>. All members are safe to read while requests are in flight.
-/// </summary>
+/// <summary>Counters of what an <see cref="ApifyClient"/> has sent, as the reference client's <c>stats</c>. Safe to read while requests are in flight.</summary>
 public sealed class Statistics
 {
     private readonly object _lock = new();
@@ -21,8 +18,8 @@ public sealed class Statistics
     public long Requests => Interlocked.Read(ref _requests);
 
     /// <summary>
-    /// The number of times the API answered <c>429</c> (rate limit exceeded). Errors on the first attempt are
-    /// counted at index 0, errors on the first retry at index 1, and so on. A snapshot copy.
+    /// How many times the API answered <c>429</c>. Index 0 counts errors on the first attempt, index 1 on the first retry, and
+    /// so on. A snapshot copy.
     /// </summary>
     public IReadOnlyList<long> RateLimitErrors
     {

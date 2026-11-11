@@ -12,24 +12,13 @@ using Apify.Client.Resources;
 namespace Apify.Client;
 
 /// <summary>
-/// The entry point for interacting with the Apify API.
+/// The entry point of the client: create it with an API token (and optionally <see cref="ApifyClientOptions"/>), then
+/// get resource clients from its accessors, such as <see cref="Actor"/>, <see cref="Dataset"/>, and <see cref="Run"/>.
 /// </summary>
 /// <remarks>
-/// <para>
-/// See the project's top-level README for the client's official-but-experimental status.
-/// </para>
-/// <para>
-/// Construct it with an API token (and optional settings via <see cref="ApifyClientOptions"/>), then
-/// obtain resource clients via the accessor methods, e.g. <see cref="Actor"/>, <see cref="Dataset"/>,
-/// <see cref="Run"/>.
-/// </para>
-/// <para>
-/// <b>Architecture.</b> The public interface is this class and the resource clients it returns. The
-/// replaceable transport is the <see cref="IHttpTransport"/> (default <see cref="HttpClientTransport"/>);
-/// pass a custom one via <see cref="ApifyClientOptions.HttpTransport"/>. Cross-cutting behaviour (auth,
-/// User-Agent, retries with exponential backoff, timeouts) lives in the internal HTTP client and is
-/// applied to every request.
-/// </para>
+/// Authentication, the <c>User-Agent</c> header, retries with exponential backoff, and timeouts are applied to every
+/// request. Pass a custom <see cref="IHttpTransport"/> in <see cref="ApifyClientOptions.HttpTransport"/> to replace
+/// the default <see cref="HttpClientTransport"/>.
 /// </remarks>
 public sealed class ApifyClient
 {
@@ -51,10 +40,10 @@ public sealed class ApifyClient
     /// <summary>Default duration of the <c>Medium</c> timeout tier, in seconds.</summary>
     public const int DefaultTimeoutMediumSecs = 30;
 
-    /// <summary>Environment variable that signals the client is running on the Apify platform.</summary>
+    /// <summary>Set to a non-empty value when the client runs on the Apify platform.</summary>
     private const string EnvIsAtHome = "APIFY_IS_AT_HOME";
 
-    /// <summary>Environment variable holding the current Actor run's id (set on the platform).</summary>
+    /// <summary>The ID of the current Actor run, set on the platform.</summary>
     private const string EnvActorRunId = "ACTOR_RUN_ID";
 
     /// <summary>Addresses the current user (<c>/users/me</c>).</summary>
@@ -97,8 +86,8 @@ public sealed class ApifyClient
     }
 
     /// <summary>
-    /// The compressor for large request bodies: the explicit <see cref="ApifyClientOptions.Compressor"/>, or the
-    /// built-in one for <see cref="ApifyClientOptions.RequestCompression"/> with its default quality.
+    /// The compressor for large request bodies: <see cref="ApifyClientOptions.Compressor"/>, or the built-in one for
+    /// <see cref="ApifyClientOptions.RequestCompression"/>.
     /// </summary>
     private static HttpCompressor ResolveCompressor(ApifyClientOptions options)
     {
@@ -107,18 +96,21 @@ public sealed class ApifyClient
             return options.Compressor;
         }
 
-        return options.RequestCompression == RequestCompression.Gzip ? new GzipHttpCompressor() : new BrotliHttpCompressor();
+        return options.RequestCompression switch
+        {
+            RequestCompression.Gzip => new GzipHttpCompressor(),
+            RequestCompression.Zstd => new ZstdHttpCompressor(),
+            _ => new BrotliHttpCompressor(),
+        };
     }
 
-    /// <summary>The <c>/v2</c> API version path, appended to a base URL that does not already end with it.</summary>
+    /// <summary>The API version path, appended to a base URL that does not end with it.</summary>
     private const string ApiVersionPath = "/v2";
 
     /// <summary>
-    /// Normalizes a caller-supplied base URL into one ending in the API version path: trailing slashes are
-    /// stripped, and <see cref="ApiVersionPath"/> is appended unless the URL already ends with it (so passing
-    /// <c>https://api.apify.com/v2</c> does not double up into <c>.../v2/v2</c>). Only an exact <c>/v2</c>
-    /// suffix counts; another version segment (e.g. <c>/v3</c>) is treated as part of the host path and still
-    /// gets <c>/v2</c> appended, since the client's endpoints only exist under v2.
+    /// Normalizes a base URL to end with <see cref="ApiVersionPath"/>: trailing slashes are stripped and the path is
+    /// appended unless the URL already ends with <c>/v2</c>. Another version segment such as <c>/v3</c> is kept as part of
+    /// the host path, since the endpoints only exist under v2.
     /// </summary>
     private static string ToApiBaseUrl(string url)
     {
@@ -127,21 +119,16 @@ public sealed class ApifyClient
     }
 
     /// <summary>
-    /// The <c>User-Agent</c> header value this client sends: the built-in one, or the <c>User-Agent</c> entry of
-    /// <see cref="ApifyClientOptions.Headers"/> (matched case-insensitively) when it overrides it.
+    /// The <c>User-Agent</c> this client sends: the built-in one, or the <c>User-Agent</c> entry of
+    /// <see cref="ApifyClientOptions.Headers"/> when it overrides it.
     /// </summary>
     public string UserAgent => _http.UserAgent;
 
-    /// <summary>
-    /// Counters of the calls and requests this client has made and of the rate limit errors it has met, as in
-    /// the reference client's <c>stats</c>.
-    /// </summary>
+    /// <summary>Counters of the calls and requests this client made and the rate limit errors it met.</summary>
     public Statistics Stats => _stats;
 
-    /// <summary>The fully-qualified API base URL this client targets (including the <c>/v2</c> suffix).</summary>
+    /// <summary>The API base URL this client targets, including the <c>/v2</c> suffix.</summary>
     public string ApiBaseUrl => _baseUrl;
-
-    // ----- Actor accessors -----------------------------------------------------
 
     /// <summary>A client for the Actor collection (list &amp; create Actors).</summary>
     public ActorCollectionClient Actors() => new(_http, _baseUrl);
@@ -150,16 +137,12 @@ public sealed class ApifyClient
     /// <param name="id">The Actor ID or <c>username~name</c>.</param>
     public ActorClient Actor(string id) => new(this, _http, _baseUrl, RequireNonEmptyId(id, nameof(id)));
 
-    // ----- Build accessors -----------------------------------------------------
-
     /// <summary>A client for the Actor build collection (list builds).</summary>
     public BuildCollectionClient Builds() => new(_http, _baseUrl, "actor-builds");
 
     /// <summary>A client for a specific Actor build. Must not be empty.</summary>
     /// <param name="id">The build ID.</param>
     public BuildClient Build(string id) => new(_http, _baseUrl, RequireNonEmptyId(id, nameof(id)));
-
-    // ----- Run accessors -------------------------------------------------------
 
     /// <summary>A client for the Actor run collection (list runs).</summary>
     public RunCollectionClient Runs() => new(_http, _baseUrl, "actor-runs");
@@ -168,16 +151,12 @@ public sealed class ApifyClient
     /// <param name="id">The run ID.</param>
     public RunClient Run(string id) => new(this, _http, _baseUrl, "actor-runs", RequireNonEmptyId(id, nameof(id)));
 
-    // ----- Dataset accessors ---------------------------------------------------
-
     /// <summary>A client for the dataset collection (list &amp; get-or-create datasets).</summary>
     public DatasetCollectionClient Datasets() => new(_http, _baseUrl);
 
     /// <summary>A client for a specific dataset, addressed by ID or name. Must not be empty.</summary>
     /// <param name="id">The dataset ID or name.</param>
     public DatasetClient Dataset(string id) => DatasetClient.ForId(_http, _baseUrl, RequireNonEmptyId(id, nameof(id))).WithPublicBase(_publicBaseUrl);
-
-    // ----- Key-value store accessors -------------------------------------------
 
     /// <summary>A client for the key-value store collection.</summary>
     public KeyValueStoreCollectionClient KeyValueStores() => new(_http, _baseUrl);
@@ -186,22 +165,17 @@ public sealed class ApifyClient
     /// <param name="id">The store ID or name.</param>
     public KeyValueStoreClient KeyValueStore(string id) => KeyValueStoreClient.ForId(_http, _baseUrl, RequireNonEmptyId(id, nameof(id))).WithPublicBase(_publicBaseUrl);
 
-    // ----- Request queue accessors ---------------------------------------------
-
     /// <summary>A client for the request queue collection.</summary>
     public RequestQueueCollectionClient RequestQueues() => new(_http, _baseUrl);
 
     /// <summary>
-    /// A client for a specific request queue, addressed by ID or name. Must not be empty. Optionally pass
-    /// options to set a stable <c>ClientKey</c> and/or a per-request <c>TimeoutSecs</c> for this queue's
-    /// calls.
+    /// A client for a specific request queue, addressed by ID or name. Must not be empty. The options set a stable
+    /// <c>ClientKey</c> and a per-request <c>TimeoutSecs</c> for this queue's calls.
     /// </summary>
     /// <param name="id">The queue ID or name.</param>
     /// <param name="options">Optional per-queue-client options.</param>
     public RequestQueueClient RequestQueue(string id, Options.RequestQueueClientOptions? options = null)
         => RequestQueueClient.ForId(_http, _baseUrl, RequireNonEmptyId(id, nameof(id)), options);
-
-    // ----- Task accessors ------------------------------------------------------
 
     /// <summary>A client for the Actor task collection (list &amp; create tasks).</summary>
     public TaskCollectionClient Tasks() => new(_http, _baseUrl);
@@ -210,16 +184,12 @@ public sealed class ApifyClient
     /// <param name="id">The task ID.</param>
     public TaskClient Task(string id) => new(this, _http, _baseUrl, RequireNonEmptyId(id, nameof(id)));
 
-    // ----- Schedule accessors --------------------------------------------------
-
     /// <summary>A client for the schedule collection (list &amp; create schedules).</summary>
     public ScheduleCollectionClient Schedules() => new(_http, _baseUrl);
 
     /// <summary>A client for a specific schedule. Must not be empty.</summary>
     /// <param name="id">The schedule ID.</param>
     public ScheduleClient Schedule(string id) => new(_http, _baseUrl, RequireNonEmptyId(id, nameof(id)));
-
-    // ----- Webhook accessors ---------------------------------------------------
 
     /// <summary>A client for the webhook collection (list &amp; create webhooks).</summary>
     public WebhookCollectionClient Webhooks() => new(_http, _baseUrl);
@@ -234,8 +204,6 @@ public sealed class ApifyClient
     /// <summary>A client for a specific webhook dispatch. Must not be empty.</summary>
     /// <param name="id">The dispatch ID.</param>
     public WebhookDispatchClient WebhookDispatch(string id) => new(_http, _baseUrl, RequireNonEmptyId(id, nameof(id)));
-
-    // ----- Misc accessors ------------------------------------------------------
 
     /// <summary>A client for browsing the Apify Store.</summary>
     public StoreCollectionClient Store() => new(_http, _baseUrl);
@@ -252,17 +220,13 @@ public sealed class ApifyClient
     public UserClient User(string id) => new(_http, _baseUrl, RequireNonEmptyId(id, nameof(id)));
 
     /// <summary>
-    /// Sets the status message of the current Actor run.
+    /// Sets the status message of the current Actor run, the one in the <c>ACTOR_RUN_ID</c> environment variable. A
+    /// terminal message is final and is not overwritten.
     /// </summary>
-    /// <remarks>
-    /// This convenience method updates the run identified by the <c>ACTOR_RUN_ID</c> environment variable,
-    /// so it only works when called from inside an Actor run. If <paramref name="isTerminal"/> is true, the
-    /// message becomes final and won't be overwritten. Throws <see cref="InvalidOperationException"/> if
-    /// <c>ACTOR_RUN_ID</c> is not set.
-    /// </remarks>
     /// <param name="message">The status message to set.</param>
     /// <param name="isTerminal">Whether the message is final.</param>
     /// <param name="cancellationToken">A token to cancel the request.</param>
+    /// <exception cref="InvalidOperationException"><c>ACTOR_RUN_ID</c> is not set.</exception>
     public Task<ActorRun> SetStatusMessageAsync(string message, bool isTerminal = false, CancellationToken cancellationToken = default)
     {
         var runId = Environment.GetEnvironmentVariable(EnvActorRunId);
@@ -282,11 +246,8 @@ public sealed class ApifyClient
     private static string TrimTrailingSlash(string value) => value.TrimEnd('/');
 
     /// <summary>
-    /// Validates that an id/name passed to a resource accessor is non-empty, returning it unchanged so it
-    /// can be used inline at the call site. An empty id would otherwise flow through
-    /// <see cref="Internal.ResourceContext.Single"/> into a collection-shaped URL (e.g. an empty run id
-    /// addressing <c>.../actor-runs/</c>) and silently mis-address the wrong resource instead of failing
-    /// loudly, matching the reference client's uniform <c>id.min(1)</c> validation on every accessor.
+    /// Rejects an empty ID, which would otherwise address a collection URL such as <c>.../actor-runs/</c>. Returns the
+    /// ID so it can be used inline.
     /// </summary>
     private static string RequireNonEmptyId(string id, string paramName)
     {
@@ -298,10 +259,7 @@ public sealed class ApifyClient
         return id;
     }
 
-    /// <summary>
-    /// Reports whether the client is running on the Apify platform, by reading the <c>APIFY_IS_AT_HOME</c>
-    /// environment variable (set to a non-empty value on the platform).
-    /// </summary>
+    /// <summary>Whether <c>APIFY_IS_AT_HOME</c> is set to a non-empty value.</summary>
     private static bool DefaultIsAtHome()
     {
         var value = Environment.GetEnvironmentVariable(EnvIsAtHome);
@@ -309,8 +267,7 @@ public sealed class ApifyClient
     }
 
     /// <summary>
-    /// Builds the <c>User-Agent</c> header value mandated by the client requirements:
-    /// <c>ApifyClient/{version} ({os}; .NET/{runtimeVersion}); isAtHome/{true|false}</c>.
+    /// Builds the <c>User-Agent</c> value <c>ApifyClient/{version} ({os}; .NET/{runtimeVersion}); isAtHome/{true|false}</c>.
     /// </summary>
     private static string BuildUserAgent(string? suffix, Func<bool> isAtHomeFn)
     {
@@ -332,15 +289,12 @@ public sealed class ApifyClient
     }
 
     /// <summary>
-    /// Additional Node <c>os.platform()</c> tokens for Unix platforms that .NET has no dedicated
-    /// <see cref="OperatingSystem"/> helper for, matched via <see cref="RuntimeInformation.IsOSPlatform"/>.
-    /// Solaris and illumos both report as <c>sunos</c>, matching Node.
+    /// OS tokens of Unix platforms that <see cref="OperatingSystem"/> has no helper for. Solaris and illumos both
+    /// report <c>sunos</c>, as in Node.
     /// </summary>
     /// <remarks>
-    /// These entries are deliberately kept even though .NET has no officially supported runtime on these
-    /// platforms today: the requirement is that every Apify client emit the exact same OS token as the
-    /// reference client's <c>os.platform()</c>, so should .NET ever run there the token stays aligned
-    /// rather than degrading to <c>unknown</c>. They are a forward-compatible superset, not live branches.
+    /// .NET has no supported runtime on these platforms today. They keep the token the same as the reference client's
+    /// <c>os.platform()</c> should one appear.
     /// </remarks>
     private static readonly (OSPlatform Platform, string Token)[] ExtendedOsTokens =
     {
@@ -351,7 +305,7 @@ public sealed class ApifyClient
         (OSPlatform.Create("AIX"), "aix"),
     };
 
-    /// <summary>Resolves the current platform to its <c>User-Agent</c> OS token (see <see cref="ResolveOsToken"/>).</summary>
+    /// <summary>The <c>User-Agent</c> OS token of the current platform.</summary>
     private static string CurrentOs() => ResolveOsToken(
         OperatingSystem.IsWindows(),
         OperatingSystem.IsMacOS(),
@@ -361,15 +315,10 @@ public sealed class ApifyClient
         RuntimeInformation.IsOSPlatform);
 
     /// <summary>
-    /// Maps the detected runtime platform to the short, lowercase token used in the <c>User-Agent</c> OS
-    /// field. The tokens are exactly the reference JS client's Node <c>os.platform()</c> values
-    /// (<c>win32</c>, <c>darwin</c>, <c>android</c>, <c>linux</c>, <c>freebsd</c>, <c>openbsd</c>,
-    /// <c>netbsd</c>, <c>sunos</c>, <c>aix</c>), so the token is identical across Apify clients. Android is
-    /// checked before Linux because an Android runtime is also Linux-based. The five platforms .NET exposes
-    /// dedicated <see cref="OperatingSystem"/> helpers for are matched first; the remaining Unix platforms
-    /// Node names but .NET has no helper for are matched via <paramref name="isOsPlatform"/>. Platforms the
-    /// reference's Node runtime cannot run on at all (e.g. iOS, the browser) have no reference token and so
-    /// fall back to <c>unknown</c>.
+    /// Maps the platform to the OS token of the <c>User-Agent</c>: the values of Node's <c>os.platform()</c> (<c>win32</c>,
+    /// <c>darwin</c>, <c>android</c>, <c>linux</c>, <c>freebsd</c>, <c>openbsd</c>, <c>netbsd</c>, <c>sunos</c>,
+    /// <c>aix</c>), so the token is the same in every Apify client. Android is checked before Linux, which it is based on.
+    /// A platform Node does not run on has no token and maps to <c>unknown</c>.
     /// </summary>
     internal static string ResolveOsToken(
         bool isWindows,

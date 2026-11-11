@@ -41,7 +41,7 @@ Base class for every JSON-backed model below.
 | `IsPublic` | `bool?` | Whether the Actor is published publicly in the Apify Store. |
 | `CreatedAt` | `string?` | ISO 8601 creation timestamp. |
 | `ModifiedAt` | `string?` | ISO 8601 last-modification timestamp. |
-| `StandbyUrl` | `string?` | URL of the Actor's server when it is a Server Actor (see [`ActorServerClient`](actors.md#server-actors--clientactoridserver)); `null` otherwise. |
+| `StandbyUrl` | `string?` | URL of the Actor's server when it is a Server Actor (see [`ActorServerClient`](actors.md#server-actors-clientactoridserver)); `null` otherwise. |
 | `ActorStandby` | `JsonObject?` | The Server Actor settings: `isEnabled`, `build`, `memoryMbytes`, `idleTimeoutSecs`, `tenancy` (`SINGLE_TENANT` or `MULTI_TENANT`) and others. |
 | `TaggedBuilds` | `JsonObject?` | The builds the Actor's tags point to, keyed by tag (e.g. `latest`); each value has `buildId` and `buildNumber`. |
 
@@ -363,4 +363,4 @@ One page of a paginated listing, returned by every `ListAsync` method.
 | `Desc` | `bool` | Whether the listing is in descending order. |
 
 To iterate every item across pages without managing offsets yourself, use the matching
-`IterateAsync` method (an `IAsyncEnumerable<T>`) instead — see the resource-specific docs.
+`IterateAsync` method (an `IAsyncEnumerable<T>`) instead; see the resource-specific docs.

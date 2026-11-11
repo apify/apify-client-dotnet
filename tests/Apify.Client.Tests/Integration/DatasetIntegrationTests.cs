@@ -61,9 +61,8 @@ public sealed class DatasetIntegrationTests : IntegrationTestBase
             Assert.NotEmpty(csvBytes);
             Assert.Contains("url", System.Text.Encoding.UTF8.GetString(csvBytes), System.StringComparison.Ordinal);
 
-            // Streaming the same export must yield the same bytes as the buffered download. Compared as raw
-            // bytes (not decoded text) so a leading UTF-8 BOM — which StreamReader would silently strip —
-            // is still caught by a mismatch.
+            // Streaming must yield the same bytes as the buffered download. Compared as bytes so a UTF-8 BOM, which StreamReader
+            // would strip, is caught.
             using (var stream = await dataset.StreamItemsAsync(DownloadItemsFormat.Csv, new DatasetDownloadOptions { Bom = true }))
             using (var copy = new MemoryStream())
             {

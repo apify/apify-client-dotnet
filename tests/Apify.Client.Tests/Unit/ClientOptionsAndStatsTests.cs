@@ -24,8 +24,8 @@ public sealed class ProcessConsoleTests
 }
 
 /// <summary>
-/// Client-level behaviour that mirrors the reference client: request statistics, the separate long and
-/// maximum timeouts, the public base URL default, the User-Agent override and non-retried dataset pushes.
+/// Client-level behavior of the reference client: request statistics, the long and maximum timeouts, the public base URL
+/// default, the User-Agent override, and non-retried dataset pushes.
 /// </summary>
 [Trait("Category", "Unit")]
 [Collection(ProcessConsoleTests.Name)]

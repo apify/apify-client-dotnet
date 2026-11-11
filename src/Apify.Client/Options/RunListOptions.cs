@@ -4,23 +4,19 @@ using Apify.Client.Internal;
 namespace Apify.Client.Options;
 
 /// <summary>
-/// Run-specific filters for listing runs. The <c>StartedAfter</c>/<c>StartedBefore</c> filters are only
-/// honoured by the account-wide and Actor-scoped run collections, not by task runs.
+/// Run-specific filters for listing runs. <c>StartedAfter</c> and <c>StartedBefore</c> apply only to the account-wide and
+/// Actor-scoped run collections, not to task runs.
 /// </summary>
 public sealed class RunListOptions
 {
-    /// <summary>
-    /// Filter by one or more run statuses (e.g. <c>SUCCEEDED</c>, <c>RUNNING</c>); sent as a
-    /// comma-separated list.
-    /// </summary>
+    /// <summary>Filters by one or more run statuses (<c>SUCCEEDED</c>, <c>RUNNING</c>), sent as a comma-separated list.</summary>
     public IReadOnlyList<string>? Status { get; init; }
 
     /// <summary>
-    /// Filter Actor Standby runs by the pool that serves them: one or more of <c>SINGLE_TENANT</c>,
-    /// <c>MULTI_TENANT_FREE_USERS</c>, <c>MULTI_TENANT_PAYING_USERS</c> or <c>MULTI_TENANT_OWNER_PAID</c>; sent
-    /// as a comma-separated list. Requires <see cref="Status"/> with only non-terminal statuses (<c>READY</c>,
-    /// <c>RUNNING</c>, <c>TIMING-OUT</c> or <c>ABORTING</c>). Only the account-wide and Actor-scoped run
-    /// collections honour it.
+    /// Filters Server Actor runs by the pool that serves them: <c>SINGLE_TENANT</c>, <c>MULTI_TENANT_FREE_USERS</c>,
+    /// <c>MULTI_TENANT_PAYING_USERS</c> or <c>MULTI_TENANT_OWNER_PAID</c>, sent as a comma-separated list. Needs
+    /// <see cref="Status"/> with only non-terminal statuses (<c>READY</c>, <c>RUNNING</c>, <c>TIMING-OUT</c> or
+    /// <c>ABORTING</c>). Only the account-wide and Actor-scoped run collections honor it.
     /// </summary>
     public IReadOnlyList<string>? Deployment { get; init; }
 

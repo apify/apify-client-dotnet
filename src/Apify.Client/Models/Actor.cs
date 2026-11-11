@@ -33,28 +33,21 @@ public sealed class Actor : ApifyResource
     /// <summary>Whether the Actor is publicly available in Apify Store.</summary>
     public bool? IsPublic => GetBool("isPublic");
 
-    /// <summary>When the Actor was created (ISO-8601 string).</summary>
+    /// <summary>When the Actor was created (ISO 8601).</summary>
     public string? CreatedAt => GetString("createdAt");
 
-    /// <summary>When the Actor was last modified (ISO-8601 string).</summary>
+    /// <summary>When the Actor was last modified (ISO 8601).</summary>
     public string? ModifiedAt => GetString("modifiedAt");
 
-    /// <summary>
-    /// The URL of the Actor's server when it is a Server Actor (formerly Actor Standby), otherwise <c>null</c>
-    /// or absent.
-    /// </summary>
+    /// <summary>The URL of the Actor's server if it is a Server Actor (formerly Actor Standby), otherwise <c>null</c>.</summary>
     public string? StandbyUrl => GetString("standbyUrl");
 
     /// <summary>
     /// The Server Actor settings (<c>actorStandby</c>): <c>isEnabled</c>, <c>build</c>, <c>memoryMbytes</c>,
-    /// <c>idleTimeoutSecs</c>, <c>tenancy</c> (<c>SINGLE_TENANT</c> or <c>MULTI_TENANT</c>) and others, or
-    /// <c>null</c> when absent.
+    /// <c>idleTimeoutSecs</c>, <c>tenancy</c> (<c>SINGLE_TENANT</c> or <c>MULTI_TENANT</c>) and others; <c>null</c> when absent.
     /// </summary>
     public JsonObject? ActorStandby => Get("actorStandby") as JsonObject;
 
-    /// <summary>
-    /// The builds the Actor's tags point to, keyed by tag (e.g. <c>latest</c>); each value holds the
-    /// <c>buildId</c> and <c>buildNumber</c>, or <c>null</c> when absent.
-    /// </summary>
+    /// <summary>The builds the Actor's tags point to, keyed by tag (<c>latest</c>), each with a <c>buildId</c> and <c>buildNumber</c>; <c>null</c> when absent.</summary>
     public JsonObject? TaggedBuilds => Get("taggedBuilds") as JsonObject;
 }

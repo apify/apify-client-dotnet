@@ -9,8 +9,7 @@ public static class LogRedirectionExample
 {
     public static async Task RunAsync(ApifyClient client)
     {
-        // The `log` argument redirects the run's live log to the given sink (here, stdout) for the
-        // duration of the wait — the client streams and forwards each complete log message as it arrives.
+        // The `log` argument redirects the run's live log to the sink (here, stdout) while waiting.
         await client.Actor("apify/hello-world").CallAsync(null, null, 120, log: Console.WriteLine);
     }
 }

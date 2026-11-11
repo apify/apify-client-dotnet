@@ -6,9 +6,8 @@ using Apify.Client.Internal;
 namespace Apify.Client.Options;
 
 /// <summary>
-/// Configures lazy iteration over a request queue's requests
-/// (<see cref="Apify.Client.Resources.RequestQueueClient.PaginateRequestsAsync"/>), mirroring the
-/// reference client's <c>paginateRequests({ limit, maxPageLimit, exclusiveStartId, cursor, filter })</c>.
+/// Configures <see cref="Apify.Client.Resources.RequestQueueClient.PaginateRequestsAsync"/>, as the reference client's
+/// <c>paginateRequests</c>.
 /// </summary>
 public sealed class PaginateRequestsOptions
 {
@@ -25,15 +24,12 @@ public sealed class PaginateRequestsOptions
     public int? Limit { get; init; }
 
     /// <summary>
-    /// Maximum number of requests fetched per API call (must be positive; defaults to
-    /// <see cref="DefaultMaxPageLimit"/>). Matches the reference client's <c>chunkSize</c>.
+    /// Maximum requests fetched per API call, which must be positive (default <see cref="DefaultMaxPageLimit"/>). As the
+    /// reference client's <c>chunkSize</c>.
     /// </summary>
     public int? ChunkSize { get; init; }
 
-    /// <summary>
-    /// The earlier name of <see cref="ChunkSize"/>, kept so existing callers keep working.
-    /// <see cref="ChunkSize"/> takes precedence when both are set.
-    /// </summary>
+    /// <summary>The earlier name of <see cref="ChunkSize"/>; <see cref="ChunkSize"/> wins when both are set.</summary>
     public int? MaxPageLimit { get; init; }
 
     /// <summary>Start iterating after this request ID (first page only; mutually exclusive with cursor).</summary>
@@ -42,10 +38,7 @@ public sealed class PaginateRequestsOptions
     /// <summary>An opaque pagination cursor to start from (mutually exclusive with <see cref="ExclusiveStartId"/>).</summary>
     public string? Cursor { get; init; }
 
-    /// <summary>
-    /// Restrict the iteration to requests in the given states; each value must be
-    /// <see cref="FilterLocked"/> or <see cref="FilterPending"/>.
-    /// </summary>
+    /// <summary>Restricts the iteration to requests in the given states, each <see cref="FilterLocked"/> or <see cref="FilterPending"/>.</summary>
     public IReadOnlyList<string>? Filter { get; init; }
 
     /// <summary>Validates the options for API-level constraints.</summary>

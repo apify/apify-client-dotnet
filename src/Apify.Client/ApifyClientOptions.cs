@@ -4,27 +4,22 @@ using Apify.Client.Http;
 
 namespace Apify.Client;
 
-/// <summary>
-/// Configuration for an <see cref="ApifyClient"/>. All fields have sensible defaults; set only the ones
-/// you need to override.
-/// </summary>
+/// <summary>Configuration of an <see cref="ApifyClient"/>. Set only the fields you need to override.</summary>
 public sealed class ApifyClientOptions
 {
     /// <summary>API token, sent as a Bearer token.</summary>
     public string? Token { get; set; }
 
     /// <summary>
-    /// API base URL, with or without the <c>/v2</c> API version path: the path is appended when not already
-    /// present, so <c>https://api.apify.com</c> and <c>https://api.apify.com/v2</c> are both accepted and
-    /// resolve to the same <see cref="ApifyClient.ApiBaseUrl"/>.
+    /// API base URL, with or without the <c>/v2</c> path (it is appended when missing), so <c>https://api.apify.com</c> and
+    /// <c>https://api.apify.com/v2</c> give the same <see cref="ApifyClient.ApiBaseUrl"/>.
     /// </summary>
     public string BaseUrl { get; set; } = ApifyClient.DefaultBaseUrl;
 
     /// <summary>
-    /// Base URL for building public, shareable resource URLs (defaults to <see cref="ApifyClient.DefaultBaseUrl"/>,
-    /// whatever <see cref="BaseUrl"/> is, as in the reference client, so a client behind an internal or proxied
-    /// <see cref="BaseUrl"/> does not hand out internal links). Like <see cref="BaseUrl"/>, accepted with or
-    /// without the <c>/v2</c> API version path.
+    /// Base URL of public, shareable resource URLs, with or without <c>/v2</c>. Defaults to
+    /// <see cref="ApifyClient.DefaultBaseUrl"/> whatever <see cref="BaseUrl"/> is, as in the reference client, so a client
+    /// behind an internal <see cref="BaseUrl"/> does not hand out internal links.
     /// </summary>
     public string? PublicBaseUrl { get; set; }
 
@@ -38,30 +33,22 @@ public sealed class ApifyClientOptions
     public int? MaxDelayBetweenRetriesMillis { get; set; }
 
     /// <summary>
-    /// The overall per-request cap, in seconds (default 360), matching the reference client's
-    /// <c>timeoutMaxSecs</c>: every attempt's growing timeout, including one set with <c>WithTimeout</c>, is
-    /// clamped to it, regardless of tier. It is also the base of the <c>Long</c> tier unless
-    /// <see cref="TimeoutLongSecs"/> is set.
+    /// The overall per-request cap in seconds (default 360), as the reference client's <c>timeoutMaxSecs</c>: every
+    /// attempt's timeout, including one set with <c>WithTimeout</c>, is clamped to it. It is also the base of the
+    /// <c>Long</c> tier unless <see cref="TimeoutLongSecs"/> is set.
     /// </summary>
     public int TimeoutSecs { get; set; } = ApifyClient.DefaultTimeoutSecs;
 
     /// <summary>
-    /// Base duration of the <c>Long</c> timeout tier, in seconds: downloads, uploads and streaming. Defaults to
-    /// <see cref="TimeoutSecs"/>. Matches the reference client's <c>timeoutLongSecs</c>; the cap
-    /// <see cref="TimeoutSecs"/> still applies to it.
+    /// Base duration of the <c>Long</c> timeout tier in seconds: downloads, uploads, and streaming. Defaults to
+    /// <see cref="TimeoutSecs"/>, which still caps it.
     /// </summary>
     public int? TimeoutLongSecs { get; set; }
 
-    /// <summary>
-    /// Base duration of the <c>Short</c> timeout tier, in seconds (default 5): simple metadata reads and
-    /// writes (get/update/delete a resource). Matches the reference client's <c>timeoutShortSecs</c>.
-    /// </summary>
+    /// <summary>Base duration of the <c>Short</c> timeout tier in seconds (default 5): metadata reads and writes.</summary>
     public int TimeoutShortSecs { get; set; } = ApifyClient.DefaultTimeoutShortSecs;
 
-    /// <summary>
-    /// Base duration of the <c>Medium</c> timeout tier, in seconds (default 30): listing, batch and trigger
-    /// calls. Matches the reference client's <c>timeoutMediumSecs</c>.
-    /// </summary>
+    /// <summary>Base duration of the <c>Medium</c> timeout tier in seconds (default 30): listing, batch, and trigger calls.</summary>
     public int TimeoutMediumSecs { get; set; } = ApifyClient.DefaultTimeoutMediumSecs;
 
     /// <summary>Custom suffix appended to the <c>User-Agent</c> header.</summary>
@@ -69,25 +56,23 @@ public sealed class ApifyClientOptions
 
     /// <summary>
     /// Algorithm used to compress large request bodies (default <see cref="RequestCompression.Brotli"/>) with
-    /// its default quality. Set it to <see cref="RequestCompression.Gzip"/> to send gzip-compressed bodies
-    /// instead. Use <see cref="Compressor"/> to tune the quality or plug in another algorithm.
+    /// its default quality. Use <see cref="Compressor"/> to tune the quality or plug in another algorithm.
     /// </summary>
     public RequestCompression RequestCompression { get; set; } = RequestCompression.Brotli;
 
     /// <summary>
-    /// A custom request body compressor, for a non-default quality (<see cref="BrotliHttpCompressor"/>,
-    /// <see cref="GzipHttpCompressor"/>) or another algorithm (derive from <see cref="HttpCompressor"/>).
-    /// When set, it takes precedence over <see cref="RequestCompression"/>. Bodies are compressed only when
-    /// they are large enough to benefit and their content type does not already carry its own compression.
+    /// A custom request body compressor, for another quality (<see cref="BrotliHttpCompressor"/>,
+    /// <see cref="GzipHttpCompressor"/>, <see cref="ZstdHttpCompressor"/>) or another algorithm (derive from
+    /// <see cref="HttpCompressor"/>). It takes precedence over <see cref="RequestCompression"/>. Only large bodies without
+    /// their own compression are compressed.
     /// </summary>
     public HttpCompressor? Compressor { get; set; }
 
     /// <summary>
-    /// Additional headers sent with every request, such as an integration platform marker. They win over the
-    /// client's built-in defaults (<c>User-Agent</c>, <c>Authorization</c>); header names are compared
-    /// case-insensitively. Only request headers are allowed: a content header such as <c>Content-Type</c>
-    /// makes the <see cref="ApifyClient"/> constructor throw <see cref="ArgumentException"/>, because the client
-    /// sets those per request.
+    /// Additional headers sent with every request, such as an integration marker. They win over the built-in
+    /// <c>User-Agent</c> and <c>Authorization</c>; names are case-insensitive. A content header such as <c>Content-Type</c>
+    /// makes the <see cref="ApifyClient"/> constructor throw <see cref="ArgumentException"/>, because the client sets
+    /// those per request.
     /// </summary>
     public IReadOnlyDictionary<string, string>? Headers { get; set; }
 

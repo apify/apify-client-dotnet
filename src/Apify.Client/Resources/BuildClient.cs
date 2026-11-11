@@ -20,18 +20,17 @@ public sealed class BuildClient
     }
 
     /// <summary>
-    /// Fetches the build, optionally asking the API to wait up to <paramref name="waitForFinishSecs"/>
-    /// seconds (max 60) for the build to finish before responding. Returns <c>null</c> if it does not exist.
+    /// Fetches the build, optionally asking the API to wait up to <paramref name="waitForFinishSecs"/> seconds (at most
+    /// 60) for it to finish. Returns <c>null</c> if it does not exist.
     /// </summary>
     /// <param name="waitForFinishSecs">Optional server-side wait in seconds.</param>
     /// <param name="cancellationToken">A token to cancel the request.</param>
     public async Task<Build?> GetAsync(int? waitForFinishSecs = null, CancellationToken cancellationToken = default)
     {
         var q = new QueryParams();
-        // Clamp to the client's per-request timeout so a short custom timeout doesn't abort the call.
+        // Clamped to the request timeout, so a short custom timeout does not abort the call.
         q.AddInt("waitForFinish", _ctx.ClampServerWait(waitForFinishSecs));
-        // Long: the clamped waitForFinish can hold the connection open close to the overall budget, so the
-        // HTTP timeout for this call must cover it (matches the reference's short-base-extended-for-wait).
+        // Long tier: the server may hold the connection for most of the wait.
         var data = await _ctx.GetResourceAsync("", q, RequestTier.Long, cancellationToken).ConfigureAwait(false);
         return data is JsonObject obj ? new Build(obj) : null;
     }
@@ -48,8 +47,8 @@ public sealed class BuildClient
     public Task DeleteAsync(CancellationToken cancellationToken = default) => _ctx.DeleteResourceAsync("", RequestTier.Short, cancellationToken);
 
     /// <summary>
-    /// Polls until the build reaches a terminal state or <paramref name="waitSecs"/> elapses (<c>null</c>
-    /// waits indefinitely). Returns the latest build.
+    /// Polls until the build reaches a terminal state or <paramref name="waitSecs"/> elapses (<c>null</c> waits
+    /// indefinitely) and returns the latest build.
     /// </summary>
     /// <param name="waitSecs">The wait budget in seconds, or <c>null</c> to wait indefinitely.</param>
     /// <param name="cancellationToken">A token to cancel the wait.</param>
@@ -70,11 +69,9 @@ public sealed class BuildClient
     public LogClient Log() => LogClient.Nested(_http, _ctx.SubUrl(""), timeout: _ctx.RequestTimeout);
 
     /// <summary>
-    /// Returns this client with every subsequent call's timeout set to <paramref name="timeout"/>,
-    /// overriding the tier default (see the "Timeout tiers" section of docs/README.md). Pass
-    /// <see cref="TimeSpan.Zero"/> for no timeout, matching the reference client's <c>'noTimeout'</c>. A
-    /// value above <see cref="ApifyClientOptions.TimeoutSecs"/> (the overall budget) is capped at it —
-    /// raise <see cref="ApifyClientOptions.TimeoutSecs"/> itself to allow a longer per-call timeout.
+    /// Returns this client with the timeout of every subsequent call set to <paramref name="timeout"/>, overriding the
+    /// tier default (see "Timeout tiers" in docs/README.md). <see cref="TimeSpan.Zero"/> means no timeout. A value above
+    /// <see cref="ApifyClientOptions.TimeoutSecs"/> is capped at it.
     /// </summary>
     /// <param name="timeout">The timeout to use for every call made through this client.</param>
     public BuildClient WithTimeout(TimeSpan timeout)

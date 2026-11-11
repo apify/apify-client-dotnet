@@ -3,10 +3,9 @@ using System;
 namespace Apify.Client.Exceptions;
 
 /// <summary>
-/// Thrown when the body of a successful response does not parse as JSON, for example a proxy's HTML page
-/// served with a success status. The response arrived in full, so the request is not retried. An error
-/// status with an unparsable body throws the <see cref="ApifyApiException"/> for its status code instead.
-/// Matches the reference client's <c>InvalidResponseBodyError</c>.
+/// Thrown when the body of a successful response is not JSON, for example a proxy's HTML page. The response arrived in
+/// full, so it is not retried. An error status with an unparsable body throws the <see cref="ApifyApiException"/> of its
+/// status instead. Mirrors the reference client's <c>InvalidResponseBodyError</c>.
 /// </summary>
 public sealed class InvalidResponseBodyException : ApifyClientException
 {

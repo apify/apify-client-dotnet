@@ -39,10 +39,8 @@ public sealed class AutoPagingTests
     [Fact]
     public async Task CollectionIterateWalksAllPagesByOffset()
     {
-        // The iterator pages until a page scans no rows, not until `offset` reaches an earlier page's
-        // `total` (that total can go stale if the collection grows mid-iteration — see
-        // CollectionIterateDoesNotStopAtAnEarlierPagesStaleTotal), so it always sends one more request
-        // after the last non-empty page to confirm nothing is left.
+        // The iterator pages until a page scans no rows, not until `offset` reaches an earlier `total`, which can go stale when
+        // the collection grows. So it sends one more request after the last non-empty page.
         var transport = new MockTransport()
             .QueueResponse(200, SpecFixtures.ActorPage(3, "a", "b"))
             .QueueResponse(200, SpecFixtures.ActorPage(3, "c"))
@@ -64,10 +62,8 @@ public sealed class AutoPagingTests
     [Fact]
     public async Task CollectionIterateDoesNotStopAtAnEarlierPagesStaleTotal()
     {
-        // Regression test (mirrors a reference-client bug fix): the API recomputes `total` fresh on every
-        // request, so it can grow between pages when something else pushes to the collection while the
-        // iteration runs. The iterator must keep paging past an earlier page's `total` and only stop once a
-        // page actually scans no rows.
+        // Regression test, as a reference client bug fix: `total` is recomputed on every request and can grow between pages. The
+        // iterator must keep paging past an earlier `total` and stop only when a page scans no rows.
         var transport = new MockTransport()
             .QueueResponse(200, SpecFixtures.ActorPage(2, "a", "b"))
             // By the time this page is fetched, a third item was added: total is now 3, not the 2 the first
@@ -148,10 +144,8 @@ public sealed class AutoPagingTests
     [Fact]
     public async Task DatasetIterateItemsAdvancesByScannedCountNotReturnedItemsWhenAPageIsFullyFiltered()
     {
-        // Regression test (mirrors a reference-client bug fix): clean/skipEmpty/skipHidden apply after
-        // offset/limit, so a page can scan up to `limit` rows while returning fewer (or, as here, none).
-        // The iterator must advance by the scanned count (x-apify-pagination-count) and keep going, not
-        // stop just because this page returned zero items.
+        // Regression test, as a reference client bug fix: clean/skipEmpty/skipHidden apply after offset/limit, so a page can scan
+        // `limit` rows and return none. The iterator must advance by the scanned count and keep going.
         var page1Headers = new Dictionary<string, string>
         {
             ["X-Apify-Pagination-Total"] = "5",
@@ -359,10 +353,8 @@ public sealed class AutoPagingTests
     [Fact]
     public async Task KeyValueStoreIterateKeysStopsOnTruncatedPageWithNullCursor()
     {
-        // Regression test: the continuation decision must follow `nextExclusiveStartKey`, not
-        // `isTruncated` alone (mirrors apify-client-js `key_value_store.ts` listKeys iteration). A page
-        // reporting `isTruncated=true` with a null/absent cursor must still stop iteration instead of
-        // looping back to the same first page forever and yielding duplicate keys.
+        // Regression test: continuation follows `nextExclusiveStartKey`, not `isTruncated` alone, as in apify-client-js. A page
+        // with `isTruncated=true` and a null cursor must stop instead of repeating the first page.
         var transport = new MockTransport()
             .QueueResponse(200, SpecFixtures.KeysPage(2, true, null, "a", "b"));
 

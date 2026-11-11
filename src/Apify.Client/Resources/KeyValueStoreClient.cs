@@ -11,7 +11,7 @@ using Apify.Client.Options;
 
 namespace Apify.Client.Resources;
 
-/// <summary>A client for a specific key-value store (and run-nested variants).</summary>
+/// <summary>A client for a specific key-value store.</summary>
 public sealed class KeyValueStoreClient
 {
     private readonly HttpClientCore _http;
@@ -43,7 +43,7 @@ public sealed class KeyValueStoreClient
         return data is System.Text.Json.Nodes.JsonObject obj ? new KeyValueStore(obj) : null;
     }
 
-    /// <summary>Updates the store metadata (e.g. name) and returns the updated object.</summary>
+    /// <summary>Updates the store metadata, such as its name, and returns the updated store.</summary>
     /// <param name="newFields">Any JSON-serializable set of fields to update.</param>
     /// <param name="cancellationToken">A token to cancel the request.</param>
     public async Task<KeyValueStore> UpdateAsync(object newFields, CancellationToken cancellationToken = default)
@@ -65,23 +65,18 @@ public sealed class KeyValueStoreClient
         return KeyValueStoreKeysPage.FromData(await _ctx.GetResourceRequiredAsync("keys", q, RequestTier.Medium, cancellationToken).ConfigureAwait(false));
     }
 
-    /// <summary>
-    /// Lazily iterates over the store's keys across pages, fetching each page on demand. Mirrors the
-    /// reference client's chunked <c>listKeys()</c> iteration.
-    /// </summary>
+    /// <summary>Lazily iterates the store's keys across pages, fetching each page on demand.</summary>
     /// <remarks>
-    /// With no options it fetches pages of up to <see cref="IterateKeysOptions.DefaultMaxPageLimit"/> keys
-    /// until the store is exhausted. <c>Limit</c> caps the total number of keys yielded across all pages —
-    /// <c>0</c> yields none, without issuing any request (the API itself reads a literal <c>limit=0</c> as
-    /// unbounded, not zero, so this is checked before building the request rather than left to the API), and
-    /// must not be negative. <c>ChunkSize</c> caps the page size (never sent to the API itself) and must
-    /// be positive (<c>MaxPageLimit</c> is its older name), and <c>ExclusiveStartKey</c> chooses the starting point (first page only).
+    /// Without options it fetches pages of up to <see cref="IterateKeysOptions.DefaultMaxPageLimit"/> keys until the store
+    /// is exhausted. <c>Limit</c> caps the total number of keys; <c>0</c> yields none without a request, and it must not be
+    /// negative. <c>ChunkSize</c> (older name <c>MaxPageLimit</c>) is the page size and must be positive.
+    /// <c>ExclusiveStartKey</c> chooses the starting point.
     /// </remarks>
     /// <param name="options">Optional iteration options.</param>
     /// <param name="cancellationToken">A token to cancel the iteration.</param>
     /// <exception cref="ArgumentException">
-    /// <see cref="IterateKeysOptions.ChunkSize"/> or <see cref="IterateKeysOptions.MaxPageLimit"/> is zero or negative, or <see cref="IterateKeysOptions.Limit"/>
-    /// is negative.
+    /// <see cref="IterateKeysOptions.ChunkSize"/> or <see cref="IterateKeysOptions.MaxPageLimit"/> is zero or negative, or
+    /// <see cref="IterateKeysOptions.Limit"/> is negative.
     /// </exception>
     public async IAsyncEnumerable<KeyValueStoreKey> IterateKeysAsync(
         IterateKeysOptions? options = null,
@@ -103,9 +98,8 @@ public sealed class KeyValueStoreClient
 
         while (true)
         {
-            // Checked before building the request, not only after: the API reads a literal `limit=0` as
-            // unset (unbounded) rather than "zero", so a Limit of 0 (or one already exhausted by a prior
-            // page) must stop here instead of reaching the wire as 0 and fetching a full page regardless.
+            // Checked before building the request: the API reads `limit=0` as unbounded, so a Limit of 0 (or one already
+            // reached) must stop here.
             if (limit is not null && iterated >= limit.Value)
             {
                 yield break;
@@ -135,13 +129,8 @@ public sealed class KeyValueStoreClient
 
             iterated += page.Items.Count;
 
-            // Continue only while there is a next cursor to follow — mirrors the reference client
-            // (apify-client-js `key_value_store.ts` listKeys iteration), which continues on
-            // `nextExclusiveStartKey != null` rather than on `isTruncated` alone. The API answers with
-            // `null` on the last page and omits the field entirely for a listing that was not truncated,
-            // but `isTruncated` alone is not a safe continuation signal: if it were ever `true` alongside a
-            // null/absent cursor, looping on it would re-fetch the same first page forever (no
-            // `exclusiveStartKey` reaches the wire for a null cursor), yielding duplicate keys.
+            // Continue only while there is a next cursor, as in the reference client. `isTruncated` alone is not safe: with a
+            // null cursor no `exclusiveStartKey` would be sent, and the first page would be fetched again forever.
             if (page.NextExclusiveStartKey is null || (limit is not null && iterated >= limit.Value))
             {
                 yield break;
@@ -158,14 +147,12 @@ public sealed class KeyValueStoreClient
         => _ctx.HeadExistsAsync("records/" + ResourceContext.EncodePathSegment(key, nameof(key)), new QueryParams(), RequestTier.Long, cancellationToken);
 
     /// <summary>
-    /// Fetches a record by key, or <c>null</c> if it does not exist. Like the reference client, it requests
-    /// the record as an attachment so the API returns the raw bytes directly.
+    /// Fetches a record by key, or <c>null</c> if it does not exist. As in the reference client, the record is requested
+    /// as an attachment, so the API returns the raw bytes.
     /// </summary>
     /// <remarks>
-    /// The body is never parsed: <see cref="KeyValueStoreRecord.Value"/> holds the raw bytes whatever the
-    /// content type, so a truncated JSON body cannot fail here, and the caller decodes it according to
-    /// <see cref="KeyValueStoreRecord.ContentType"/>. (The reference client parses JSON, text and XML records
-    /// by content type; its <c>buffer</c> option returns the raw bytes like this method does.)
+    /// The body is never parsed: <see cref="KeyValueStoreRecord.Value"/> holds the raw bytes whatever the content type, so
+    /// decode them according to <see cref="KeyValueStoreRecord.ContentType"/>.
     /// </remarks>
     /// <param name="key">The record key.</param>
     /// <param name="options">Optional fetch options.</param>
@@ -179,7 +166,7 @@ public sealed class KeyValueStoreClient
         try
         {
             using var response = await _http.CallAsync(HttpMethod.Get, url, timeout: _ctx.RequestTimeout, tier: RequestTier.Long, cancellationToken: cancellationToken).ConfigureAwait(false);
-            // Read the raw bytes (not a decoded string) so binary records survive the round-trip intact.
+            // Raw bytes keep binary records intact.
             var body = await response.Content.ReadAsByteArrayAsync(cancellationToken).ConfigureAwait(false);
             var contentType = response.Content.Headers.ContentType?.ToString();
             return new KeyValueStoreRecord(key, body, string.IsNullOrEmpty(contentType) ? null : contentType);
@@ -190,23 +177,16 @@ public sealed class KeyValueStoreClient
         }
     }
 
-    /// <summary>
-    /// Stores a record with raw bytes and the given content type, honoring the given write options
-    /// (<c>TimeoutSecs</c>, <c>DoNotRetryTimeouts</c>, <c>ContentEncoding</c>).
-    /// </summary>
+    /// <summary>Stores a record with raw bytes and a content type.</summary>
     /// <param name="key">The record key.</param>
     /// <param name="value">
-    /// The raw record bytes. With <see cref="SetRecordOptions.ContentEncoding"/> set, these must already be
-    /// encoded that way (e.g. already gzipped) — the client sends them as-is and does not compress them
-    /// again.
+    /// The raw record bytes. With <see cref="SetRecordOptions.ContentEncoding"/>, they must already be encoded that way
+    /// and are sent as they are.
     /// </param>
     /// <param name="contentType">
-    /// The record's MIME type. Worth setting precisely for media and archives: the client skips
-    /// compressing a body whose content type already carries its own compression (images, audio, video,
-    /// archives, office/ZIP formats, web fonts). <c>application/octet-stream</c> — the usual choice for
-    /// data of an unknown or mixed binary type — is treated as compressible, since it could hold anything.
-    /// This content-type-based skip does not apply when <see cref="SetRecordOptions.ContentEncoding"/> is
-    /// set: that always skips the client's own compression, regardless of content type.
+    /// The record's MIME type. A body whose content type carries its own compression (images, audio, video, archives,
+    /// fonts) is not compressed by the client. <c>application/octet-stream</c> counts as compressible. A
+    /// <see cref="SetRecordOptions.ContentEncoding"/> always skips compression.
     /// </param>
     /// <param name="options">Optional write options.</param>
     /// <param name="cancellationToken">A token to cancel the request.</param>
@@ -250,9 +230,8 @@ public sealed class KeyValueStoreClient
         => _ctx.DeleteResourceAsync("records/" + ResourceContext.EncodePathSegment(key, nameof(key)), RequestTier.Short, cancellationToken);
 
     /// <summary>
-    /// Builds a public URL for fetching the given record. It fetches the store, and if the store exposes a
-    /// URL-signing secret key (i.e. it is private), appends an HMAC-SHA256 signature so the URL grants
-    /// access without an API token. The URL is built from the configured public base URL.
+    /// Builds a public URL for the record. For a private store (one with a URL-signing secret key), the URL carries an
+    /// HMAC-SHA256 signature, so it works without an API token.
     /// </summary>
     /// <param name="key">The record key.</param>
     /// <param name="cancellationToken">A token to cancel the request.</param>
@@ -273,12 +252,11 @@ public sealed class KeyValueStoreClient
     }
 
     /// <summary>
-    /// Builds a public URL for listing this store's keys, forwarding the given key-listing filters into the
-    /// URL. As with <see cref="GetRecordPublicUrlAsync"/>, a signature is appended for private stores unless
-    /// the caller already supplied one. <paramref name="expiresInSecs"/> optionally bounds a signed URL.
+    /// Builds a public URL for listing the store's keys, forwarding the filters into the URL. As with
+    /// <see cref="GetRecordPublicUrlAsync"/>, a private store's URL is signed.
     /// </summary>
     /// <param name="options">Optional key-listing filters forwarded into the URL.</param>
-    /// <param name="expiresInSecs">Optional expiry in seconds for a signed URL; must be positive (omit it for a URL that never expires).</param>
+    /// <param name="expiresInSecs">Expiry of a signed URL in seconds; must be positive. Omit it for a URL that never expires.</param>
     /// <param name="cancellationToken">A token to cancel the request.</param>
     public async Task<string> CreateKeysPublicUrlAsync(ListKeysOptions? options = null, int? expiresInSecs = null, CancellationToken cancellationToken = default)
     {
@@ -303,11 +281,9 @@ public sealed class KeyValueStoreClient
     }
 
     /// <summary>
-    /// Returns this client with every subsequent call's timeout set to <paramref name="timeout"/>,
-    /// overriding the tier default (see the "Timeout tiers" section of docs/README.md). Pass
-    /// <see cref="TimeSpan.Zero"/> for no timeout, matching the reference client's <c>'noTimeout'</c>. A
-    /// value above <see cref="ApifyClientOptions.TimeoutSecs"/> (the overall budget) is capped at it —
-    /// raise <see cref="ApifyClientOptions.TimeoutSecs"/> itself to allow a longer per-call timeout.
+    /// Returns this client with the timeout of every subsequent call set to <paramref name="timeout"/>, overriding the
+    /// tier default (see "Timeout tiers" in docs/README.md). <see cref="TimeSpan.Zero"/> means no timeout. A value above
+    /// <see cref="ApifyClientOptions.TimeoutSecs"/> is capped at it.
     /// </summary>
     /// <param name="timeout">The timeout to use for every call made through this client.</param>
     public KeyValueStoreClient WithTimeout(TimeSpan timeout)

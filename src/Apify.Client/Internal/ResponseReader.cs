@@ -9,11 +9,9 @@ using Apify.Client.Exceptions;
 namespace Apify.Client.Internal;
 
 /// <summary>
-/// Reads a successful JSON response into a <see cref="JsonNode"/> and reports a body that is unparsable
-/// (<see cref="InvalidResponseBodyException"/>) or does not match the schema the API specification
-/// declares for the operation (<see cref="ResponseValidationException"/>, see <see cref="ResponseSchemas"/>),
-/// with the request's method and path as context. Every successful JSON response is decoded through here,
-/// matching the reference client's <c>parseResponse</c>.
+/// Reads a successful JSON response and reports a body that is not JSON (<see cref="InvalidResponseBodyException"/>) or
+/// does not match the schema of its operation (<see cref="ResponseValidationException"/>, see
+/// <see cref="ResponseSchemas"/>), with the request's method and path. As the reference client's <c>parseResponse</c>.
 /// </summary>
 internal static class ResponseReader
 {
@@ -44,10 +42,7 @@ internal static class ResponseReader
         return UnwrapData(response, body) as JsonObject ?? throw Invalid(response, body, "the response's `data` is not an object");
     }
 
-    /// <summary>
-    /// Parses an enveloped body, validates it against the specification's schema for the operation, and
-    /// returns the unwrapped non-null <c>data</c>.
-    /// </summary>
+    /// <summary>Parses an enveloped body, validates it against the operation's schema and returns its non-null <c>data</c>.</summary>
     private static JsonNode UnwrapData(HttpResponseMessage response, string body)
     {
         var node = Parse(response, body);

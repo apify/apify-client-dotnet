@@ -145,6 +145,28 @@ public sealed class KeyValueStoreIntegrationTests : IntegrationTestBase
     }
 
     [SkippableFact]
+    public async Task ZstdCompressedRecordRoundTrips()
+    {
+        var client = RequireClient(o => o.RequestCompression = RequestCompression.Zstd);
+        var store = await client.KeyValueStores().GetOrCreateAsync(UniqueName("kvs-zstd"));
+        var kvs = client.KeyValueStore(store.Id!);
+        try
+        {
+            var plaintext = System.Text.Encoding.UTF8.GetBytes("{\"blob\":\"" + new string('x', 4096) + "\"}");
+
+            await kvs.SetRecordAsync("zstd", plaintext, "application/json");
+
+            var record = await kvs.GetRecordAsync("zstd");
+            Assert.NotNull(record);
+            Assert.Equal(plaintext, record!.Value);
+        }
+        finally
+        {
+            await kvs.DeleteAsync();
+        }
+    }
+
+    [SkippableFact]
     public async Task RecordPublicUrlIsFetchable()
     {
         var client = RequireClient();

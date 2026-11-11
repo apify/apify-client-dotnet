@@ -28,13 +28,11 @@ public sealed class StoreCollectionClient
         return _ctx.ListResourceAsync("", q, static d => new ActorStoreListItem(d), RequestTier.Medium, cancellationToken);
     }
 
-    /// <summary>
-    /// Lazily iterates over all Store Actors matching the options across pages, fetching each page on
-    /// demand.
-    /// </summary>
-    /// <param name="options">Optional listing filters; <c>Offset</c>/<c>Limit</c> bound where iteration
-    /// starts and the total number of Actors yielded, and <c>ChunkSize</c> sets the page size
-    /// (at most 10 with <c>IncludeInputSchema</c>).</param>
+    /// <summary>Lazily iterates the Store Actors matching the options across pages, fetching each page on demand.</summary>
+    /// <param name="options">
+    /// Optional listing filters. <c>Offset</c> and <c>Limit</c> bound where iteration starts and the total number of Actors,
+    /// and <c>ChunkSize</c> sets the page size (at most 10 with <c>IncludeInputSchema</c>).
+    /// </param>
     /// <param name="cancellationToken">A token to cancel the iteration.</param>
     public IAsyncEnumerable<ActorStoreListItem> IterateAsync(StoreListOptions? options = null, CancellationToken cancellationToken = default)
     {
@@ -45,11 +43,9 @@ public sealed class StoreCollectionClient
     }
 
     /// <summary>
-    /// Returns this client with every subsequent call's timeout set to <paramref name="timeout"/>,
-    /// overriding the tier default (see the "Timeout tiers" section of docs/README.md). Pass
-    /// <see cref="TimeSpan.Zero"/> for no timeout, matching the reference client's <c>'noTimeout'</c>. A
-    /// value above <see cref="ApifyClientOptions.TimeoutSecs"/> (the overall budget) is capped at it —
-    /// raise <see cref="ApifyClientOptions.TimeoutSecs"/> itself to allow a longer per-call timeout.
+    /// Returns this client with the timeout of every subsequent call set to <paramref name="timeout"/>, overriding the
+    /// tier default (see "Timeout tiers" in docs/README.md). <see cref="TimeSpan.Zero"/> means no timeout. A value above
+    /// <see cref="ApifyClientOptions.TimeoutSecs"/> is capped at it.
     /// </summary>
     /// <param name="timeout">The timeout to use for every call made through this client.</param>
     public StoreCollectionClient WithTimeout(TimeSpan timeout)

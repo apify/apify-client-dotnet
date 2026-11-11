@@ -19,10 +19,7 @@ public sealed class Webhook : ApifyResource
     /// <summary>The ID of the user who owns the webhook.</summary>
     public string? UserId => GetString("userId");
 
-    /// <summary>
-    /// The URL the webhook posts to. Normalized to its RFC 3986 absolute-URI form (see
-    /// <see cref="ApifyResource.GetUrlString"/>), matching the reference client.
-    /// </summary>
+    /// <summary>The URL the webhook posts to, as an RFC 3986 absolute URI (see <see cref="ApifyResource.GetUrlString"/>).</summary>
     public string? RequestUrl => GetUrlString("requestUrl");
 
     /// <summary>The events that trigger the webhook.</summary>

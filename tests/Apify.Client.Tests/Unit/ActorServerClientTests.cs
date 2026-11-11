@@ -89,6 +89,23 @@ public sealed class ActorServerClientTests
     }
 
     [Fact]
+    public async Task RequestSendsParentRequestIdAsTheActorRequestIdHeaderOverOnePassedInHeaders()
+    {
+        var transport = new MockTransport().QueueResponse(200, ActorResponse).QueueResponse(200, "{}");
+
+        using var response = await Client(transport).Actor("a1").Server().RequestAsync(
+            "/",
+            new ActorServerRequestOptions
+            {
+                Headers = new Dictionary<string, string> { ["x-actor-request-id"] = "stale", ["X-Plain"] = "yes" },
+                ParentRequestId = "parent-id",
+            });
+
+        Assert.Equal("parent-id", transport.Received[1].Header("X-Actor-Request-ID"));
+        Assert.Equal("yes", transport.Received[1].Header("X-Plain"));
+    }
+
+    [Fact]
     public async Task RequestDropsTheFragmentAndKeepsTheRequestOnTheServerHost()
     {
         var transport = new MockTransport().QueueResponse(200, ActorResponse).QueueResponse(200, "{}").QueueResponse(200, "{}");

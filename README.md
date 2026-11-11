@@ -1,6 +1,6 @@
 # Apify API client for .NET
 
-> **Official, but experimental — AI-generated and AI-maintained.** This is an official Apify client,
+> **Official, but experimental: AI-generated and AI-maintained.** This is an official Apify client,
 > but it is experimental: it is generated and maintained by AI. Review the code before relying on it in
 > production and report issues on the repository.
 
@@ -36,11 +36,11 @@ var run = await client.Actor("apify/hello-world").CallAsync();
 
 // Read items from the run's default dataset.
 var items = await client.Dataset(run.DefaultDatasetId!).ListItemsAsync();
-// Items.Count is the number of items in THIS page; Total is the dataset's full count across all pages.
+// Items.Count is the number of items on this page; Total is the count across all pages.
 Console.WriteLine($"Items on this page: {items.Items.Count} (of {items.Total} total)");
 ```
 
-`new ApifyClient("my-api-token")` takes the token as an explicit argument — it does **not** read
+`new ApifyClient("my-api-token")` takes the token as an explicit argument and does **not** read
 `APIFY_TOKEN` automatically. Get your token from the
 [Apify Console → Settings → API & Integrations](https://console.apify.com/settings/integrations).
 
@@ -51,8 +51,8 @@ Full documentation lives in [`docs/`](docs/README.md), organized by resource, wi
 
 ## Versioning
 
-- `Apify.Client.ApifyClientVersion.ClientVersion` — the semantic version of this library.
-- `Apify.Client.ApifyClientVersion.ApiSpecVersion` — the Apify OpenAPI spec version this client was
+- `Apify.Client.ApifyClientVersion.ClientVersion`: the semantic version of this library.
+- `Apify.Client.ApifyClientVersion.ApiSpecVersion`: the Apify OpenAPI spec version this client was
   built against.
 
 ## License

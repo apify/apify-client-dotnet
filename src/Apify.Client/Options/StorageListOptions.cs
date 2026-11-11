@@ -2,11 +2,7 @@ using Apify.Client.Internal;
 
 namespace Apify.Client.Options;
 
-/// <summary>
-/// Options for the storage collection list endpoints (<c>GET /v2/datasets</c>,
-/// <c>/v2/key-value-stores</c>, <c>/v2/request-queues</c>), which add <c>unnamed</c> and <c>ownership</c>
-/// filters on top of the standard pagination.
-/// </summary>
+/// <summary>Options for listing datasets, key-value stores, and request queues: pagination plus <c>unnamed</c> and <c>ownership</c> filters.</summary>
 public sealed class StorageListOptions
 {
     /// <summary>Number of items to skip from the beginning of the list.</summary>
@@ -16,9 +12,8 @@ public sealed class StorageListOptions
     public int? Limit { get; init; }
 
     /// <summary>
-    /// Maximum number of items requested per API call when iterating across pages (must be positive). Only
-    /// iteration uses it, as the page size; it is never sent to the API. The effective page size is the
-    /// smaller of this and the remaining <c>Limit</c>. Defaults to the API's own page size.
+    /// Maximum items requested per API call when iterating, which must be positive. It sizes the pages and is never sent to
+    /// the API; the page size is the smaller of this and the remaining <c>Limit</c>. Defaults to the API's page size.
     /// </summary>
     public int? ChunkSize { get; init; }
 

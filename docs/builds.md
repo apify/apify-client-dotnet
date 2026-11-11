@@ -8,17 +8,17 @@ Access the account-wide build collection with `client.Builds()`, an Actor's buil
 - `ListAsync(ListOptions? options = null)` → `PaginationList<Build>` (`Offset`, `Limit`, `Desc`; `ChunkSize` sizes the pages of `IterateAsync`).
 - `IterateAsync(ListOptions? options = null)` → `IAsyncEnumerable<Build>` (lazy, all pages).
 
-## Single build — `client.Build(buildId)`
+## Single build: `client.Build(buildId)`
 
-- `GetAsync(int? waitForFinishSecs = null)` → `Build?` — optionally waits up to `waitForFinishSecs`
+- `GetAsync(int? waitForFinishSecs = null)` → `Build?`: optionally waits up to `waitForFinishSecs`
   (server-side, max 60) for the build to finish.
 - `AbortAsync()` → `Build`.
 - `DeleteAsync()`.
-- `WaitForFinishAsync(int? waitSecs = null)` → `Build` — client-side polling until terminal (`null`
+- `WaitForFinishAsync(int? waitSecs = null)` → `Build`: client-side polling until terminal (`null`
   waits indefinitely). A build id that keeps answering 404 for 3 seconds straight (replica lag resolves
   faster than that) throws `NotFoundException` instead of polling for the rest of `waitSecs`.
 - `GetOpenApiDefinitionAsync()` → `JsonObject?`.
-- `Log()` → `LogClient` (its `GetAsync`/`StreamAsync` methods are documented under [Logs in misc.md](misc.md#logs--clientlogbuildorrunid); on this build-nested client they throw on a 404 rather than resolve `null`, since the build itself could be what's missing).
+- `Log()` → `LogClient` (its `GetAsync`/`StreamAsync` methods are documented under [Logs in misc.md](misc.md#logs-clientlogbuildorrunid); on this build-nested client they throw on a 404 rather than resolve `null`, since the build itself could be what's missing).
 
 Builds are created with `client.Actor(id).BuildAsync(string versionNumber, ActorBuildOptions? options = null)`.
 `ActorBuildOptions` fields:

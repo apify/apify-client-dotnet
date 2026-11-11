@@ -26,18 +26,18 @@ public sealed class ActorRun : ApifyResource
     public string? UserId => GetString("userId");
 
     /// <summary>
-    /// The current run status. One of the eight <c>ActorJobStatus</c> values: <c>READY</c>, <c>RUNNING</c>,
-    /// <c>SUCCEEDED</c>, <c>FAILED</c>, <c>TIMING-OUT</c>, <c>TIMED-OUT</c>, <c>ABORTING</c>, <c>ABORTED</c>.
+    /// The run status: <c>READY</c>, <c>RUNNING</c>, <c>SUCCEEDED</c>, <c>FAILED</c>, <c>TIMING-OUT</c>, <c>TIMED-OUT</c>,
+    /// <c>ABORTING</c> or <c>ABORTED</c>.
     /// </summary>
     public string? Status => GetString("status");
 
     /// <summary>An optional human-readable status message.</summary>
     public string? StatusMessage => GetString("statusMessage");
 
-    /// <summary>When the run started (ISO-8601 string).</summary>
+    /// <summary>When the run started (ISO 8601).</summary>
     public string? StartedAt => GetString("startedAt");
 
-    /// <summary>When the run finished (absent while still running).</summary>
+    /// <summary>When the run finished; absent while it is running.</summary>
     public string? FinishedAt => GetString("finishedAt");
 
     /// <summary>The ID of the build used for the run.</summary>
@@ -52,25 +52,19 @@ public sealed class ActorRun : ApifyResource
     /// <summary>The ID of the run's default request queue.</summary>
     public string? DefaultRequestQueueId => GetString("defaultRequestQueueId");
 
-    /// <summary>
-    /// The URL of the run's container (for live access). Normalized to its RFC 3986 absolute-URI form
-    /// (see <see cref="ApifyResource.GetUrlString"/>), matching the reference client.
-    /// </summary>
+    /// <summary>The URL of the run's container, as an RFC 3986 absolute URI (see <see cref="ApifyResource.GetUrlString"/>).</summary>
     public string? ContainerUrl => GetUrlString("containerUrl");
 
-    /// <summary>Whether the run has reached a terminal (finished) status.</summary>
+    /// <summary>Whether the run has reached a terminal status.</summary>
     public bool IsTerminal => Statuses.IsTerminal(Status);
 
-    /// <summary>
-    /// The URL of the run's page in Apify Console. Normalized to its RFC 3986 absolute-URI form (see
-    /// <see cref="ApifyResource.GetUrlString"/>), matching the reference client.
-    /// </summary>
+    /// <summary>The URL of the run in Apify Console, as an RFC 3986 absolute URI (see <see cref="ApifyResource.GetUrlString"/>).</summary>
     public string? ConsoleUrl => GetUrlString("consoleUrl");
 
     /// <summary>
-    /// The Server Actor deployment of the run: an object whose <c>deployment</c> names the pool serving the run
+    /// The Server Actor deployment of the run: an object whose <c>deployment</c> names the pool that serves it
     /// (<c>SINGLE_TENANT</c>, <c>MULTI_TENANT_OWNER_PAID</c>, <c>MULTI_TENANT_FREE_USERS</c> or
-    /// <c>MULTI_TENANT_PAYING_USERS</c>), or <c>null</c> for a run not started by a Server Actor request.
+    /// <c>MULTI_TENANT_PAYING_USERS</c>). <c>null</c> for a run not started by a Server Actor request.
     /// </summary>
     public JsonObject? Standby => Get("standby") as JsonObject;
 }

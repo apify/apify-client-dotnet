@@ -13,22 +13,22 @@ using Apify.Client.Options;
 
 namespace Apify.Client.Resources;
 
-/// <summary>A client for a specific request queue (and run-nested variants).</summary>
+/// <summary>A client for a specific request queue.</summary>
 public sealed class RequestQueueClient
 {
-    /// <summary>The API limit on requests per batch call; larger inputs are split into chunks of this size.</summary>
+    /// <summary>The API limit on requests per batch call.</summary>
     private const int MaxRequestsPerBatch = 25;
 
     /// <summary>
-    /// The API's maximum accepted request payload size (9 MiB). Batches are additionally split so no single
-    /// batch call exceeds this, matching the reference client's <c>splitIntoJsonArrayBatches</c>.
+    /// The API's maximum request payload size (9 MiB). Batches are also split to stay below it, as in the reference
+    /// client's <c>splitIntoJsonArrayBatches</c>.
     /// </summary>
     private const int MaxPayloadSizeBytes = 9 * 1024 * 1024;
 
-    /// <summary>Safety margin (0.01%) subtracted from the payload limit, matching the reference client.</summary>
+    /// <summary>Safety margin (0.01%) subtracted from the payload limit, as in the reference client.</summary>
     private const double PayloadSafetyBufferPercent = 0.0001;
 
-    /// <summary>The two bytes of the brackets that wrap a JSON array body, even one holding a single request.</summary>
+    /// <summary>The brackets that wrap a JSON array body.</summary>
     private const int JsonArrayBracketBytes = 2;
 
     private readonly HttpClientCore _http;
@@ -56,9 +56,8 @@ public sealed class RequestQueueClient
         => new(http, ResourceContext.NestedSingleton(http, baseUrl, subPath, inheritedParams).WithTimeout(timeout), null, timeout);
 
     /// <summary>
-    /// Returns a copy of the client that identifies its requests with <paramref name="clientKey"/>. A
-    /// stable client key is required to operate on locks the client itself created, and lets the API detect
-    /// whether multiple clients access a queue.
+    /// Returns a copy of the client that identifies its requests with <paramref name="clientKey"/>. A stable key is
+    /// needed to operate on locks the client itself created.
     /// </summary>
     /// <param name="clientKey">The stable client key.</param>
     public RequestQueueClient WithClientKey(string clientKey) => new(_http, _ctx, clientKey, _timeout);
@@ -71,7 +70,7 @@ public sealed class RequestQueueClient
         return data is JsonObject obj ? new RequestQueue(obj) : null;
     }
 
-    /// <summary>Updates the queue metadata (e.g. name) and returns the updated object.</summary>
+    /// <summary>Updates the queue metadata, such as its name, and returns the updated queue.</summary>
     /// <param name="newFields">Any JSON-serializable set of fields to update.</param>
     /// <param name="cancellationToken">A token to cancel the request.</param>
     public async Task<RequestQueue> UpdateAsync(object newFields, CancellationToken cancellationToken = default)
@@ -84,8 +83,7 @@ public sealed class RequestQueueClient
     public Task DeleteAsync(CancellationToken cancellationToken = default) => _ctx.DeleteResourceAsync("", RequestTier.Short, cancellationToken);
 
     /// <summary>
-    /// Returns the requests at the head (front) of the queue, up to <paramref name="limit"/> (<c>null</c>
-    /// for the server default).
+    /// Returns up to <paramref name="limit"/> requests from the head of the queue (<c>null</c> for the server default).
     /// </summary>
     /// <param name="limit">The maximum number of requests to return.</param>
     /// <param name="cancellationToken">A token to cancel the request.</param>
@@ -97,7 +95,7 @@ public sealed class RequestQueueClient
         return RequestQueueHead.FromData(await _ctx.GetResourceRequiredAsync("head", q, RequestTier.Short, cancellationToken).ConfigureAwait(false));
     }
 
-    /// <summary>Adds a request to the queue. If <paramref name="forefront"/> is true, it is added to the front.</summary>
+    /// <summary>Adds a request to the queue, to the front if <paramref name="forefront"/> is true.</summary>
     /// <param name="request">The request to add.</param>
     /// <param name="forefront">Whether to add to the front of the queue.</param>
     /// <param name="cancellationToken">A token to cancel the request.</param>
@@ -120,8 +118,8 @@ public sealed class RequestQueueClient
     }
 
     /// <summary>
-    /// Updates an existing request (identified by its ID field) and returns the operation info. If
-    /// <paramref name="forefront"/> is true, the request is moved to the front of the queue.
+    /// Updates an existing request (identified by its ID) and moves it to the front of the queue if
+    /// <paramref name="forefront"/> is true.
     /// </summary>
     /// <param name="request">The request to update (must have an ID).</param>
     /// <param name="forefront">Whether to move the request to the front.</param>
@@ -155,12 +153,12 @@ public sealed class RequestQueueClient
         }
         catch (ApifyApiException e) when (HttpClientCore.IsNotFound(e))
         {
-            // A missing request is a successful no-op for delete.
+            // A missing resource is a no-op.
         }
     }
 
     /// <summary>
-    /// Atomically returns and locks up to <paramref name="limit"/> requests from the head of the queue for
+    /// Returns up to <paramref name="limit"/> requests from the head of the queue and locks them for
     /// <paramref name="lockSecs"/> seconds.
     /// </summary>
     /// <param name="lockSecs">How long to lock the returned requests, in seconds.</param>
@@ -175,20 +173,14 @@ public sealed class RequestQueueClient
         return LockedRequestQueueHead.FromData(data);
     }
 
-    /// <summary>
-    /// Adds multiple requests to the queue. If <paramref name="forefront"/> is true, they are added to the
-    /// front.
-    /// </summary>
+    /// <summary>Adds multiple requests to the queue, to the front if <paramref name="forefront"/> is true.</summary>
     /// <remarks>
-    /// The input is automatically split into chunks of at most 25 requests (the API count limit) that
-    /// additionally respect the API's ~9 MiB payload-size limit. Chunks are dispatched using up to
-    /// <see cref="BatchAddRequestsOptions.MaxParallel"/> concurrent API calls (set it to 1 for sequential
-    /// dispatch). Requests the API returns as unprocessed in a successful response (typically rate-limited)
-    /// are retried with exponential backoff; the per-chunk results are merged in input order. Every request
-    /// must carry a non-empty <c>UniqueKey</c>. Consistent with the reference client, this method does not
-    /// throw on API errors: if a batch call fails and the transport did not retry, that chunk's
-    /// not-yet-processed requests are returned in <see cref="BatchAddResult.UnprocessedRequests"/>. Invalid
-    /// input (empty uniqueKey, oversized request) is rejected up front with <see cref="ArgumentException"/>.
+    /// The input is split into chunks of at most 25 requests that also stay below the API's payload limit. Up to
+    /// <see cref="BatchAddRequestsOptions.MaxParallel"/> chunks are sent concurrently (1 for sequential). Requests the API
+    /// returns as unprocessed are retried with exponential backoff, and the results are merged in input order. Every
+    /// request needs a non-empty <c>UniqueKey</c>; invalid input throws <see cref="ArgumentException"/> before anything
+    /// is sent. As in the reference client, an API error does not throw: the requests of the failed chunk are returned in
+    /// <see cref="BatchAddResult.UnprocessedRequests"/>.
     /// </remarks>
     /// <param name="requests">The requests to add.</param>
     /// <param name="forefront">Whether to add to the front of the queue.</param>
@@ -214,9 +206,8 @@ public sealed class RequestQueueClient
 
         var payloadSizeLimitBytes = MaxPayloadSizeBytes - (int)Math.Ceiling(MaxPayloadSizeBytes * PayloadSafetyBufferPercent);
 
-        // Serialize every request once: the byte lengths decide the batch boundaries, and the same strings are
-        // joined into the batch bodies, so nothing is serialized a second time when it is sent. All chunks are
-        // planned up front, so an oversized request is rejected before any batch is sent.
+        // Requests are serialized once: the byte lengths decide the batch boundaries and the same strings form the batch
+        // bodies. All chunks are planned first, so an oversized request is rejected before any batch is sent.
         var serialized = new List<SerializedRequest>(list.Count);
         for (var i = 0; i < list.Count; i++)
         {
@@ -239,7 +230,7 @@ public sealed class RequestQueueClient
             return merged;
         }
 
-        // Sequential path when parallelism is disabled or there is only a single chunk.
+        // Sequential when parallelism is off or there is a single chunk.
         if (options.MaxParallel <= 1 || chunks.Count == 1)
         {
             foreach (var chunk in chunks)
@@ -250,9 +241,7 @@ public sealed class RequestQueueClient
             return merged;
         }
 
-        // Bounded-parallel dispatch: at most MaxParallel chunk calls run concurrently, gated by a semaphore.
-        // Results are merged in chunk (input) order so the output stays deterministic regardless of which
-        // chunk finishes first.
+        // At most MaxParallel chunks run at once. Results are merged in input order, whichever chunk finishes first.
         using var gate = new SemaphoreSlim(options.MaxParallel);
         var tasks = new List<Task<BatchAddResult>>(chunks.Count);
         foreach (var chunk in chunks)
@@ -268,7 +257,7 @@ public sealed class RequestQueueClient
         return merged;
     }
 
-    /// <summary>Runs one chunk's add-with-retries under the concurrency gate.</summary>
+    /// <summary>Adds one chunk with retries, under the concurrency gate.</summary>
     private async Task<BatchAddResult> DispatchChunkAsync(
         List<SerializedRequest> chunk,
         bool forefront,
@@ -287,20 +276,19 @@ public sealed class RequestQueueClient
         }
     }
 
-    /// <summary>A request together with its JSON serialization and that serialization's UTF-8 size.</summary>
+    /// <summary>A request with its JSON and the UTF-8 size of that JSON.</summary>
     private readonly record struct SerializedRequest(RequestQueueRequest Request, string Json, int ByteLength);
 
     /// <summary>
-    /// Splits serialized requests into batches of at most <see cref="MaxRequestsPerBatch"/> requests whose JSON
-    /// array bodies are at most <paramref name="maxByteLength"/> bytes, always keeping at least one request per batch
-    /// so the split makes progress. Ports the reference client's <c>splitIntoJsonArrayBatches</c>.
+    /// Splits serialized requests into batches of at most <see cref="MaxRequestsPerBatch"/> requests and
+    /// <paramref name="maxByteLength"/> bytes of JSON array, with at least one request per batch. Ports the reference
+    /// client's <c>splitIntoJsonArrayBatches</c>.
     /// </summary>
     private static List<List<SerializedRequest>> SplitIntoJsonArrayBatches(List<SerializedRequest> requests, int maxByteLength)
     {
         var batches = new List<List<SerializedRequest>>();
         var batch = new List<SerializedRequest>();
-        // One byte for the opening bracket; each request then adds its own bytes plus one for the comma or the
-        // closing bracket that follows it.
+        // One byte for the opening bracket; each request adds its bytes plus the comma or closing bracket after it.
         var byteLength = 1;
         foreach (var request in requests)
         {
@@ -341,21 +329,18 @@ public sealed class RequestQueueClient
             }
             catch (ApifyApiException)
             {
-                // Matches the JS reference: when the HTTP call fails and the transport did not (or was told
-                // not to) retry, the requests not yet processed in THIS chunk are reported as unprocessed and
-                // we stop — keeping the method's non-throwing contract so a multi-chunk call still returns
-                // every earlier chunk's already-merged results instead of aborting the whole operation.
+                // As in the reference client, when the call fails and the transport did not retry, the unprocessed requests of this
+                // chunk are returned and the loop stops, so earlier chunks' results are kept.
                 unprocessed = RequestsNotYetProcessed(chunk, processed).ConvertAll(static serialized => serialized.Request);
                 break;
             }
 
             processed.AddRange(response.ProcessedRequests);
-            // Only requests the API reports as unprocessed in this SUCCESSFUL response are retried.
+            // Only requests reported as unprocessed in a successful response are retried.
             unprocessed = new List<RequestQueueRequest>(response.UnprocessedRequests);
             if (unprocessed.Count != 0)
             {
-                // As in the reference client, a response with unprocessed requests counts as rate limited: the
-                // SDK reads these counts to scale down.
+                // As in the reference client, a response with unprocessed requests counts as rate limited.
                 _http.Stats.AddRateLimitError(attempt + 1);
             }
 
@@ -405,7 +390,7 @@ public sealed class RequestQueueClient
         return new BatchAddResult(processed, unprocessed);
     }
 
-    /// <summary>Joins already-serialized requests into a JSON array body without serializing them again.</summary>
+    /// <summary>Joins serialized requests into a JSON array body.</summary>
     private static string JoinAsJsonArray(List<SerializedRequest> requests)
         => "[" + string.Join(",", requests.ConvertAll(static serialized => serialized.Json)) + "]";
 
@@ -439,16 +424,15 @@ public sealed class RequestQueueClient
             return Task.CompletedTask;
         }
 
-        // (1 + random) * 2^attempt * minDelay — exponential backoff with jitter, matching the reference.
+        // Exponential backoff with jitter, as in the reference client: (1 + random) * 2^attempt * minDelay.
         var factor = (1 + Random.Shared.NextDouble()) * Math.Pow(2, attempt);
         var delayMillis = (int)Math.Floor(factor * minDelayMillis);
         return Task.Delay(delayMillis, cancellationToken);
     }
 
     /// <summary>
-    /// Deletes multiple requests in a single call. Each entry must have its <see cref="RequestQueueRequest.Id"/>
-    /// and/or <see cref="RequestQueueRequest.UniqueKey"/> set to identify the request to delete; other fields
-    /// are ignored.
+    /// Deletes multiple requests in one call. Each entry needs its <see cref="RequestQueueRequest.Id"/> or
+    /// <see cref="RequestQueueRequest.UniqueKey"/>; other fields are ignored.
     /// </summary>
     /// <param name="requests">The requests to delete, identified by <c>Id</c> and/or <c>UniqueKey</c>.</param>
     /// <param name="cancellationToken">A token to cancel the request.</param>
@@ -460,7 +444,7 @@ public sealed class RequestQueueClient
         return BatchDeleteResult.FromData(data);
     }
 
-    /// <summary>Encodes a list of requests as their raw JSON objects, for a batch request body.</summary>
+    /// <summary>Encodes requests as their raw JSON objects for a batch body.</summary>
     private static List<JsonObject> ToPayload(IReadOnlyCollection<RequestQueueRequest> requests)
     {
         var payload = new List<JsonObject>(requests.Count);
@@ -487,8 +471,8 @@ public sealed class RequestQueueClient
     }
 
     /// <summary>
-    /// Extends the lock on a request by <paramref name="lockSecs"/> seconds. If <paramref name="forefront"/>
-    /// is true, the request is moved to the front when its lock expires.
+    /// Extends the lock on a request by <paramref name="lockSecs"/> seconds. With <paramref name="forefront"/>, the
+    /// request moves to the front when the lock expires.
     /// </summary>
     /// <param name="id">The request ID.</param>
     /// <param name="lockSecs">How much longer to hold the lock, in seconds.</param>
@@ -504,10 +488,7 @@ public sealed class RequestQueueClient
         return RequestLockInfo.FromData(await response.ReadDataObjectAsync(cancellationToken).ConfigureAwait(false));
     }
 
-    /// <summary>
-    /// Releases the lock on a request. If <paramref name="forefront"/> is true, the request is moved to the
-    /// front of the queue.
-    /// </summary>
+    /// <summary>Releases the lock on a request, moving it to the front of the queue if <paramref name="forefront"/> is true.</summary>
     /// <param name="id">The request ID.</param>
     /// <param name="forefront">Whether to move the request to the front.</param>
     /// <param name="cancellationToken">A token to cancel the request.</param>
@@ -523,7 +504,7 @@ public sealed class RequestQueueClient
         }
         catch (ApifyApiException e) when (HttpClientCore.IsNotFound(e))
         {
-            // A missing lock is a successful no-op.
+            // A missing resource is a no-op.
         }
     }
 
@@ -537,15 +518,12 @@ public sealed class RequestQueueClient
         return UnlockRequestsResult.FromData(data);
     }
 
-    /// <summary>
-    /// Lazily iterates over the queue's requests, transparently following pagination.
-    /// </summary>
+    /// <summary>Lazily iterates the queue's requests, following pagination.</summary>
     /// <remarks>
-    /// With no options it fetches pages of up to <see cref="PaginateRequestsOptions.DefaultMaxPageLimit"/>
-    /// requests until the queue is exhausted. The options mirror the reference client: <c>Limit</c> caps the
-    /// total number of requests yielded across all pages, <c>ChunkSize</c> (or its older name <c>MaxPageLimit</c>) caps the page size,
-    /// <c>ExclusiveStartId</c>/<c>Cursor</c> choose the starting point (first page only), and <c>Filter</c>
-    /// restricts to locked/pending requests.
+    /// Without options it fetches pages of up to <see cref="PaginateRequestsOptions.DefaultMaxPageLimit"/> requests until
+    /// the queue is exhausted. <c>Limit</c> caps the total, <c>ChunkSize</c> (or its older name <c>MaxPageLimit</c>) the
+    /// page size. <c>ExclusiveStartId</c> and <c>Cursor</c> choose the starting point, and <c>Filter</c> restricts the
+    /// requests to locked or pending ones.
     /// </remarks>
     /// <param name="options">Optional iteration options.</param>
     /// <param name="cancellationToken">A token to cancel the iteration.</param>
@@ -594,7 +572,7 @@ public sealed class RequestQueueClient
                 yield break;
             }
 
-            // After the first page, paginate purely by cursor.
+            // After the first page, paginate by cursor only.
             nextExclusiveStartId = null;
         }
     }

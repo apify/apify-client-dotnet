@@ -2,11 +2,9 @@ using System.Text.Json.Nodes;
 
 namespace Apify.Client.Exceptions;
 
-// Each subclass below matches one HTTP status group and carries no behavior of its own: construction and
-// message formatting stay in the base ApifyApiException. They let a caller branch on the error kind with a
-// type check (`catch (NotFoundException)`) instead of comparing StatusCode/Type, matching the reference
-// client's and the Python client's ApifyApiError subclass hierarchy. See ApifyApiException.Create, which
-// picks the subclass for a given status code.
+// Each subclass matches one HTTP status group and adds no behavior; construction and message formatting stay in
+// ApifyApiException. Callers can catch the error kind (`catch (NotFoundException)`) instead of comparing the status.
+// ApifyApiException.Create picks the subclass.
 
 /// <summary>Thrown for a <c>400 Bad Request</c> response: the request was malformed or failed validation.</summary>
 public sealed class InvalidRequestException : ApifyApiException
@@ -39,12 +37,9 @@ public sealed class ForbiddenException : ApifyApiException
 }
 
 /// <summary>
-/// Thrown for a <c>404 Not Found</c> response that could not be resolved to a single, unambiguous missing
-/// resource (see <see cref="ApifyApiException"/> remarks on the client's resources). Most resource clients
-/// addressed by id resolve an ordinary 404 to <c>null</c> instead of throwing; this type still surfaces for
-/// chained clients that have no id of their own (e.g. a run's default dataset/key-value
-/// store/request queue/log, or a build's log) and for the sub-path endpoints that always require their
-/// parent resource to exist.
+/// Thrown for a <c>404 Not Found</c> response that is not resolved to a missing resource. Clients addressed by ID
+/// resolve an ordinary 404 to <c>null</c>. This type surfaces for clients without their own ID (a run's default
+/// storages and log, a build's log) and for sub-path endpoints whose parent resource must exist.
 /// </summary>
 public sealed class NotFoundException : ApifyApiException
 {
@@ -66,9 +61,8 @@ public sealed class ConflictException : ApifyApiException
 }
 
 /// <summary>
-/// Thrown for a <c>429 Too Many Requests</c> response that exhausted the client's retries. The client
-/// already retries a rate-limited request with backoff (see <see cref="ApifyApiException.Attempt"/>); this
-/// type reaches the caller only once that budget is spent.
+/// Thrown for a <c>429 Too Many Requests</c> response once the client's retries (see
+/// <see cref="ApifyApiException.Attempt"/>) are spent.
 /// </summary>
 public sealed class RateLimitException : ApifyApiException
 {

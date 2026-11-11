@@ -2,10 +2,7 @@ using System.Text.Json.Nodes;
 
 namespace Apify.Client.Models;
 
-/// <summary>
-/// A single request stored in a request queue. Fields left <c>null</c> are omitted when the request is
-/// sent to the API. Construct one for adding to a queue, or receive one when reading a queue.
-/// </summary>
+/// <summary>A request in a request queue. <c>null</c> fields are omitted when the request is sent to the API.</summary>
 public sealed class RequestQueueRequest : ApifyResource
 {
     private RequestQueueRequest(JsonObject data)
@@ -62,10 +59,7 @@ public sealed class RequestQueueRequest : ApifyResource
         set => SetString("method", value);
     }
 
-    /// <summary>
-    /// The number of times this request has been retried after a failed processing attempt (assigned by
-    /// the API; absent on create).
-    /// </summary>
+    /// <summary>How many times the request was retried after a failed processing attempt (assigned by the API).</summary>
     public long? RetryCount
     {
         get => GetInt("retryCount");
@@ -83,8 +77,8 @@ public sealed class RequestQueueRequest : ApifyResource
     }
 
     /// <summary>
-    /// When this request's processing lock expires (ISO-8601 string). Only present on requests returned
-    /// by <see cref="Resources.RequestQueueClient.ListAndLockHeadAsync"/>.
+    /// When the request's lock expires (ISO 8601). Only on requests from
+    /// <see cref="Resources.RequestQueueClient.ListAndLockHeadAsync"/>.
     /// </summary>
     public string? LockExpiresAt
     {
@@ -93,8 +87,8 @@ public sealed class RequestQueueRequest : ApifyResource
     }
 
     /// <summary>
-    /// The client key of the client that currently holds this request's processing lock. Only present on
-    /// locked requests returned by <see cref="Resources.RequestQueueClient.ListAndLockHeadAsync"/>.
+    /// The client key of the client that holds the request's lock. Only on locked requests from
+    /// <see cref="Resources.RequestQueueClient.ListAndLockHeadAsync"/>.
     /// </summary>
     public string? LockByClient
     {
@@ -102,9 +96,7 @@ public sealed class RequestQueueRequest : ApifyResource
         set => SetString("lockByClient", value);
     }
 
-    /// <summary>
-    /// When this request was handled (ISO-8601 string); <c>null</c> while the request is still pending.
-    /// </summary>
+    /// <summary>When the request was handled (ISO 8601); <c>null</c> while it is pending.</summary>
     public string? HandledAt
     {
         get => GetString("handledAt");

@@ -19,16 +19,19 @@ namespace Apify.Client.Resources;
 /// A client for the server interface of a specific Actor, obtained with <see cref="ActorClient.Server"/>.
 /// </summary>
 /// <remarks>
-/// A Server Actor (formerly Actor Standby) runs a web server that is called over HTTP without starting a run for
-/// each call. This client sends requests to that server, and returns its URL and its OpenAPI specification. See
-/// <see href="https://docs.apify.com/platform/actors/running/standby"/>.
+/// A Server Actor (formerly Actor Standby) runs a web server that is called over HTTP without starting a run for each
+/// call. This client sends requests to that server and returns its URL and OpenAPI specification. See
+/// <see href="https://docs.apify.com/platform/actors/running/server-actors"/>.
 /// </remarks>
 public sealed class ActorServerClient
 {
-    /// <summary>The header that carries the API token to an Actor's server. The platform removes it before the request reaches the Actor.</summary>
+    /// <summary>The header that carries the API token to an Actor's server; the platform removes it before the request reaches the Actor.</summary>
     private const string ServerAuthorizationHeader = "X-Apify-Authorization";
 
-    /// <summary>The build tag whose build serves the server interface when <c>actorStandby.build</c> is not set.</summary>
+    /// <summary>The header that identifies a request to a multi-tenant Server Actor.</summary>
+    private const string ParentRequestIdHeader = "X-Actor-Request-ID";
+
+    /// <summary>The build tag that serves the server interface when <c>actorStandby.build</c> is not set.</summary>
     private const string DefaultBuildTag = "latest";
 
     private const string DefaultRequestPath = "/";
@@ -36,25 +39,21 @@ public sealed class ActorServerClient
     private const string TextContentType = "text/plain; charset=utf-8";
     private const string BinaryContentType = "application/octet-stream";
 
-    /// <summary>The format of a date in a query parameter: ISO 8601 in UTC with milliseconds, as the reference client sends it.</summary>
+    /// <summary>The format of a date in a query parameter: ISO 8601 in UTC with milliseconds, as in the reference client.</summary>
     private const string QueryTimestampFormat = "yyyy-MM-dd'T'HH:mm:ss.fff'Z'";
 
     /// <summary>The separator of the values of a list in a query parameter.</summary>
     private const string QueryListSeparator = ",";
 
-    /// <summary>The Service Unavailable status the platform answers with when it cannot pass a request to a server run.</summary>
+    /// <summary>The status the platform answers with when it cannot pass a request to a server run.</summary>
     private const int ServiceUnavailableStatus = 503;
 
-    /// <summary>
-    /// Bounds the build number matching so that a pathological input cannot stall the call; the pattern is simple,
-    /// so a second is generous.
-    /// </summary>
+    /// <summary>Bounds the build number matching so that a pathological input cannot stall the call.</summary>
     private static readonly TimeSpan BuildNumberMatchTimeout = TimeSpan.FromSeconds(1);
 
     /// <summary>
-    /// Statuses a server request is retried on. The platform answers with them when it cannot pass a request to a
-    /// server run, so a retry usually does not run the Actor's code again. An Actor that returns one itself gets
-    /// the request again.
+    /// Statuses a server request is retried on. The platform answers with them when it cannot pass a request to a server
+    /// run, so a retry usually does not run the Actor's code again. An Actor that returns one itself gets the request again.
     /// </summary>
     private static readonly int[] ServerRetryStatusCodes = { HttpClientCore.RateLimitExceeded, ServiceUnavailableStatus };
 
@@ -78,13 +77,12 @@ public sealed class ActorServerClient
     public string Id { get; }
 
     /// <summary>
-    /// Returns the URL of the Actor's server, to call it with another HTTP client, for example one generated from
-    /// the server's OpenAPI specification (see <see cref="GetOpenApiSpecAsync"/>).
+    /// Returns the URL of the Actor's server, to call it with another HTTP client, for example one generated from the
+    /// server's OpenAPI specification (see <see cref="GetOpenApiSpecAsync"/>).
     /// </summary>
     /// <remarks>
-    /// The URL is the Actor's <c>standbyUrl</c>. The first call of this method, <see cref="GetOpenApiSpecAsync"/> or
-    /// <see cref="RequestAsync"/> fetches it from the API and this client reuses it afterwards; concurrent first
-    /// calls may each fetch it.
+    /// The URL is the Actor's <c>standbyUrl</c>. The first call of this method, <see cref="GetOpenApiSpecAsync"/>, or
+    /// <see cref="RequestAsync"/> fetches it and the client reuses it afterwards; concurrent first calls may each fetch it.
     /// </remarks>
     /// <param name="cancellationToken">A token to cancel the request.</param>
     /// <exception cref="ActorServerException">The Actor is not a Server Actor.</exception>
@@ -93,14 +91,13 @@ public sealed class ActorServerClient
         => _serverUrl ?? (await GetServerActorAsync(cancellationToken).ConfigureAwait(false)).StandbyUrl!;
 
     /// <summary>
-    /// Returns the OpenAPI specification of the Actor's server, to generate an HTTP client for it and point that
-    /// client at the URL returned by <see cref="GetUrlAsync"/>; <c>null</c> if the Actor's definition does not
-    /// include one.
+    /// Returns the OpenAPI specification of the Actor's server, to generate an HTTP client for it; <c>null</c> if the
+    /// Actor's definition has none.
     /// </summary>
     /// <remarks>
-    /// The specification is the web server schema of the Actor's definition, taken from the build that serves the
-    /// server interface: the build set in <c>actorStandby.build</c> (a tag or a build number), or <c>latest</c> if
-    /// none is set. See <see href="https://docs.apify.com/platform/actors/development/actor-definition/web-server-schema"/>.
+    /// The specification is the web server schema of the build that serves the server interface: <c>actorStandby.build</c>
+    /// (a tag or a build number), or <c>latest</c>. See
+    /// <see href="https://docs.apify.com/platform/actors/development/actor-definition/web-server-schema"/>.
     /// </remarks>
     /// <param name="cancellationToken">A token to cancel the requests.</param>
     /// <exception cref="ActorServerException">The Actor is not a Server Actor, or the build that serves its server interface does not exist.</exception>
@@ -114,7 +111,7 @@ public sealed class ActorServerClient
         var buildId = TaggedBuildId(actor, buildRef);
         if (buildId is null && ParseBuildNumber(buildRef) is { } target)
         {
-            // Not a tag, so look `buildRef` up as a build number, which the API cannot resolve directly.
+            // Not a tag, so look it up as a build number, which the API cannot resolve directly.
             buildId = await FindBuildIdByNumberAsync(buildRef, target, cancellationToken).ConfigureAwait(false);
         }
 
@@ -127,31 +124,26 @@ public sealed class ActorServerClient
         return build.ActorDefinition?["webServerSchema"] as JsonObject;
     }
 
-    /// <summary>
-    /// Sends an HTTP request to the Actor's server and returns its response, whatever its status.
-    /// </summary>
+    /// <summary>Sends an HTTP request to the Actor's server and returns its response, whatever its status.</summary>
     /// <remarks>
     /// <para>
-    /// The request goes to the URL returned by <see cref="GetUrlAsync"/> and carries the client's token in the
-    /// <c>X-Apify-Authorization</c> header, which the platform consumes, so it never reaches the Actor's code.
-    /// Headers in <see cref="ActorServerRequestOptions.Headers"/>, <c>Authorization</c> included, reach the Actor's
-    /// server as they are. The first request to an idle Actor waits for the platform to start a server run, which
-    /// is why the timeout defaults to the <c>Long</c> tier.
+    /// The request goes to the URL from <see cref="GetUrlAsync"/> with the client's token in the
+    /// <c>X-Apify-Authorization</c> header, which the platform consumes, so the Actor's code never sees it. Headers in
+    /// <see cref="ActorServerRequestOptions.Headers"/>, <c>Authorization</c> included, reach the Actor as they are. The
+    /// first request to an idle Actor waits for a server run to start, so the timeout defaults to the <c>Long</c> tier.
     /// </para>
     /// <para>
-    /// A rate limit (429) or Service Unavailable (503) response is retried with the client's retry settings, and
-    /// the last one is returned once the retries run out. The Actor's code can return these statuses too, and
-    /// then it gets the request again. Other statuses are not retried, since they may come from the Actor's code,
-    /// and neither are network errors and timeouts, since the Actor may have already handled the request. A
-    /// redirect is returned as it is, since following it would send the token to a host the Actor's code picked.
-    /// Request bodies are sent uncompressed unless <see cref="ActorServerRequestOptions.Compressor"/> is set.
+    /// A 429 or 503 response is retried with the client's retry settings, and the last one is returned when the retries
+    /// run out. Other statuses are not retried, since they may come from the Actor's code, and neither are network errors
+    /// and timeouts, since the Actor may have handled the request. A redirect is returned as it is, since following it
+    /// would send the token to a host the Actor's code picked. Bodies are sent uncompressed unless
+    /// <see cref="ActorServerRequestOptions.Compressor"/> is set.
     /// </para>
     /// </remarks>
     /// <param name="path">
-    /// The path on the Actor's server, for example <c>/search</c>. It is always resolved against the server URL,
-    /// so the request, and the token with it, cannot be sent to another host. Pass the query in
-    /// <see cref="ActorServerRequestOptions.Query"/>. A fragment (<c>#...</c>) is dropped, since it is never sent
-    /// to the server.
+    /// The path on the Actor's server, for example <c>/search</c>. It is resolved against the server URL, so the request
+    /// and the token cannot go to another host. Pass the query in <see cref="ActorServerRequestOptions.Query"/>. A fragment
+    /// (<c>#...</c>) is dropped.
     /// </param>
     /// <param name="options">Optional request settings.</param>
     /// <param name="cancellationToken">A token to cancel the request.</param>
@@ -202,7 +194,7 @@ public sealed class ActorServerClient
             options.ContentType ?? FindHeader(options.Headers, HttpClientCore.ContentTypeHeader) ?? DefaultContentType(options.Body),
             options.Timeout,
             bodyBytes: bodyBytes,
-            extraHeaders: options.Headers,
+            extraHeaders: WithParentRequestId(options.Headers, options.ParentRequestId),
             tier: RequestTier.Long,
             explicitContentEncoding: FindHeader(options.Headers, HttpClientCore.ContentEncodingHeader),
             policy: policy,
@@ -211,12 +203,10 @@ public sealed class ActorServerClient
     }
 
     /// <summary>
-    /// Returns this client with the timeout of the API calls it makes (the Actor and build lookups of
-    /// <see cref="GetUrlAsync"/> and <see cref="GetOpenApiSpecAsync"/>) set to <paramref name="timeout"/>,
-    /// overriding the tier default (see the "Timeout tiers" section of docs/README.md). Pass
-    /// <see cref="TimeSpan.Zero"/> for no timeout. A value above <see cref="ApifyClientOptions.TimeoutSecs"/>
-    /// is capped at it. It does not affect <see cref="RequestAsync"/>, which takes its timeout from
-    /// <see cref="ActorServerRequestOptions.Timeout"/>.
+    /// Returns this client with the timeout of its API calls (the Actor and build lookups) set to
+    /// <paramref name="timeout"/>, overriding the tier default (see "Timeout tiers" in docs/README.md).
+    /// <see cref="TimeSpan.Zero"/> means no timeout. A value above <see cref="ApifyClientOptions.TimeoutSecs"/> is capped at
+    /// it. <see cref="RequestAsync"/> uses <see cref="ActorServerRequestOptions.Timeout"/> instead.
     /// </summary>
     /// <param name="timeout">The timeout to use for the API calls made through this client.</param>
     public ActorServerClient WithTimeout(TimeSpan timeout)
@@ -250,8 +240,8 @@ public sealed class ActorServerClient
     }
 
     /// <summary>
-    /// Converts a query value to text: dates to ISO 8601 in UTC, booleans to <c>1</c>/<c>0</c>, lists to their
-    /// comma-joined values and other values to their invariant text; <c>null</c> stays <c>null</c> and is left out.
+    /// Converts a query value to text: dates to ISO 8601 in UTC, booleans to <c>1</c>/<c>0</c>, lists to comma-joined
+    /// values and others to their invariant text. <c>null</c> is left out.
     /// </summary>
     private static string? FormatQueryValue(object? value) => value switch
     {
@@ -265,7 +255,7 @@ public sealed class ActorServerClient
         _ => value.ToString(),
     };
 
-    /// <summary>A date as UTC; a date of unspecified kind is taken as UTC too, so it is sent the same on every machine.</summary>
+    /// <summary>A date as UTC; a date of unspecified kind is taken as UTC, so it is sent the same on every machine.</summary>
     private static DateTime ToUtc(DateTime time)
         => time.Kind == DateTimeKind.Unspecified ? DateTime.SpecifyKind(time, DateTimeKind.Utc) : time.ToUniversalTime();
 
@@ -275,6 +265,26 @@ public sealed class ActorServerClient
         byte[] => BinaryContentType,
         _ => ResourceContext.ContentTypeJson,
     };
+
+    private static IReadOnlyDictionary<string, string>? WithParentRequestId(IReadOnlyDictionary<string, string>? headers, string? parentRequestId)
+    {
+        if (parentRequestId is null)
+        {
+            return headers;
+        }
+
+        var merged = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        if (headers is not null)
+        {
+            foreach (var header in headers)
+            {
+                merged[header.Key] = header.Value;
+            }
+        }
+
+        merged[ParentRequestIdHeader] = parentRequestId;
+        return merged;
+    }
 
     private static string? FindHeader(IReadOnlyDictionary<string, string>? headers, string name)
     {
@@ -320,8 +330,7 @@ public sealed class ActorServerClient
             builds.WithTimeout(timeout);
         }
 
-        // Builds are listed newest first and the sequence numbers of a version grow over time, so meeting an older
-        // build of the same version means the target does not exist.
+        // Builds are listed newest first and sequence numbers grow, so an older build of the same version means the target does not exist.
         await foreach (var build in builds.IterateAsync(new ListOptions { Desc = true }, cancellationToken).ConfigureAwait(false))
         {
             if (build.BuildNumber == buildNumber)
@@ -350,10 +359,7 @@ public sealed class ActorServerClient
         return client;
     }
 
-    /// <summary>
-    /// Splits a build number like <c>0.1.23</c> into its parts, or returns <c>null</c> for anything else, including
-    /// numbers too large to be a real build number.
-    /// </summary>
+    /// <summary>Splits a build number such as <c>0.1.23</c> into its parts; <c>null</c> for anything else.</summary>
     private static (long Major, long Minor, long Sequence)? ParseBuildNumber(string? buildNumber)
     {
         var match = BuildNumberPattern.Match(buildNumber ?? string.Empty);

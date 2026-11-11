@@ -3,11 +3,10 @@ using System.Collections.Generic;
 namespace Apify.Client.Exceptions;
 
 /// <summary>
-/// Thrown when a successful response is valid JSON but does not match the schema the Apify API
-/// specification declares for its operation: the <c>data</c> envelope or a required property is missing, a
-/// value has the wrong JSON type, is <c>null</c> where that is not allowed, or falls outside the documented
-/// format, pattern or range. Unknown properties and unknown enum values are accepted. The response arrived
-/// in full, so the request is not retried. Matches the reference client's <c>ResponseValidationError</c>.
+/// Thrown when a successful response is valid JSON but does not match the schema the API specification declares for
+/// its operation: a missing envelope or required property, a wrong type, a <c>null</c> where it is not allowed, or a
+/// value outside the documented format, pattern, or range. Unknown properties and enum values are accepted. The response
+/// arrived in full, so it is not retried. Mirrors the reference client's <c>ResponseValidationError</c>.
 /// </summary>
 public sealed class ResponseValidationException : ApifyClientException
 {

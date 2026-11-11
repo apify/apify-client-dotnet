@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.10.0
+
+- Added `RequestCompression.Zstd` and `ZstdHttpCompressor` (quality 1 to 19, default 3), which compress request
+  bodies with `Content-Encoding: zstd`. The client now depends on `ZstdSharp.Port`, because .NET 8 has no zstd
+  encoder.
+- Added `ActorServerRequestOptions.ParentRequestId`, which `ActorServerClient.RequestAsync` sends as the
+  `X-Actor-Request-ID` header, over one passed in `Headers`.
+- Documented `zstd` as an accepted `SetRecordOptions.ContentEncoding`, and that `RunChargeOptions.RequestId` is
+  ignored by runs of single-tenant Server Actors.
+- Shortened the code comments and documentation: removed restated, outdated, and repeated text.
+- Bumped `ApifyClientVersion.ApiSpecVersion` to the Apify OpenAPI spec `v2-2026-11-09T143926Z` and the project
+  version to `0.10.0`; regenerated the embedded response schemas.
+
 ## 0.9.0
 
 - Added `ActorClient.Server()`, which returns an `ActorServerClient` for Server Actors (formerly Actor
@@ -162,7 +175,7 @@
   bounds the retrying, after which the last error is thrown. Matches the reference client's
   `waitForResources` start option.
 - Fixed the auto-paging collection iterators (`IterateAsync` on every collection client) to stop only once
-  a page returns no items, instead of once `offset` reached an earlier page's `total` — a stale bound that
+  a page returns no items, instead of once `offset` reached an earlier page's `total`, a stale bound that
   cut the iteration short when the listed collection grew while it ran (e.g. a dataset collection while
   another process created more datasets).
 - Fixed `RunClient.WaitForFinishAsync`/`BuildClient.WaitForFinishAsync` to throw `NotFoundException` after
@@ -186,8 +199,8 @@
   `UnauthorizedException` 401, `ForbiddenException` 403, `NotFoundException` 404, `ConflictException`
   409, `RateLimitException` 429, `ServerException` 5xx), matching the reference client's `ApifyApiError`
   subclass hierarchy. Every subclass still satisfies `catch (ApifyApiException)`.
-- **Breaking:** a 404 on a resource addressed without its own id — `RunClient.Dataset()`,
-  `.KeyValueStore()`, `.RequestQueue()`, `.Log()`, and `BuildClient.Log()` — now throws instead of
+- **Breaking:** a 404 on a resource addressed without its own id (`RunClient.Dataset()`,
+  `.KeyValueStore()`, `.RequestQueue()`, `.Log()`, and `BuildClient.Log()`) now throws instead of
   resolving to `null`/no-op, since the ambiguity (the run/build itself, or the nested resource, could
   be missing) made the old `null` misleading. A record/request/log looked up by its own key or id
   (`GetRecordAsync`, `GetRequestAsync`, `client.Log(id)`) is unaffected and still resolves `null` for
@@ -233,8 +246,8 @@
   short-or-medium-extended-to-cover-the-wait. `RequestQueueClientOptions.TimeoutSecs` and
   `SetRecordOptions.TimeoutSecs` are unaffected: both are absolute per-call/per-client overrides that
   already took priority over any default and still do.
-- Added `WithTimeout(TimeSpan)` to every resource client (every accessor on `ApifyClient` — `Actor()`,
-  `Dataset()`, `Actors()`, and so on), the client's general per-call(-instance) timeout override
+- Added `WithTimeout(TimeSpan)` to every resource client (every accessor on `ApifyClient`, such as `Actor()`,
+  `Dataset()`, and `Actors()`), the client's general per-call(-instance) timeout override
   matching the reference client's per-call `timeoutSecs` option: every call made through that client
   instance uses the given timeout instead of its tier default. A value above
   `ApifyClientOptions.TimeoutSecs` (the overall budget) is capped at it, matching the reference client
@@ -243,7 +256,7 @@
   and `UserClient.UpdateLimitsAsync` now also honor a context timeout override (previously silently
   ignored it, since each calls the HTTP client directly rather than through a shared CRUD primitive).
 - Response URL fields the OpenAPI specification marks `format: uri` (currently `ActorRun.ContainerUrl`,
-  `Webhook.RequestUrl` — the client's only two typed properties among the reference client's 17
+  `Webhook.RequestUrl`, the client's only two typed properties among the reference client's 17
   normalized fields) are now normalized to their RFC 3986 absolute-URI form via `System.Uri`
   (lowercased/punycoded host, default port dropped, empty path becomes `/`, unsafe characters
   percent-encoded), matching the reference client's `z.url({ normalize: true })`. A present but
@@ -338,7 +351,7 @@ sibling clients already apply to this same resource:
 - Bumped `ApifyClientVersion.ApiSpecVersion` to the Apify OpenAPI spec `v2-2026-07-08T143931Z` and the
   project version to `0.1.2`.
 - Aligned the `User-Agent` OS token with the reference client's Node `os.platform()` values (`win32`,
-  `darwin`, `linux`, `android`, `freebsd`, and — for platforms without a dedicated .NET helper —
+  `darwin`, `linux`, `android`, `freebsd`, and, for platforms without a dedicated .NET helper,
   `openbsd`, `netbsd`, `sunos`, `aix`) instead of `windows`.
 - Request bodies of at least 1024 bytes are compressed before sending. The compression algorithm is
   selectable via the new `ApifyClientOptions.RequestCompression` option (`RequestCompression` enum):
@@ -396,4 +409,4 @@ sibling clients already apply to this same resource:
 - Integration test suite, documentation with runnable examples, a data-model property reference
   (`docs/models.md`), and CI workflows for integration tests and publishing (manual NuGet.org publish
   via Trusted Publishing: the `NuGet/login` action exchanges a GitHub OIDC token for a short-lived
-  key, using only the `NUGET_USER` repository secret — no long-lived NuGet API key is stored).
+  key, using only the `NUGET_USER` repository secret, so no long-lived NuGet API key is stored).

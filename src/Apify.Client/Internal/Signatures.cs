@@ -6,28 +6,24 @@ using System.Text;
 
 namespace Apify.Client.Internal;
 
-/// <summary>
-/// Apify storage-content URL signing, byte-for-byte compatible with the platform's
-/// <c>@apify/utilities</c> implementation that the reference clients rely on.
-/// </summary>
+/// <summary>Signing of storage-content URLs, byte-for-byte compatible with <c>@apify/utilities</c>.</summary>
 internal static class Signatures
 {
-    /// <summary>Version tag embedded in storage-content signatures (upstream default).</summary>
+    /// <summary>Version tag in the signatures.</summary>
     private const string StorageContentSignatureVersion = "0";
 
-    /// <summary>Number of leading hex characters of the HMAC digest used.</summary>
+    /// <summary>Number of leading hex characters of the HMAC digest that are used.</summary>
     private const int HmacSignatureHexLen = 30;
 
-    /// <summary>Base62 alphabet (digits, then lowercase, then uppercase), matching upstream.</summary>
+    /// <summary>Base62 alphabet: digits, lowercase, uppercase.</summary>
     private const string Base62Alphabet = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
 
     private const int Base = 62;
     private const int ByteBase = 256;
 
     /// <summary>
-    /// Computes an Apify URL-signing signature, byte-for-byte compatible with upstream
-    /// <c>createHmacSignature</c>: HMAC-SHA256(secret, message) as lowercase hex, take the first 30 hex
-    /// characters, interpret them as a big integer, then base62-encode (alphabet <c>0-9a-zA-Z</c>).
+    /// Computes the signature as <c>createHmacSignature</c> upstream does: HMAC-SHA256 as lowercase hex, the first 30 hex
+    /// characters read as a big integer and base62-encoded.
     /// </summary>
     public static string CreateHmacSignature(string secretKey, string message)
     {
@@ -38,9 +34,8 @@ internal static class Signatures
     }
 
     /// <summary>
-    /// Rejects a zero or negative expiry, which would yield a URL that has already expired (the expiry is added to
-    /// the current time); a caller that wants a permanent URL leaves the expiry out. Matches the reference
-    /// client, which requires a positive <c>expiresInSecs</c>.
+    /// Rejects a zero or negative expiry, which would give a URL that has already expired. Omit the expiry for a permanent
+    /// URL. The reference client also requires a positive <c>expiresInSecs</c>.
     /// </summary>
     /// <param name="expiresInSecs">The expiry from the caller's arguments, or <c>null</c> when unset.</param>
     /// <param name="paramName">The caller's parameter name, used in the error message.</param>
@@ -52,18 +47,15 @@ internal static class Signatures
         }
     }
 
-    /// <summary>
-    /// Builds a storage-content signature for a resource's public URL, byte-for-byte compatible with
-    /// upstream <c>createStorageContentSignature</c>.
-    /// </summary>
+    /// <summary>Builds the signature of a resource's public URL, as upstream <c>createStorageContentSignature</c>.</summary>
     /// <remarks>
-    /// It signs the message <c>"{version}.{expiresAtMillis}.{resourceId}"</c> (<c>expiresAtMillis</c> is
-    /// the absolute expiry in ms, or <c>0</c> for a non-expiring URL) with <see cref="CreateHmacSignature"/>,
-    /// then returns the base64url (no padding) encoding of <c>"{version}.{expiresAtMillis}.{hmac}"</c>.
+    /// It signs <c>"{version}.{expiresAtMillis}.{resourceId}"</c> (<c>expiresAtMillis</c> is the absolute expiry, or
+    /// <c>0</c> for none) with <see cref="CreateHmacSignature"/> and returns the base64url encoding, without padding, of
+    /// <c>"{version}.{expiresAtMillis}.{hmac}"</c>.
     /// </remarks>
-    /// <param name="secretKey">The store/dataset URL-signing secret key.</param>
+    /// <param name="secretKey">The URL-signing secret key of the store or dataset.</param>
     /// <param name="resourceId">The resource id being signed.</param>
-    /// <param name="expiresInSecs">Optional expiry in seconds (<c>null</c> for a non-expiring URL).</param>
+    /// <param name="expiresInSecs">Optional expiry in seconds (<c>null</c> for none).</param>
     public static string SignStorageContent(string secretKey, string resourceId, int? expiresInSecs)
     {
         ValidateExpiry(expiresInSecs, nameof(expiresInSecs));
@@ -78,10 +70,7 @@ internal static class Signatures
         return Base64UrlNoPadding(Encoding.UTF8.GetBytes(envelope));
     }
 
-    /// <summary>
-    /// Interprets a hex string as a big-endian non-negative integer and encodes it in base62.
-    /// Implemented with byte-wise long division (base 256 → base 62) so it needs no bignum dependency.
-    /// </summary>
+    /// <summary>Encodes a hex string, read as a big-endian integer, in base62 by long division, without a bignum dependency.</summary>
     private static string HexToBase62(string hex)
     {
         var digits = new List<int>(Convert.FromHexString(hex).Length);
@@ -118,7 +107,7 @@ internal static class Signatures
         return result.Length == 0 ? "0" : result.ToString();
     }
 
-    /// <summary>Encodes bytes as base64url without padding (<c>+/</c> → <c>-_</c>, trailing <c>=</c> removed).</summary>
+    /// <summary>Encodes bytes as base64url without padding.</summary>
     private static string Base64UrlNoPadding(byte[] bytes)
     {
         return Convert.ToBase64String(bytes)

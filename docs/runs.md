@@ -11,13 +11,13 @@ Access the account-wide run collection with `client.Runs()`, an Actor's or task'
 
 `ListOptions` fields: `Offset`, `Limit`, `Desc` (standard pagination; `Limit` `0` or unset means no cap) and `ChunkSize` (the page size `IterateAsync` requests; the smaller of it and the remaining `Limit` is used per call). `RunListOptions` fields:
 `Status` (`IReadOnlyList<string>?`, filter by one or more run statuses such as `SUCCEEDED`/`RUNNING`),
-`Deployment` (`IReadOnlyList<string>?`, filters Actor Standby runs by the pool serving them: `SINGLE_TENANT`,
+`Deployment` (`IReadOnlyList<string>?`, filters Server Actor runs by the pool that serves them: `SINGLE_TENANT`,
 `MULTI_TENANT_FREE_USERS`, `MULTI_TENANT_PAYING_USERS` or `MULTI_TENANT_OWNER_PAID`; requires `Status` with only
-non-terminal statuses and is honoured only by the account-wide and Actor-scoped run collections),
-`StartedAfter` and `StartedBefore` (ISO 8601 bounds, honoured only by the account-wide and Actor-scoped run
+non-terminal statuses and is honored only by the account-wide and Actor-scoped run collections),
+`StartedAfter` and `StartedBefore` (ISO 8601 bounds, honored only by the account-wide and Actor-scoped run
 collections, not by task runs).
 
-## Single run — `client.Run(runId)`
+## Single run: `client.Run(runId)`
 
 - `GetAsync(int? waitForFinishSecs = null)` → `ActorRun?`.
 - `UpdateAsync(object newFields)` → `ActorRun`.
@@ -25,21 +25,21 @@ collections, not by task runs).
 - `AbortAsync(bool? gracefully = null)` → `ActorRun`.
 - `MetamorphAsync(string targetActorId, object? input = null, MetamorphOptions? options = null)` → `ActorRun`.
 - `RebootAsync()` → `ActorRun`.
-- `ResurrectAsync(RunResurrectOptions? options = null)` → `ActorRun` — resurrects a finished run (status `SUCCEEDED`, `FAILED`, `ABORTED` or `TIMED-OUT`) and restarts it with the same storages.
-- `ChargeAsync(RunChargeOptions options)` → `Task` — record pay-per-event charges (idempotent).
-- `WaitForFinishAsync(int? waitSecs = null)` → `ActorRun` — client-side polling until terminal (`null`
+- `ResurrectAsync(RunResurrectOptions? options = null)` → `ActorRun`: resurrects a finished run (status `SUCCEEDED`, `FAILED`, `ABORTED`, or `TIMED-OUT`) and restarts it with the same storages.
+- `ChargeAsync(RunChargeOptions options)` → `Task`: record pay-per-event charges (idempotent).
+- `WaitForFinishAsync(int? waitSecs = null)` → `ActorRun`: client-side polling until terminal (`null`
   waits indefinitely). A run id that keeps answering 404 for 3 seconds straight (replica lag resolves
   faster than that) throws `NotFoundException` instead of polling for the rest of `waitSecs`.
-- `IterateDatasetItemsAsync(RunIterateDatasetItemsOptions? options = null)` → `IAsyncEnumerable<JsonNode?>` —
+- `IterateDatasetItemsAsync(RunIterateDatasetItemsOptions? options = null)` → `IAsyncEnumerable<JsonNode?>`:
   lazily iterates the run's default dataset while the run is still producing items: it reads the rows
   below the dataset's `itemCount`, waits for the run to finish between polls, and after the run finishes
   reads any remaining rows. On a `LastRun()` client it sticks to the run its first request resolved to.
-- `Dataset()`, `KeyValueStore()`, `RequestQueue()` — the run's default storages. Their own
+- `Dataset()`, `KeyValueStore()`, `RequestQueue()`: the run's default storages. Their own
   `GetAsync()`/`DeleteAsync()` throw on a 404 instead of resolving `null`/no-op, since the run itself
   (not just the storage) could be what's missing; a record/request looked up by its own key or id
   (e.g. `GetRecordAsync`, `GetRequestAsync`) is unaffected and still resolves `null` for a missing one.
-- `Log()` → `LogClient` (its `GetAsync`/`StreamAsync` methods are documented under [Logs in misc.md](misc.md#logs--clientlogbuildorrunid); on this run-nested client they throw rather than resolve `null`, for the same reason); `GetStreamedLogAsync()` → `Stream` (live raw log).
-- `GetStreamedLog(Action<string> toLog, bool fromStart = true)` → `StreamedLog` — redirects the run's live
+- `Log()` → `LogClient` (its `GetAsync`/`StreamAsync` methods are documented under [Logs in misc.md](misc.md#logs-clientlogbuildorrunid); on this run-nested client they throw rather than resolve `null`, for the same reason); `GetStreamedLogAsync()` → `Stream` (live raw log).
+- `GetStreamedLog(Action<string> toLog, bool fromStart = true)` → `StreamedLog`: redirects the run's live
   log to `toLog` one complete message at a time. Call `Start()` to begin and `StopAsync()` (or dispose) to
   end. `fromStart: false` skips messages older than the helper's creation.
 

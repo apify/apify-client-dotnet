@@ -4,10 +4,7 @@ using Apify.Client.Internal;
 
 namespace Apify.Client.Models;
 
-/// <summary>
-/// The result of a batch request-delete: the requests that were successfully removed and the ones that
-/// could not be (and can be retried).
-/// </summary>
+/// <summary>The result of a batch request delete: the requests removed and the ones that failed and can be retried.</summary>
 public sealed class BatchDeleteResult
 {
     private BatchDeleteResult(IReadOnlyList<RequestQueueRequest> processed, IReadOnlyList<RequestQueueRequest> unprocessed)

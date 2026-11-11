@@ -14,26 +14,26 @@ using Apify.Client.Http;
 namespace Apify.Client.Internal;
 
 /// <summary>
-/// The orchestrating HTTP client shared by every resource client. It owns the transport, the optional
-/// API token, the <c>User-Agent</c>, and the retry/timeout policy, and applies them to every request.
+/// The HTTP client shared by every resource client. It owns the transport, token, <c>User-Agent</c>, and the
+/// retry and timeout policy, and applies them to every request.
 /// </summary>
 internal sealed class HttpClientCore
 {
-    /// <summary>Status returned when the per-resource rate limit is hit.</summary>
+    /// <summary>Status of a rate limited request.</summary>
     public const int RateLimitExceeded = 429;
 
-    /// <summary>Statuses at or above this value are treated as retryable internal server errors.</summary>
+    /// <summary>Statuses at or above this value are retried as server errors.</summary>
     private const int MinServerError = 500;
 
-    /// <summary>Responses with a status below this value are treated as success.</summary>
+    /// <summary>Statuses below this value are a success.</summary>
     public const int MaxSuccessStatus = 300;
 
-    /// <summary>Exponential-backoff multiplier applied to the inter-retry delay after each attempt.</summary>
+    /// <summary>Multiplier of the delay between retries.</summary>
     private const int BackoffFactor = 2;
 
     private const int NotFound = 404;
 
-    /// <summary>Prefix of the headers that describe a request body; they belong to the body, not to the request.</summary>
+    /// <summary>Prefix of the headers that describe a request body.</summary>
     private const string ContentHeaderPrefix = "Content-";
 
     /// <summary>The header that carries the media type of a request body.</summary>
@@ -42,19 +42,16 @@ internal sealed class HttpClientCore
     /// <summary>The header that carries the encoding (compression) of a request body.</summary>
     public const string ContentEncodingHeader = "Content-Encoding";
 
-    /// <summary>Content headers the client derives from the body itself, so a caller-supplied value is ignored.</summary>
+    /// <summary>Content headers the client derives from the body, so a caller-supplied value is ignored.</summary>
     private static readonly string[] BodyDerivedContentHeaders = { ContentTypeHeader, ContentEncodingHeader, "Content-Length" };
 
-    /// <summary>
-    /// Request bodies whose size in bytes is at or above this threshold are compressed before sending,
-    /// matching the reference client's minimum-compression size.
-    /// </summary>
+    /// <summary>Bodies of at least this many bytes are compressed, as in the reference client.</summary>
     private const int MinCompressBytes = 1024;
 
-    /// <summary>Media type prefixes whose payloads carry their own compression (e.g. <c>image/png</c>).</summary>
+    /// <summary>Media type prefixes whose payloads carry their own compression.</summary>
     private static readonly string[] AlreadyCompressedMediaTypePrefixes = { "audio/", "image/", "video/" };
 
-    /// <summary>Exact media types whose payloads carry their own compression (archives, packages, fonts).</summary>
+    /// <summary>Media types whose payloads carry their own compression (archives, packages, fonts).</summary>
     private static readonly HashSet<string> AlreadyCompressedMediaTypes = new(StringComparer.Ordinal)
     {
         "application/epub+zip",
@@ -78,7 +75,7 @@ internal sealed class HttpClientCore
         "font/woff2",
     };
 
-    /// <summary>Uncompressed media types that sit under an already-compressed prefix but still benefit from compression.</summary>
+    /// <summary>Media types under an already-compressed prefix that are uncompressed and still benefit from compression.</summary>
     private static readonly HashSet<string> CompressibleMediaTypes = new(StringComparer.Ordinal)
     {
         "audio/aiff",
@@ -99,7 +96,7 @@ internal sealed class HttpClientCore
         "image/x-ms-bmp",
     };
 
-    /// <summary>Structured syntax suffixes marking a media type as text even under an already-compressed prefix (e.g. <c>image/svg+xml</c>).</summary>
+    /// <summary>Suffixes that mark a media type as text even under an already-compressed prefix, such as <c>image/svg+xml</c>.</summary>
     private static readonly string[] CompressibleMediaTypeSuffixes = { "+json", "+xml" };
 
     private readonly IHttpTransport _transport;
@@ -131,7 +128,7 @@ internal sealed class HttpClientCore
     /// <summary>The request statistics shared with <see cref="ApifyClient.Stats"/>.</summary>
     public Statistics Stats => _stats;
 
-    /// <summary>The <c>User-Agent</c> header value this client sends (a <c>User-Agent</c> default header wins over the built-in one).</summary>
+    /// <summary>The <c>User-Agent</c> this client sends; a <c>User-Agent</c> default header wins over the built-in one.</summary>
     public string UserAgent { get; }
 
     private static string? FindHeader(IReadOnlyDictionary<string, string>? headers, string name)
@@ -152,14 +149,13 @@ internal sealed class HttpClientCore
         return null;
     }
 
-    /// <summary>The configured overall per-request timeout budget, in seconds.</summary>
+    /// <summary>The overall per-request timeout budget, in seconds.</summary>
     public double RequestTimeoutSecs => _retry.TimeoutSecs;
 
     /// <summary>
-    /// Sends a request with auth, User-Agent and the retry policy applied, returning the successful
-    /// response (the caller owns and disposes it). A <paramref name="policy"/> other than
-    /// <see cref="RequestPolicy.Default"/> changes how the call authenticates, which responses it retries and
-    /// whether an error response is returned instead of thrown.
+    /// Sends a request with auth, <c>User-Agent</c>, and the retry policy, and returns the successful response, which the
+    /// caller disposes. A <paramref name="policy"/> other than <see cref="RequestPolicy.Default"/> changes the
+    /// authentication, the retried responses, and whether an error response is returned instead of thrown.
     /// </summary>
     public async Task<HttpResponseMessage> CallAsync(
         HttpMethod method,
@@ -180,17 +176,13 @@ internal sealed class HttpClientCore
         var delayMillis = _retry.MinDelayMillis;
         var maxAttempts = _retry.MaxRetries + 1;
         var path = ExtractPath(url);
-        // An explicit timeout (e.g. a per-queue or per-call WithTimeout override) always wins as the base for
-        // the per-attempt doubling below; otherwise the tier's configured duration is the base. Either way,
-        // the retry-growth cap is always the configured overall budget (ApifyClientOptions.TimeoutSecs) —
-        // matching the reference client, an explicit override above that budget is capped back down to it
-        // rather than silently exceeding it. Raise TimeoutSecs itself to allow a longer per-call timeout.
+        // An explicit timeout (such as a WithTimeout override) is the base that doubles per attempt; otherwise it is the
+        // tier's duration. Either way the growth is capped at the overall budget (ApifyClientOptions.TimeoutSecs), as in the
+        // reference client.
         var baseTimeout = timeout ?? TimeSpan.FromSeconds(_retry.TierSecs(tier));
         var overallCap = TimeSpan.FromSeconds(_retry.TimeoutSecs);
-        // Normalize (and, when large enough, compress) the body once up front so retries reuse the same
-        // prepared payload instead of re-encoding and re-compressing on every attempt. A caller-supplied
-        // explicitContentEncoding (e.g. SetRecordAsync's contentEncoding for an already-compressed value)
-        // skips this: the bytes are already in their final, encoded form and must reach the API unchanged.
+        // Prepare (and, when large enough, compress) the body once, so retries reuse it. An explicit content encoding skips
+        // this: the bytes are already encoded and must reach the API unchanged.
         var prepared = explicitContentEncoding is not null
             ? new PreparedBody(bodyBytes ?? (body is not null ? Encoding.UTF8.GetBytes(body) : null), contentType, explicitContentEncoding)
             : await PrepareBodyAsync(body, bodyBytes, contentType, policy, cancellationToken).ConfigureAwait(false);
@@ -209,14 +201,12 @@ internal sealed class HttpClientCore
                 var status = (int)response.StatusCode;
                 if (status < MaxSuccessStatus)
                 {
-                    // The sent request is disposed by now; keep a body-less copy of it so response readers can
-                    // report the method and path in the errors they raise.
+                    // The sent request is disposed; keep a body-less copy so response readers can report the method and path.
                     response.RequestMessage = new HttpRequestMessage(method, url);
                     return response;
                 }
 
-                // The statistics track the API's rate limits; only API calls throw on an error status, so a call
-                // that returns error responses is not an API call and its 429s stay out of them.
+                // The statistics track the API's rate limits. Only API calls throw on an error status, so the 429s of other calls stay out.
                 if (status == RateLimitExceeded && policy.ThrowOnErrorStatus)
                 {
                     _stats.AddRateLimitError(attempt);
@@ -236,8 +226,7 @@ internal sealed class HttpClientCore
             catch (ApifyTransportException ex)
             {
                 lastError = ex;
-                // Network/timeout failures are retryable, unless the caller opted out of retrying timeouts or of
-                // retrying transport errors at all.
+                // Network and timeout failures are retried, unless the caller opted out of retrying timeouts or transport errors.
                 retryable = policy.RetryTransportErrors && !(doNotRetryTimeouts && ex.IsTimeout);
             }
 
@@ -251,11 +240,11 @@ internal sealed class HttpClientCore
             delayMillis = Math.Min(delayMillis * BackoffFactor, _retry.MaxDelayMillis);
         }
 
-        // Unreachable in practice (maxAttempts >= 1); defensive.
+        // Unreachable: there is at least one attempt.
         throw lastError ?? new ApifyTransportException("request failed with no attempts");
     }
 
-    /// <summary>Opens a live streaming response (single attempt, no retry). Used by log streaming.</summary>
+    /// <summary>Opens a live streaming response with a single attempt and no retry, for log streaming.</summary>
     public Task<HttpResponseMessage> StreamAsync(string url, CancellationToken cancellationToken)
     {
         _stats.AddCall();
@@ -278,9 +267,8 @@ internal sealed class HttpClientCore
     }
 
     /// <summary>
-    /// Rejects a default header that is not a valid request header. Content headers (<c>Content-Type</c>,
-    /// <c>Content-Encoding</c>, <c>Content-Length</c>, ...) describe the body, which the client sets per
-    /// request, so they cannot be defaults; any other rejected name is not a valid HTTP header name.
+    /// Rejects a default header that is a content header (<c>Content-Type</c>, <c>Content-Length</c>, and so on), because
+    /// the client sets those per request, or not a valid header name.
     /// </summary>
     /// <exception cref="ArgumentException">A header name is a content header or not a valid header name.</exception>
     private static void ValidateDefaultHeaders(IReadOnlyDictionary<string, string>? headers)
@@ -307,9 +295,9 @@ internal sealed class HttpClientCore
     }
 
     /// <summary>
-    /// Moves the request's <c>Authorization</c> header (the token, or a default header of that name) to the header
-    /// named <paramref name="headerName"/>; nothing changes for <c>null</c>. A header of that name set for the
-    /// single call is applied afterwards and still wins.
+    /// Moves the request's <c>Authorization</c> header (the token or a default header of that name) to
+    /// <paramref name="headerName"/>; <c>null</c> changes nothing. A header of that name set for the single call is
+    /// applied afterwards and wins.
     /// </summary>
     private static void MoveAuthorization(HttpRequestMessage request, string? headerName)
     {
@@ -324,7 +312,7 @@ internal sealed class HttpClientCore
         request.Headers.TryAddWithoutValidation(headerName, authorization);
     }
 
-    /// <summary>Sets each header on the request, replacing any value already set under the same name.</summary>
+    /// <summary>Sets each header on the request, replacing a value already set under the same name.</summary>
     private static void SetHeaders(HttpRequestMessage request, IReadOnlyDictionary<string, string>? headers)
     {
         if (headers is null)
@@ -334,7 +322,7 @@ internal sealed class HttpClientCore
 
         foreach (var header in headers)
         {
-            // Content headers are set on the body (see BuildRequest); the request's header collection rejects them.
+            // Content headers go on the body; the request's header collection rejects them.
             if (IsContentHeader(header.Key))
             {
                 continue;
@@ -347,7 +335,7 @@ internal sealed class HttpClientCore
 
     private static bool IsContentHeader(string name) => name.StartsWith(ContentHeaderPrefix, StringComparison.OrdinalIgnoreCase);
 
-    /// <summary>Builds a fully-prepared request with auth, User-Agent, content type and extra headers.</summary>
+    /// <summary>Builds a request with auth, <c>User-Agent</c>, content type, and extra headers.</summary>
     private HttpRequestMessage BuildRequest(
         HttpMethod method,
         string url,
@@ -362,8 +350,7 @@ internal sealed class HttpClientCore
             request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _token);
         }
 
-        // The client-wide default headers win over the built-in ones above, and a header set for this single call
-        // wins over both.
+        // Client-wide default headers win over the built-in ones, and a header of this single call wins over both.
         SetHeaders(request, _defaultHeaders);
         MoveAuthorization(request, policy.AuthorizationHeader);
         SetHeaders(request, extraHeaders);
@@ -375,7 +362,7 @@ internal sealed class HttpClientCore
         if (prepared.Bytes is not null)
         {
             var content = new ByteArrayContent(prepared.Bytes);
-            // Set the content type verbatim (no charset appended unless the caller added one).
+            // Set the content type as given, without appending a charset.
             content.Headers.ContentType = string.IsNullOrEmpty(prepared.ContentType)
                 ? null
                 : MediaTypeHeaderValue.Parse(prepared.ContentType);
@@ -392,9 +379,8 @@ internal sealed class HttpClientCore
     }
 
     /// <summary>
-    /// Sets the caller's content headers on the body, except the ones the client derives from the body itself. A
-    /// request without a body has nothing to attach them to (for example <c>Content-Disposition</c>), so they are
-    /// not sent.
+    /// Sets the caller's content headers on the body, except the ones derived from the body. A request without a body has
+    /// nothing to attach them to, so they are not sent.
     /// </summary>
     private static void AddContentHeaders(HttpContent content, IReadOnlyDictionary<string, string>? headers)
     {
@@ -416,15 +402,12 @@ internal sealed class HttpClientCore
     }
 
     /// <summary>
-    /// Normalizes a request body to bytes and, when it is large enough, compresses it. Raw bytes take
-    /// precedence so binary records (e.g. images) are used as-is rather than re-encoded through a UTF-8
-    /// string; a string body is UTF-8 encoded. Either kind of payload is then compressed once it reaches
-    /// the size threshold (see the remarks).
+    /// Converts a request body to bytes and compresses it once it reaches the size threshold. Raw bytes take precedence
+    /// over a string, which is UTF-8 encoded.
     /// </summary>
     /// <remarks>
-    /// Bodies at or above <see cref="MinCompressBytes"/> whose content type is compressible are compressed with
-    /// the configured <see cref="HttpCompressor"/>: brotli (<c>Content-Encoding: br</c>) by default, matching
-    /// the reference client's preference.
+    /// Bodies of at least <see cref="MinCompressBytes"/> with a compressible content type are compressed with the
+    /// configured <see cref="HttpCompressor"/>, brotli by default.
     /// </remarks>
     private async Task<PreparedBody> PrepareBodyAsync(string? body, byte[]? bodyBytes, string contentType, RequestPolicy policy, CancellationToken cancellationToken)
     {
@@ -445,17 +428,14 @@ internal sealed class HttpClientCore
     }
 
     /// <summary>
-    /// Decides whether a request body with the given content type is worth compressing, matching the
-    /// reference client's <c>isCompressibleContentType()</c>.
+    /// Decides whether a body with this content type is worth compressing, as the reference client's
+    /// <c>isCompressibleContentType()</c> does.
     /// </summary>
     /// <remarks>
-    /// Images, audio, video and archives already carry their own compression: running them through
-    /// brotli/gzip burns CPU, holds a second full copy of the body in memory, and usually produces output
-    /// slightly larger than the input. Formats that are raw despite such a media type (e.g. <c>image/bmp</c>,
-    /// <c>audio/wav</c>) are still compressed, as are <c>+json</c>/<c>+xml</c> structured-syntax suffixes
-    /// (e.g. <c>image/svg+xml</c>). <c>application/octet-stream</c> is deliberately left off the
-    /// already-compressed list: it is the catch-all for unknown binary data and <c>SetRecordAsync</c>'s
-    /// fallback when no content type is given. No content type is assumed compressible.
+    /// Images, audio, video, and archives already carry their own compression, so compressing them wastes CPU and memory
+    /// for no gain. Raw formats under such a type (<c>image/bmp</c>, <c>audio/wav</c>) and <c>+json</c> or <c>+xml</c>
+    /// types (<c>image/svg+xml</c>) are still compressed. <c>application/octet-stream</c> counts as compressible, since it
+    /// holds unknown binary data and is the fallback of <c>SetRecordAsync</c>. A missing content type is not compressible.
     /// </remarks>
     internal static bool IsCompressibleContentType(string? contentType)
     {
@@ -464,7 +444,7 @@ internal sealed class HttpClientCore
             return true;
         }
 
-        // Content-Type may carry parameters, e.g. "text/plain; charset=utf-8".
+        // The content type may carry parameters, such as "; charset=utf-8".
         var semicolon = contentType.IndexOf(';', StringComparison.Ordinal);
         var mediaType = (semicolon >= 0 ? contentType.Substring(0, semicolon) : contentType)
             .Trim()
@@ -499,19 +479,13 @@ internal sealed class HttpClientCore
         return true;
     }
 
-    /// <summary>
-    /// A request body normalized to bytes, together with the content type and optional
-    /// <c>Content-Encoding</c> to send. A <see langword="default"/> value carries no body.
-    /// </summary>
+    /// <summary>A request body as bytes, with the content type and optional <c>Content-Encoding</c> to send.</summary>
     private readonly record struct PreparedBody(byte[]? Bytes, string ContentType, string? ContentEncoding);
 
     /// <summary>
-    /// Returns <c>min(overall, base * 2^(attempt-1))</c>: the first attempt uses <paramref name="baseTimeout"/>
-    /// as given (it is not pre-capped by the caller — capping happens only here); each retry doubles it (a
-    /// slow-but-progressing connection gets more time), and every attempt, including the first, is capped at
-    /// <paramref name="overall"/> — the configured overall budget (<c>ApifyClientOptions.TimeoutSecs</c>).
-    /// This is what keeps an explicit <c>WithTimeout</c> override above that budget from exceeding it,
-    /// matching the reference client's <c>timeoutMaxSecs</c> cap.
+    /// Returns <c>min(overall, base * 2^(attempt-1))</c>: each retry doubles the timeout, and every attempt, the first
+    /// included, is capped at the overall budget (<c>ApifyClientOptions.TimeoutSecs</c>), as in the reference client's
+    /// <c>timeoutMaxSecs</c>.
     /// </summary>
     private static TimeSpan AttemptTimeout(TimeSpan baseTimeout, TimeSpan overall, int attempt)
     {
@@ -533,7 +507,7 @@ internal sealed class HttpClientCore
             ? codes.Contains(status)
             : status == RateLimitExceeded || status >= MinServerError;
 
-    /// <summary>Returns a delay chosen randomly from <c>[delay, 2*delay)</c> (exponential backoff + jitter).</summary>
+    /// <summary>Returns a random delay from <c>[delay, 2*delay)</c>: exponential backoff with jitter.</summary>
     private static double RandomizedDelayMillis(double delayMillis)
     {
         if (delayMillis <= 0)
@@ -544,7 +518,7 @@ internal sealed class HttpClientCore
         return delayMillis + (Random.Shared.NextDouble() * delayMillis);
     }
 
-    /// <summary>Builds an <see cref="ApifyApiException"/> from an API error response body.</summary>
+    /// <summary>Builds an <see cref="ApifyApiException"/> from an error response body.</summary>
     public static ApifyApiException BuildApiError(int status, string body, int attempt, string method, string path)
     {
         string? type = null;
@@ -583,7 +557,7 @@ internal sealed class HttpClientCore
         return null;
     }
 
-    /// <summary>Returns the path+query portion of a URL, for error reporting.</summary>
+    /// <summary>Returns the path and query of a URL, for error messages.</summary>
     public static string ExtractPath(string url)
     {
         var rest = url;
@@ -597,7 +571,7 @@ internal sealed class HttpClientCore
         return slash >= 0 ? rest.Substring(slash) : string.Empty;
     }
 
-    /// <summary>Reports whether an exception represents a "resource not found" API error.</summary>
+    /// <summary>Whether an exception is a "not found" API error.</summary>
     public static bool IsNotFound(Exception ex)
     {
         if (ex is not ApifyApiException apiError || apiError.StatusCode != NotFound)

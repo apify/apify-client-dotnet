@@ -7,8 +7,8 @@ public sealed class RunChargeOptions
     /// <param name="eventName">The name of the event to charge for. Required.</param>
     /// <param name="count">The number of times to charge the event (defaults to 1).</param>
     /// <param name="idempotencyKey">
-    /// A key that deduplicates the charge across retries. If unset, one is auto-generated as
-    /// <c>"{runId}-{eventName}-{timestampMillis}-{random}"</c>, matching the reference client.
+    /// A key that deduplicates the charge across retries. If unset, <c>{runId}-{eventName}-{timestampMillis}-{random}</c> is
+    /// generated, as in the reference client.
     /// </param>
     public RunChargeOptions(string eventName, int? count = null, string? idempotencyKey = null)
     {
@@ -27,9 +27,8 @@ public sealed class RunChargeOptions
     public string? IdempotencyKey { get; }
 
     /// <summary>
-    /// The ID of the Server Actor request being charged, taken from the <c>X-Actor-Request-ID</c> header of
-    /// the incoming request. Required for multi-tenant Server Actor runs, where it identifies the request
-    /// the charge belongs to.
+    /// The ID of the Server Actor request being charged, from the <c>X-Actor-Request-ID</c> header of the incoming request.
+    /// Required for multi-tenant Server Actor runs. Runs of single-tenant Server Actors ignore it.
     /// </summary>
     public string? RequestId { get; init; }
 

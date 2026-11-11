@@ -58,8 +58,7 @@ public sealed class ActorEnvVar : ApifyResource
         set => SetOrRemove("isSecret", value);
     }
 
-    // Honor the documented "null fields are omitted" contract: a null assignment removes the key rather
-    // than writing a JSON null node.
+    // A null assignment removes the key instead of writing a JSON null, so null fields stay omitted.
     private void SetOrRemove(string key, string? value)
     {
         if (value is null)

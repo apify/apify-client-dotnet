@@ -3,12 +3,11 @@ using System;
 namespace Apify.Client.Options;
 
 /// <summary>
-/// Configures retrying a run start while the account has no free memory or concurrent-run slot for it (the
-/// API's <c>actor-memory-limit-exceeded</c>/<c>concurrent-runs-limit-exceeded</c> errors, which clear as
-/// other runs or builds finish). Passed to <see cref="ActorStartOptions.WaitForResources"/> and
-/// <see cref="TaskStartOptions.WaitForResources"/>; matches the reference client's <c>waitForResources</c>
-/// start option (there a <c>boolean | number</c> union, modelled here as this small value type so the
-/// "retry forever" and "retry for N seconds" cases stay distinct and self-documenting).
+/// Configures retrying a run start while the account has no free memory or concurrent-run slot
+/// (<c>actor-memory-limit-exceeded</c>, <c>concurrent-runs-limit-exceeded</c>), which clears as other runs finish. Passed
+/// to <see cref="ActorStartOptions.WaitForResources"/> and <see cref="TaskStartOptions.WaitForResources"/>. The reference
+/// client's <c>waitForResources</c> is a <c>boolean | number</c>; this value type keeps "retry forever" and "retry for N
+/// seconds" distinct.
 /// </summary>
 public readonly struct WaitForResources : IEquatable<WaitForResources>
 {
@@ -17,22 +16,16 @@ public readonly struct WaitForResources : IEquatable<WaitForResources>
         MaxWaitSecs = maxWaitSecs;
     }
 
-    /// <summary>
-    /// The maximum time to keep retrying, in seconds, or <c>null</c> when retrying until the run starts
-    /// (see <see cref="UntilAvailable"/>).
-    /// </summary>
+    /// <summary>The longest time to keep retrying in seconds, or <c>null</c> to retry until the run starts (see <see cref="UntilAvailable"/>).</summary>
     public double? MaxWaitSecs { get; }
 
     /// <summary>Retries indefinitely until the run starts.</summary>
     public static WaitForResources UntilAvailable { get; } = new(null);
 
-    /// <summary>
-    /// Retries for up to <paramref name="maxWaitSecs"/> seconds, after which the last
-    /// <c>actor-memory-limit-exceeded</c>/<c>concurrent-runs-limit-exceeded</c> error is thrown.
-    /// </summary>
+    /// <summary>Retries for up to <paramref name="maxWaitSecs"/> seconds, then throws the last resource-limit error.</summary>
     /// <param name="maxWaitSecs">
-    /// The retry budget in seconds; must be finite and not negative (use <see cref="UntilAvailable"/>,
-    /// not <see cref="double.PositiveInfinity"/>, to retry forever).
+    /// The retry budget in seconds; finite and not negative. Use <see cref="UntilAvailable"/>, not
+    /// <see cref="double.PositiveInfinity"/>, to retry forever.
     /// </param>
     public static WaitForResources For(double maxWaitSecs)
     {

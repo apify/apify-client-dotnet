@@ -142,6 +142,41 @@ public sealed class DefaultHeadersAndCompressorTests
     }
 
     [Theory]
+    [InlineData(ZstdHttpCompressor.MinQuality)]
+    [InlineData(ZstdHttpCompressor.DefaultQuality)]
+    [InlineData(ZstdHttpCompressor.MaxQuality)]
+    public async Task ZstdCompressorRoundTripsAtEveryQuality(int quality)
+    {
+        var compressor = new ZstdHttpCompressor(quality);
+
+        var compressed = await compressor.CompressAsync(Encoding.UTF8.GetBytes(LargeItem));
+
+        Assert.Equal("zstd", compressor.ContentEncoding);
+        Assert.True(compressed.Length < LargeItem.Length);
+        using var decompressor = new ZstdSharp.Decompressor();
+        Assert.Equal(LargeItem, Encoding.UTF8.GetString(decompressor.Unwrap(compressed)));
+    }
+
+    [Theory]
+    [InlineData(ZstdHttpCompressor.MinQuality - 1)]
+    [InlineData(ZstdHttpCompressor.MaxQuality + 1)]
+    public void ZstdCompressorRejectsAnOutOfRangeQuality(int quality)
+    {
+        Assert.Throws<ArgumentOutOfRangeException>(() => new ZstdHttpCompressor(quality));
+    }
+
+    [Fact]
+    public async Task TheRequestCompressionOptionSelectsZstd()
+    {
+        var transport = new MockTransport().QueueResponse(200, string.Empty);
+        var client = Client(transport, o => o.RequestCompression = RequestCompression.Zstd);
+
+        await client.Dataset("ds1").PushItemsAsync(JsonNodeOf(LargeItem));
+
+        Assert.Equal("zstd", transport.LastRequest.Header("Content-Encoding"));
+    }
+
+    [Theory]
     [InlineData(CompressionLevel.Fastest)]
     [InlineData(CompressionLevel.Optimal)]
     [InlineData(CompressionLevel.SmallestSize)]

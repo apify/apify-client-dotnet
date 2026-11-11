@@ -3,9 +3,8 @@ using System;
 namespace Apify.Client.Internal;
 
 /// <summary>
-/// Shared handling of the client-side <c>ChunkSize</c> iteration option: the maximum number of items
-/// requested per API call while iterating across pages. It never reaches the query string itself; it only
-/// sizes each page's <c>limit</c>, matching the reference client's <c>chunkSize</c>.
+/// Handling of the client-side <c>ChunkSize</c> iteration option, the most items requested per API call. It only sizes
+/// each page's <c>limit</c> and is never sent itself, as in the reference client.
 /// </summary>
 internal static class PageSizing
 {
@@ -21,9 +20,8 @@ internal static class PageSizing
     }
 
     /// <summary>
-    /// The smaller of two page limits, for the <c>limit</c> query parameter. The API reads a <c>limit</c> of
-    /// <c>0</c> as unset, so <c>0</c> (like <c>null</c>) means "no limit" here and loses to any other value;
-    /// the result is <c>null</c> when neither is set. Matches the reference client's <c>minForLimitParam</c>.
+    /// The smaller of two page limits. The API reads <c>0</c> as unset, so <c>0</c> and <c>null</c> mean "no limit" and lose
+    /// to any other value; the result is <c>null</c> when neither is set. As the reference client's <c>minForLimitParam</c>.
     /// </summary>
     public static int? MinForLimit(int? a, int? b)
     {

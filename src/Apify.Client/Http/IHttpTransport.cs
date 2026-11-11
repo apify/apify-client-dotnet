@@ -5,43 +5,35 @@ using System.Threading.Tasks;
 
 namespace Apify.Client.Http;
 
-/// <summary>
-/// The replaceable transport contract of the client.
-/// </summary>
+/// <summary>The replaceable transport of the client.</summary>
 /// <remarks>
 /// <para>
-/// Implementations are responsible only for sending a single, fully-prepared <see cref="HttpRequestMessage"/>
-/// and returning the raw <see cref="HttpResponseMessage"/>. Authentication, the <c>User-Agent</c> header,
-/// retries and (de)serialization are handled by the client, so a backend only needs to perform one
-/// network round-trip.
+/// An implementation sends one fully prepared <see cref="HttpRequestMessage"/> and returns the raw
+/// <see cref="HttpResponseMessage"/>. The client handles authentication, <c>User-Agent</c>, retries and
+/// (de)serialization.
 /// </para>
 /// <para>
-/// A non-2xx HTTP status is <b>not</b> an error at this layer — return it as a normal response. Only
-/// transport-level failures (connection refused, DNS, timeout) should be thrown, as an
-/// <see cref="Apify.Client.Exceptions.ApifyTransportException"/>.
+/// A non-2xx status is not an error at this layer: return it as a response. Throw only transport failures (connection
+/// refused, DNS, timeout), as an <see cref="Apify.Client.Exceptions.ApifyTransportException"/>.
 /// </para>
 /// <para>
-/// A request that sets <see cref="ApifyRequestOptions.FollowRedirects"/> to <c>false</c> in
+/// A request with <see cref="ApifyRequestOptions.FollowRedirects"/> set to <c>false</c> in
 /// <see cref="HttpRequestMessage.Options"/> carries the API token in a header that must not follow a redirect to
-/// another host, so the implementation has to return a redirect response as it is. The client sets it on
-/// requests to an Actor's server.
+/// another host, so return a redirect response as it is. The client sets it on requests to an Actor's server.
 /// </para>
 /// <para>
-/// Swap the default implementation (<see cref="HttpClientTransport"/>) via
-/// <see cref="Apify.Client.ApifyClientOptions.HttpTransport"/> to share a connection pool, customize
-/// TLS/proxy settings, or inject a mock in tests.
+/// Replace the default <see cref="HttpClientTransport"/> through <see cref="Apify.Client.ApifyClientOptions.HttpTransport"/>
+/// to share a connection pool, configure TLS or a proxy, or mock the API in tests.
 /// </para>
 /// </remarks>
 public interface IHttpTransport
 {
-    /// <summary>
-    /// Sends a single request with a per-attempt timeout and returns the response.
-    /// </summary>
-    /// <param name="request">The fully-prepared request (headers and body already set).</param>
-    /// <param name="timeout">The per-attempt timeout budget.</param>
+    /// <summary>Sends one request with a per-attempt timeout and returns the response.</summary>
+    /// <param name="request">The prepared request.</param>
+    /// <param name="timeout">The per-attempt timeout.</param>
     /// <param name="streaming">
-    /// When <c>true</c>, return as soon as the response headers arrive so the body can be consumed as a
-    /// live stream (used by log streaming); otherwise the whole response may be buffered.
+    /// When <c>true</c>, return as soon as the headers arrive so the body can be read as a live stream; otherwise the
+    /// response may be buffered.
     /// </param>
     /// <param name="cancellationToken">A token to cancel the request.</param>
     Task<HttpResponseMessage> SendAsync(

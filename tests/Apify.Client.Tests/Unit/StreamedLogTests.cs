@@ -108,10 +108,8 @@ public sealed class StreamedLogTests
     [Fact]
     public async Task ReopensStreamWhenTheFirstAttemptEndsEmptyBeforeTheRunHasLoggedAnything()
     {
-        // Regression test (mirrors a reference-client bug fix): the API serves the log of a run that has
-        // not produced any output yet (e.g. still queued for free memory) as an empty stream that closes
-        // at once. Treating that as the whole log would silently drop everything the run logs afterwards,
-        // so StreamedLog must reopen the stream instead.
+        // Regression test, as a reference client bug fix: a run that has not logged anything (for example it is queued) is served
+        // as an empty stream that closes at once. StreamedLog must reopen it instead of dropping what the run logs later.
         var transport = new MockTransport()
             .QueueResponse(200, string.Empty)
             .QueueResponse(200, LogBody);
@@ -148,9 +146,7 @@ public sealed class StreamedLogTests
     [Fact]
     public async Task StoppingBeforeAnyBytesArriveFallsBackToAOneShotGet()
     {
-        // Regression test: if stop() lands while still waiting out the empty-stream backoff above (the run
-        // never produced output before the caller gave up waiting), StreamedLog must still redirect
-        // whatever the log holds via one plain GET, instead of silently emitting nothing.
+        // Regression test: a stop() during the empty-stream backoff must still redirect the log with one plain GET.
         var transport = new MockTransport()
             .QueueResponse(200, string.Empty) // first stream attempt: empty, closes at once
             .QueueResponse(200, LogBody); // fallback plain GET once stopped
