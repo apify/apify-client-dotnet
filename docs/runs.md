@@ -80,7 +80,7 @@ await foreach (var item in client.Run(run.Id!).IterateDatasetItemsAsync(new RunI
 | `EventName` | `string` | Name of the pay-per-event event to charge for (required, non-empty). |
 | `Count` | `int?` | Number of event occurrences to charge (defaults to 1). |
 | `IdempotencyKey` | `string?` | Key that deduplicates retried charges; auto-generated when omitted. |
-| `RequestId` | `string?` | ID of the Server Actor request being charged (the `X-Actor-Request-ID` header of the incoming request; see [Charge for a request](https://docs.apify.com/platform/actors/monetize/server-actors#charge-for-a-request)); required for multi-tenant Server Actor runs. Set via object initializer. |
+| `RequestId` | `string?` | ID of the Server Actor request being charged (the `X-Actor-Request-ID` header of the incoming request; see [Charge for a request](https://docs.apify.com/platform/actors/monetize/server-actors#charge-for-a-request)); required for multi-tenant Server Actor runs. Runs of single-tenant Server Actors ignore it. Set via object initializer. |
 
 ```csharp
 using Apify.Client;

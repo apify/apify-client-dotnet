@@ -44,7 +44,7 @@ public sealed class Actor : ApifyResource
 
     /// <summary>
     /// The Server Actor settings (<c>actorStandby</c>): <c>isEnabled</c>, <c>build</c>, <c>memoryMbytes</c>,
-    /// <c>idleTimeoutSecs</c>, <c>tenancy</c> (<c>SINGLE_TENANT</c> or <c>MULTI_TENANT</c>) and others; <c>null</c> when absent.
+    /// <c>idleTimeoutSecs</c>, <c>tenancy</c> (<c>SINGLE_TENANT</c> or <c>MULTI_TENANT</c>), and others; <c>null</c> when absent.
     /// See <see href="https://docs.apify.com/platform/actors/development/programming-interface/server-actors">Develop Server Actors</see>.
     /// </summary>
     public JsonObject? ActorStandby => Get("actorStandby") as JsonObject;

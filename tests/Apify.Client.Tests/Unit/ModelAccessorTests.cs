@@ -5,8 +5,8 @@ using Xunit;
 namespace Apify.Client.Tests.Unit;
 
 /// <summary>
-/// The typed accessors for fields the OpenAPI specification added to the build, run, storage, webhook, schedule
-/// and request models (spec v2-2026-11-10T140017Z).
+/// The typed accessors for fields the OpenAPI specification added to the build, run, storage, webhook, schedule,
+/// and request models.
 /// </summary>
 [Trait("Category", "Unit")]
 public sealed class ModelAccessorTests
