@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.10.1
+
+- Updated to the Apify OpenAPI specification `v2-2026-11-10T140017Z` (documentation changes only); regenerated the
+  embedded response schemas.
+- Documented that `RunClient.ChargeAsync` is called from the run with its `APIFY_TOKEN`, and that
+  `RunChargeOptions.RequestId` charges a multi-tenant Server Actor request.
+- Documented that Apify Console shows an API token only once, and linked "Develop Server Actors" from
+  `Actor.ActorStandby`.
+
 ## 0.10.0
 
 - Added `RequestCompression.Zstd` and `ZstdHttpCompressor` (quality 1 to 19, default 3), which compress request

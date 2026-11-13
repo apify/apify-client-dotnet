@@ -41,8 +41,9 @@ Console.WriteLine($"Items on this page: {items.Items.Count} (of {items.Total} to
 ```
 
 `new ApifyClient("my-api-token")` takes the token as an explicit argument and does **not** read
-`APIFY_TOKEN` automatically. Get your token from the
-[Apify Console → Settings → API & Integrations](https://console.apify.com/settings/integrations).
+`APIFY_TOKEN` automatically. Create a token in
+[Apify Console → Settings → API & Integrations](https://console.apify.com/settings/integrations). The Console
+shows the token only once, right after you create or rotate it, so copy it and store it somewhere safe.
 
 ## Documentation
 
