@@ -139,7 +139,9 @@ public sealed class RunClient
     /// <summary>Charges for events of a pay-per-event Actor run.</summary>
     /// <remarks>
     /// The request always carries an idempotency key (generated when not given), so a charge the transport retries is
-    /// applied once.
+    /// applied once. Call it from the run itself, with a client created with the <c>APIFY_TOKEN</c> the platform
+    /// provides to the run at startup. To charge a request to a multi-tenant Server Actor, set
+    /// <see cref="RunChargeOptions.RequestId"/>.
     /// </remarks>
     /// <param name="options">The charge event details.</param>
     /// <param name="cancellationToken">A token to cancel the request.</param>
