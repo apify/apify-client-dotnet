@@ -66,10 +66,10 @@ public sealed class ResponseSchemaTests
     }
 
     [Fact]
-    public void ScheduleUiStateMayBeNullAlthoughTheSpecTypesItAsAnObject()
+    public void ScheduleUiStateMayBeNull()
     {
-        // The API returns uiState as null once an update changed the cron expression or timezone and the
-        // Console editor state was dropped; the generator widens the spec for it (NULLABLE_OVERRIDES).
+        // The spec types ScheduleUiState as an object or null: it is null once an update changed the cron
+        // expression or timezone and the Console editor state was dropped.
         var schedule = SpecFixtures.ScheduleItem("s1").Replace("\"actions\":[]", "\"actions\":[],\"uiState\":null", StringComparison.Ordinal);
 
         Assert.Empty(Issues("GET", "/v2/schedules/s1", "{\"data\":" + schedule + "}"));
@@ -81,6 +81,19 @@ public sealed class ResponseSchemaTests
         var schedule = SpecFixtures.ScheduleItem("s1").Replace("\"actions\":[]", "\"actions\":[],\"uiState\":5", StringComparison.Ordinal);
 
         Assert.Contains(Issues("GET", "/v2/schedules/s1", "{\"data\":" + schedule + "}"), issue => issue.StartsWith("$.data.uiState:", StringComparison.Ordinal));
+    }
+
+    [Theory]
+    [InlineData("/v2/users/me")]
+    [InlineData("/v2/users/u1")]
+    public void ProxyInfoIsAcceptedAsAUserResponse(string path)
+    {
+        // Apify Proxy reads a reduced user object (UserProxyInfo) instead of the private or public one.
+        var feature = "{\"isEnabled\":true,\"disabledReason\":null,\"disabledReasonType\":null,\"isTrial\":false,\"trialExpirationAt\":null}";
+        var features = string.Join(",", new[] { "ACTORS", "STORAGE", "SCHEDULER", "PROXY", "PROXY_EXTERNAL_ACCESS", "PROXY_RESIDENTIAL", "PROXY_SERPS", "WEBHOOKS", "ACTORS_PUBLIC_ALL", "ACTORS_PUBLIC_DEVELOPER" }.Select(name => "\"" + name + "\":" + feature));
+        var body = "{\"data\":{\"plan\":{\"availableProxyGroups\":{}},\"effectivePlatformFeatures\":{" + features + "},\"isPaying\":true}}";
+
+        Assert.Empty(Issues("GET", path, body));
     }
 
     [Fact]

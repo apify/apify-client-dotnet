@@ -27,7 +27,9 @@ public sealed class UserClient
 
     /// <summary>
     /// Fetches the user: private account details for <c>me</c> (via <see cref="ApifyResource.ToJsonObject"/>), the public
-    /// profile for others. Returns <c>null</c> if the user does not exist.
+    /// profile for others. Apify Proxy reads a reduced object with only <c>plan.availableProxyGroups</c>,
+    /// <c>effectivePlatformFeatures</c>, and <c>isPaying</c>; it is also available via <see cref="ApifyResource.ToJsonObject"/>.
+    /// Returns <c>null</c> if the user does not exist.
     /// </summary>
     /// <param name="cancellationToken">A token to cancel the request.</param>
     public async Task<User?> GetAsync(CancellationToken cancellationToken = default)

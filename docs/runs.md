@@ -23,7 +23,7 @@ collections, not by task runs).
 - `UpdateAsync(object newFields)` → `ActorRun`.
 - `DeleteAsync()`.
 - `AbortAsync(bool? gracefully = null)` → `ActorRun`.
-- `MetamorphAsync(string targetActorId, object? input = null, MetamorphOptions? options = null)` → `ActorRun`.
+- `MetamorphAsync(string targetActorId, object? input = null, MetamorphOptions? options = null)` → `ActorRun`. Only the run itself can metamorph: call it with a client created with the run's own `APIFY_TOKEN`; the API rejects any other token.
 - `RebootAsync()` → `ActorRun`.
 - `ResurrectAsync(RunResurrectOptions? options = null)` → `ActorRun`: resurrects a finished run (status `SUCCEEDED`, `FAILED`, `ABORTED`, or `TIMED-OUT`) and restarts it with the same storages.
 - `ChargeAsync(RunChargeOptions options)` → `Task`: record pay-per-event charges (idempotent). Call it from the run itself, with a client created with the `APIFY_TOKEN` the platform provides to the run at startup.

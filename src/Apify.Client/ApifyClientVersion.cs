@@ -20,5 +20,5 @@ public static class ApifyClientVersion
     /// The version of the Apify OpenAPI specification this client was generated and verified against.
     /// Corresponds to the <c>info.version</c> field of the Apify OpenAPI document.
     /// </summary>
-    public const string ApiSpecVersion = "v2-2026-11-10T140017Z";
+    public const string ApiSpecVersion = "v2-2026-11-18T151559Z";
 }

@@ -94,6 +94,10 @@ public sealed class RunClient
     }
 
     /// <summary>Transforms the run into a run of another Actor with a new input.</summary>
+    /// <remarks>
+    /// Only the run itself can metamorph: use a client created with the run's own API token, which the run gets in the
+    /// <c>APIFY_TOKEN</c> environment variable. With any other token, the API rejects the request.
+    /// </remarks>
     /// <param name="targetActorId">The Actor to metamorph into.</param>
     /// <param name="input">The new input: <c>byte[]</c> is sent as it is, anything else as JSON, <c>null</c> for none.</param>
     /// <param name="options">Optional metamorph options.</param>
