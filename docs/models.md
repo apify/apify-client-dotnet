@@ -341,8 +341,8 @@ The aggregate result of a batch add-requests operation.
 
 ## `User`
 
-Returned by `client.Me().GetAsync()` (private account details) and `client.User(id).GetAsync()`
-(public profile). Only `Id` and `Username` are typed; read the rest via `ToJsonObject()`. The API can instead
+Returned by `client.Me().GetAsync()` (private account details) and `client.User(id).GetAsync()` (public profile,
+plus the private details when the token belongs to that account or impersonates it). Only `Id` and `Username` are typed; read the rest via `ToJsonObject()`. The API can instead
 return the reduced user object that Apify Proxy reads, with only `plan.availableProxyGroups`,
 `effectivePlatformFeatures`, and `isPaying`. Then `Id` and `Username` are `null`.
 

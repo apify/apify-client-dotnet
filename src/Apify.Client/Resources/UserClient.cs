@@ -27,7 +27,7 @@ public sealed class UserClient
 
     /// <summary>
     /// Fetches the user: private account details for <c>me</c> (via <see cref="ApifyResource.ToJsonObject"/>), the public
-    /// profile for others. The API can instead return the reduced user object that Apify Proxy reads; the specification
+    /// profile for others, plus the private details when the token belongs to that account or impersonates it. The API can instead return the reduced user object that Apify Proxy reads; the specification
     /// does not say when. <see cref="User.Id"/> and <see cref="User.Username"/> are then <c>null</c>, and
     /// <c>plan.availableProxyGroups</c>, <c>effectivePlatformFeatures</c>, and <c>isPaying</c> are available via
     /// <see cref="ApifyResource.ToJsonObject"/>. Returns <c>null</c> if the user does not exist.
