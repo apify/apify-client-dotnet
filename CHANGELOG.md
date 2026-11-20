@@ -6,6 +6,8 @@
   Apify Proxy reads (`UserProxyInfo`) no longer fail response validation.
 - Documented that `RunClient.MetamorphAsync` needs a client created with the run's own `APIFY_TOKEN`, and added an
   integration test that metamorphs a run this way.
+- Pinned the .NET SDK in `global.json`, which both workflows use, so a newer SDK on the runner image cannot break the
+  build, and replaced `Task.WhenAny` with `WaitAsync` in a test helper (CA2027).
 - Documented that `RunClient.ChargeAsync` is called from the run with its `APIFY_TOKEN`, and that
   `RunChargeOptions.RequestId` charges a multi-tenant Server Actor request.
 - Documented that Apify Console shows an API token only once, and linked "Develop Server Actors" from
