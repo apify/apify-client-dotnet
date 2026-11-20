@@ -2,9 +2,8 @@
 
 ## 0.10.1
 
-- Updated to the Apify OpenAPI specification `v2-2026-11-18T151559Z`; regenerated the embedded response schemas.
-  `GET /users/me` and `GET /users/{userId}` also accept the reduced `UserProxyInfo` response that Apify Proxy reads,
-  and `ScheduleUiState` is `null`-able in the specification itself, so the generator no longer widens it.
+- Updated to the Apify OpenAPI specification `v2-2026-11-18T151559Z`. User responses with the reduced shape that
+  Apify Proxy reads (`UserProxyInfo`) no longer fail response validation.
 - Documented that `RunClient.MetamorphAsync` needs a client created with the run's own `APIFY_TOKEN`, and added an
   integration test that metamorphs a run this way.
 - Documented that `RunClient.ChargeAsync` is called from the run with its `APIFY_TOKEN`, and that

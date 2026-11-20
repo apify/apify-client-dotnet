@@ -43,8 +43,9 @@ await foreach (var item in client.Store().IterateAsync(new StoreListOptions { Se
 ## Users: `client.Me()` / `client.User(id)`
 
 - `GetAsync()` → `User?`. For `Me()` the raw payload includes private account details
-  (`ToJsonObject()`); for `User(id)` it returns the public profile. Apify Proxy reads a reduced object with only
-  `plan.availableProxyGroups`, `effectivePlatformFeatures`, and `isPaying`.
+  (`ToJsonObject()`); for `User(id)` it returns the public profile. The API can instead return the reduced user
+  object that Apify Proxy reads (the specification does not say when). Then `Id` and `Username` are `null`, and
+  `plan.availableProxyGroups`, `effectivePlatformFeatures`, and `isPaying` are read via `ToJsonObject()`.
 - `MonthlyUsageAsync(string? date = null)` → `JsonObject` (`date` is `YYYY-MM-DD`, and `null` reports the
   current month).
 - `LimitsAsync()` → `JsonObject` / `UpdateLimitsAsync(object newLimits)`.

@@ -342,8 +342,9 @@ The aggregate result of a batch add-requests operation.
 ## `User`
 
 Returned by `client.Me().GetAsync()` (private account details) and `client.User(id).GetAsync()`
-(public profile). Apify Proxy reads a reduced object (`plan.availableProxyGroups`, `effectivePlatformFeatures`,
-`isPaying`). Only the always-present fields are typed; read the rest via `ToJsonObject()`.
+(public profile). Only `Id` and `Username` are typed; read the rest via `ToJsonObject()`. The API can instead
+return the reduced user object that Apify Proxy reads, with only `plan.availableProxyGroups`,
+`effectivePlatformFeatures`, and `isPaying`. Then `Id` and `Username` are `null`.
 
 | Property | Type | Description |
 |---|---|---|

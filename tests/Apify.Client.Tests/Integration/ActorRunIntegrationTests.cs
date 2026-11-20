@@ -4,6 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Text.Json.Nodes;
 using System.Threading.Tasks;
+using Apify.Client.Models;
 using Apify.Client.Options;
 using Xunit;
 
@@ -127,6 +128,24 @@ public sealed class ActorRunIntegrationTests : IntegrationTestBase
         Assert.Equal("SUCCEEDED", byOrigin!.Status);
     }
 
+    /// <summary>Memory of the metamorph test run; the smallest the platform offers keeps the test cheap.</summary>
+    private const int MetamorphRunMemoryMbytes = 256;
+
+    /// <summary>
+    /// Timeout of the metamorph test run. The test Actor waits for the whole timeout after storing its token, which is
+    /// longer than <see cref="TokenPollAttempts"/> times <see cref="TokenPollInterval"/>, so the run is still waiting when
+    /// the test has read the token.
+    /// </summary>
+    private const int MetamorphRunTimeoutSecs = 300;
+
+    /// <summary>How long to wait for the metamorph test Actor's build and for the run to finish after the metamorph.</summary>
+    private const int MetamorphWaitSecs = 300;
+
+    /// <summary>Polls for the run token the Actor stores at startup, which takes the container a short while to reach.</summary>
+    private const int TokenPollAttempts = 60;
+
+    private static readonly TimeSpan TokenPollInterval = TimeSpan.FromSeconds(2);
+
     /// <summary>
     /// A metamorph needs the run's own API token, so the test Actor stores its <c>APIFY_TOKEN</c> in its key-value store and
     /// then waits long enough for the test to read it.
@@ -153,7 +172,7 @@ public sealed class ActorRunIntegrationTests : IntegrationTestBase
                         content = "const { Actor } = require('apify');\n"
                             + "Actor.main(async () => {\n"
                             + "    await Actor.setValue('TOKEN', process.env.APIFY_TOKEN, { contentType: 'text/plain' });\n"
-                            + "    await new Promise((resolve) => setTimeout(resolve, 240000));\n"
+                            + $"    await new Promise((resolve) => setTimeout(resolve, {MetamorphRunTimeoutSecs * 1000}));\n"
                             + "});\n",
                     },
                 },
@@ -166,61 +185,79 @@ public sealed class ActorRunIntegrationTests : IntegrationTestBase
     {
         var client = RequireClient();
         var created = await client.Actors().CreateAsync(MetamorphSourceActor(UniqueName("metamorph")));
-        string? runId = null;
         try
         {
             var build = await client.Actor(created.Id!).BuildAsync("0.0");
-            var finishedBuild = await client.Build(build.Id!).WaitForFinishAsync(300);
+            var finishedBuild = await client.Build(build.Id!).WaitForFinishAsync(MetamorphWaitSecs);
             Assert.Equal("SUCCEEDED", finishedBuild.Status);
 
-            var run = await client.Actor(created.Id!).StartAsync(null, new ActorStartOptions { MemoryMbytes = 256, TimeoutSecs = 300 });
-            runId = run.Id;
-
-            // Poll the Actor's key-value store for the token it stores at startup, and fail early if the run ended without it.
-            string? runToken = null;
-            Assert.True(
-                await PollUntilAsync(
-                    60,
-                    TimeSpan.FromSeconds(2),
-                    async () =>
-                    {
-                        var record = await client.KeyValueStore(run.DefaultKeyValueStoreId!).GetRecordAsync("TOKEN");
-                        if (record is not null)
-                        {
-                            runToken = Encoding.UTF8.GetString(record.Value);
-                            return true;
-                        }
-
-                        var current = await client.Run(runId!).GetAsync();
-                        Assert.Contains(current?.Status, new[] { "READY", "RUNNING" });
-                        return false;
-                    }),
-                "expected the Actor to store its run token");
-
-            // Only the run itself can metamorph, so use a client with the run's token.
-            var runClient = RequireClient(options => options.Token = runToken);
-            var metamorphed = await runClient.Run(runId!).MetamorphAsync("apify/hello-world", new { message = "Hello from metamorph!" });
-            Assert.Equal(runId, metamorphed.Id);
-
-            // Hello-world replaces the waiting Actor, so the run finishes on its own.
-            var finalRun = await client.Run(runId!).WaitForFinishAsync(300);
-            Assert.Equal("SUCCEEDED", finalRun.Status);
-            var helloWorldId = await ResolveHelloWorldActorIdAsync(client);
-            var metamorphs = finalRun.ToJsonObject()["metamorphs"] as JsonArray;
-            Assert.NotNull(metamorphs);
-            Assert.Contains(metamorphs!, m => m?["actorId"]?.GetValue<string>() == helloWorldId);
+            var run = await client.Actor(created.Id!).StartAsync(
+                null,
+                new ActorStartOptions { MemoryMbytes = MetamorphRunMemoryMbytes, TimeoutSecs = MetamorphRunTimeoutSecs });
+            try
+            {
+                await MetamorphAndVerifyAsync(client, run);
+            }
+            finally
+            {
+                // Aborting a finished run returns it unchanged. The run is deleted even if the abort fails, since its default
+                // key-value store holds the run's API token until then.
+                try
+                {
+                    await client.Run(run.Id!).AbortAsync();
+                    await client.Run(run.Id!).WaitForFinishAsync(MetamorphWaitSecs);
+                }
+                finally
+                {
+                    await client.Run(run.Id!).DeleteAsync();
+                }
+            }
         }
         finally
         {
-            if (runId is not null)
-            {
-                // Aborting a finished run returns it unchanged.
-                await client.Run(runId).AbortAsync();
-                await client.Run(runId).WaitForFinishAsync(300);
-                await client.Run(runId).DeleteAsync();
-            }
-
             await client.Actor(created.Id!).DeleteAsync();
         }
+    }
+
+    private static async Task MetamorphAndVerifyAsync(ApifyClient client, ActorRun run)
+    {
+        var store = client.KeyValueStore(run.DefaultKeyValueStoreId!);
+
+        // Poll the Actor's key-value store for the token it stores at startup, and fail early if the run ended without it.
+        string? runToken = null;
+        Assert.True(
+            await PollUntilAsync(
+                TokenPollAttempts,
+                TokenPollInterval,
+                async () =>
+                {
+                    var record = await store.GetRecordAsync("TOKEN");
+                    if (record is not null)
+                    {
+                        runToken = Encoding.UTF8.GetString(record.Value);
+                        return true;
+                    }
+
+                    var current = await client.Run(run.Id!).GetAsync();
+                    Assert.Contains(current?.Status, new[] { "READY", "RUNNING" });
+                    return false;
+                }),
+            "expected the Actor to store its run token");
+
+        // The token is a credential: remove it as soon as it is read.
+        await store.DeleteRecordAsync("TOKEN");
+
+        // Only the run itself can metamorph, so use a client with the run's token.
+        var runClient = RequireClient(options => options.Token = runToken);
+        var metamorphed = await runClient.Run(run.Id!).MetamorphAsync("apify/hello-world", new { message = "Hello from metamorph!" });
+        Assert.Equal(run.Id, metamorphed.Id);
+
+        // Hello-world replaces the waiting Actor, so the run finishes on its own.
+        var finalRun = await client.Run(run.Id!).WaitForFinishAsync(MetamorphWaitSecs);
+        Assert.Equal("SUCCEEDED", finalRun.Status);
+        var helloWorldId = await ResolveHelloWorldActorIdAsync(client);
+        var metamorphs = finalRun.ToJsonObject()["metamorphs"] as JsonArray;
+        Assert.NotNull(metamorphs);
+        Assert.Contains(metamorphs!, m => m?["actorId"]?.GetValue<string>() == helloWorldId);
     }
 }
