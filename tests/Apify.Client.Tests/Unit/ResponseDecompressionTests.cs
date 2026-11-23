@@ -116,9 +116,14 @@ public sealed class ResponseDecompressionTests
                 return;
             }
 
-            var finished = await Task.WhenAny(_serveTask, Task.Delay(WriteTimeout)).ConfigureAwait(false);
-            Assert.True(finished == _serveTask, "loopback server did not finish writing the response in time");
-            await _serveTask.ConfigureAwait(false); // rethrows any server-side failure
+            try
+            {
+                await _serveTask.WaitAsync(WriteTimeout).ConfigureAwait(false); // rethrows any server-side failure
+            }
+            catch (TimeoutException)
+            {
+                Assert.Fail("loopback server did not finish writing the response in time");
+            }
         }
 
         public void Dispose() => _listener.Close();

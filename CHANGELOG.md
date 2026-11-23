@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.10.1
+
+- Updated to the Apify OpenAPI specification `v2-2026-11-18T151559Z`. User responses with the reduced shape that
+  Apify Proxy reads (`UserProxyInfo`) no longer fail response validation.
+- Documented that `RunClient.MetamorphAsync` needs a client created with the run's own `APIFY_TOKEN`, and added an
+  integration test that metamorphs a run this way.
+- Pinned the .NET SDK (11.0.100) in `global.json`, which both workflows use, so that the SDK on the runner image
+  cannot change between runs. Replaced `Task.WhenAny` with `WaitAsync` in a test helper, which SDK 11 reports as CA2027.
+- Documented that `RunClient.ChargeAsync` is called from the run with its `APIFY_TOKEN`, and that
+  `RunChargeOptions.RequestId` charges a multi-tenant Server Actor request.
+- Documented that Apify Console shows an API token only once, and linked "Develop Server Actors" from
+  `Actor.ActorStandby`.
+
 ## 0.10.0
 
 - Added `RequestCompression.Zstd` and `ZstdHttpCompressor` (quality 1 to 19, default 3), which compress request

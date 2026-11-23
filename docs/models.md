@@ -42,7 +42,7 @@ Base class for every JSON-backed model below.
 | `CreatedAt` | `string?` | ISO 8601 creation timestamp. |
 | `ModifiedAt` | `string?` | ISO 8601 last-modification timestamp. |
 | `StandbyUrl` | `string?` | URL of the Actor's server when it is a Server Actor (see [`ActorServerClient`](actors.md#server-actors-clientactoridserver)); `null` otherwise. |
-| `ActorStandby` | `JsonObject?` | The Server Actor settings: `isEnabled`, `build`, `memoryMbytes`, `idleTimeoutSecs`, `tenancy` (`SINGLE_TENANT` or `MULTI_TENANT`) and others. |
+| `ActorStandby` | `JsonObject?` | The Server Actor settings: `isEnabled`, `build`, `memoryMbytes`, `idleTimeoutSecs`, `tenancy` (`SINGLE_TENANT` or `MULTI_TENANT`), and others; see [Develop Server Actors](https://docs.apify.com/platform/actors/development/programming-interface/server-actors). |
 | `TaggedBuilds` | `JsonObject?` | The builds the Actor's tags point to, keyed by tag (e.g. `latest`); each value has `buildId` and `buildNumber`. |
 
 ## `ActorRun`
@@ -341,8 +341,11 @@ The aggregate result of a batch add-requests operation.
 
 ## `User`
 
-Returned by `client.Me().GetAsync()` (private account details) and `client.User(id).GetAsync()`
-(public profile). Only the always-present fields are typed; read the rest via `ToJsonObject()`.
+Returned by `client.Me().GetAsync()` (private account details) and `client.User(id).GetAsync()` (public profile,
+plus the private details when the token belongs to that account or impersonates it; a token with limited
+permissions never gets them). Only `Id` and `Username` are typed; read the rest via `ToJsonObject()`. The API can
+instead return the reduced user object that Apify Proxy reads, with only `plan.availableProxyGroups`,
+`effectivePlatformFeatures`, and `isPaying`. Then `Id` and `Username` are `null`.
 
 | Property | Type | Description |
 |---|---|---|

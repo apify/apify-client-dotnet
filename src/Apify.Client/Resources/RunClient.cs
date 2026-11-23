@@ -94,6 +94,10 @@ public sealed class RunClient
     }
 
     /// <summary>Transforms the run into a run of another Actor with a new input.</summary>
+    /// <remarks>
+    /// Only the run itself can metamorph: use a client created with the run's own API token, which the run gets in the
+    /// <c>APIFY_TOKEN</c> environment variable. With any other token, the API rejects the request.
+    /// </remarks>
     /// <param name="targetActorId">The Actor to metamorph into.</param>
     /// <param name="input">The new input: <c>byte[]</c> is sent as it is, anything else as JSON, <c>null</c> for none.</param>
     /// <param name="options">Optional metamorph options.</param>
@@ -139,7 +143,9 @@ public sealed class RunClient
     /// <summary>Charges for events of a pay-per-event Actor run.</summary>
     /// <remarks>
     /// The request always carries an idempotency key (generated when not given), so a charge the transport retries is
-    /// applied once.
+    /// applied once. Call it from the run itself, with a client created with the <c>APIFY_TOKEN</c> the platform
+    /// provides to the run at startup. To charge a request to a multi-tenant Server Actor, set
+    /// <see cref="RunChargeOptions.RequestId"/>.
     /// </remarks>
     /// <param name="options">The charge event details.</param>
     /// <param name="cancellationToken">A token to cancel the request.</param>
