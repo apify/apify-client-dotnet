@@ -31,6 +31,8 @@ concurrency:
 jobs:
   test:
     runs-on: ubuntu-latest
+    # APIFY_TOKEN is an environment secret of the `tests` environment.
+    environment: tests
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -71,13 +73,13 @@ jobs:
           APIFY_TOKEN: ${{ secrets.APIFY_TOKEN }}
         run: |
           if [ -z "${APIFY_TOKEN}" ]; then
-            echo "::error::APIFY_TOKEN secret is empty or missing; integration tests would not run against the API."
+            echo "::error::APIFY_TOKEN secret (tests environment) is empty or missing; integration tests would not run against the API."
             exit 1
           fi
 
       - name: Integration tests
         env:
-          # The integration-test token is stored as a repository secret.
+          # The integration-test token is stored as a secret of the `tests` environment.
           APIFY_TOKEN: ${{ secrets.APIFY_TOKEN }}
         run: dotnet test --configuration Release --no-build --filter Category=Integration -- RunConfiguration.TreatNoTestsAsError=true
 
