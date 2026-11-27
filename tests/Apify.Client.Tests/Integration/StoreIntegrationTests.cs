@@ -70,6 +70,9 @@ public sealed class StoreIntegrationTests : IntegrationTestBase
             Assert.NotNull(item.Stats["totalUsers"]);
             Assert.NotNull(item.Stats["actorReviewCount"]);
         });
+        Assert.Contains(page.Items, static item => !string.IsNullOrEmpty(item.UserFullName));
+        Assert.Contains(page.Items, static item => !string.IsNullOrEmpty(item.Description));
+        Assert.Contains(page.Items, static item => item.IsVerified is not null);
     }
 
     [SkippableFact]
@@ -98,6 +101,20 @@ public sealed class StoreIntegrationTests : IntegrationTestBase
         }
 
         Assert.Equal(page.Items.Count, iterated);
+    }
+
+    [SkippableFact]
+    public async Task IterateStoreSearchIsBoundedByLimitNotChunkSize()
+    {
+        var client = RequireClient();
+        var count = 0;
+        await foreach (var unused in client.Store().IterateAsync(new StoreListOptions { Search = "web scraper", Limit = 30, ChunkSize = 10 }))
+        {
+            _ = unused;
+            count++;
+        }
+
+        Assert.Equal(30, count);
     }
 
     [SkippableFact]

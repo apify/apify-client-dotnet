@@ -39,7 +39,7 @@ public sealed class ActorStoreListItem : ApifyResource
 
     /// <summary>
     /// The Actor's usage statistics and Store metrics: <c>totalUsers</c>, <c>totalRuns</c>, <c>totalUsers7Days</c>,
-    /// <c>totalUsers30Days</c>, <c>totalUsers90Days</c>, <c>actorReviewRating</c> and <c>actorReviewCount</c>. The Store
+    /// <c>totalUsers30Days</c>, <c>totalUsers90Days</c>, <c>actorReviewRating</c>, and <c>actorReviewCount</c>. The Store
     /// endpoint returns this reduced set instead of the full Actor statistics.
     /// </summary>
     public JsonObject? Stats => Get("stats") as JsonObject;

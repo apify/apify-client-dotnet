@@ -9,7 +9,9 @@ Browse public Actors in the [Apify Store](https://apify.com/store).
 
 - `ListAsync(StoreListOptions? options = null)` → `PaginationList<ActorStoreListItem>` (one page).
 - `IterateAsync(StoreListOptions? options = null)` → `IAsyncEnumerable<ActorStoreListItem>` (lazy, all
-  pages; `Limit` caps the total number of Actors yielded and `ChunkSize` sets the page size; with `Search` it makes one request, because the API returns a single page of at most 100 Actors).
+  pages; `Limit` caps the total number of Actors yielded and `ChunkSize` sets the page size). With `Search` it
+  makes one request that `Limit` bounds, because the API returns a single page of at most 100 Actors; `ChunkSize`
+  does not apply.
 
 `StoreListOptions` fields:
 
@@ -18,7 +20,7 @@ Browse public Actors in the [Apify Store](https://apify.com/store).
 | `Offset` | `int?` | Number of Actors to skip from the start. Ignored by the API when `Search` is used. |
 | `Limit` | `int?` | Maximum number of Actors to return (for `IterateAsync`, in total across all pages). The API's maximum is 1000, or 100 when `Search` is used. |
 | `ChunkSize` | `int?` | Page size used by `IterateAsync` (positive; the smaller of this and the remaining `Limit` is requested per call). Never sent to the API. |
-| `Search` | `string?` | Search string. The API ranks the results by relevance and returns one page of at most 100 Actors, so there is no second page; narrow the results with `Category`, `Username` or `PricingModel`. |
+| `Search` | `string?` | Search string. The API ranks the results by relevance and returns one page of at most 100 Actors, so there is no second page; narrow the results with `Category`, `Username`, or `PricingModel`. |
 | `SortBy` | `string?` | Deprecated (`[Obsolete]`): the API ignores it. Results are ordered by relevance with `Search`, and by Store position otherwise. Sort on the client instead. |
 | `Category` | `string?` | Restrict results to Store category IDs, comma-separated and case-insensitive (for example `AI_AND_ML,ECOMMERCE`); an Actor has to match all of them. An unknown category fails with a `400` error. |
 | `Username` | `string?` | Restrict results to a given owner's Actors. |

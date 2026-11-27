@@ -185,14 +185,14 @@ public sealed class ChunkSizeTests
     }
 
     [Fact]
-    public async Task StoreSearchIterationSendsNoOffsetAndTheSmallerOfLimitAndChunkSize()
+    public async Task StoreSearchIterationSendsNoOffsetAndOnlyTheLimit()
     {
         var transport = new MockTransport().QueueResponse(200, SpecFixtures.Page(1, SpecFixtures.StoreItem("a")));
 
         await DrainAsync(Client(transport).Store().IterateAsync(new StoreListOptions { Search = "scraper", Offset = 5, Limit = 50, ChunkSize = 20 }));
 
         Assert.Equal(1, transport.CallCount);
-        Assert.Contains("limit=20", transport.Received[0].Uri, StringComparison.Ordinal);
+        Assert.Contains("limit=50", transport.Received[0].Uri, StringComparison.Ordinal);
         Assert.DoesNotContain("offset", transport.Received[0].Uri, StringComparison.Ordinal);
     }
 

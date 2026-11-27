@@ -118,7 +118,7 @@ An entry returned when browsing the Apify Store.
 | `Description` | `string?` | The Actor's description. |
 | `Categories` | `IReadOnlyList<string>?` | Store category IDs of the Actor. |
 | `IsVerified` | `bool?` | Whether the Actor's developer has a verified identity. |
-| `Stats` | `JsonObject?` | Usage statistics and Store metrics: `totalUsers`, `totalRuns`, `totalUsers7Days`, `totalUsers30Days`, `totalUsers90Days`, `actorReviewRating` and `actorReviewCount`. |
+| `Stats` | `JsonObject?` | Usage statistics and Store metrics: `totalUsers`, `totalRuns`, `totalUsers7Days`, `totalUsers30Days`, `totalUsers90Days`, `actorReviewRating`, and `actorReviewCount`. |
 
 ## `ActorTask`
 
