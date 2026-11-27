@@ -9,23 +9,25 @@ Browse public Actors in the [Apify Store](https://apify.com/store).
 
 - `ListAsync(StoreListOptions? options = null)` → `PaginationList<ActorStoreListItem>` (one page).
 - `IterateAsync(StoreListOptions? options = null)` → `IAsyncEnumerable<ActorStoreListItem>` (lazy, all
-  pages; `Limit` caps the total number of Actors yielded and `ChunkSize` sets the page size).
+  pages; `Limit` caps the total number of Actors yielded and `ChunkSize` sets the page size). With `Search` it
+  makes one request that `Limit` bounds (at most 10 with `IncludeInputSchema`), because the API returns a single
+  page of at most 100 Actors. `ChunkSize` is not used, but must still be positive if set.
 
 `StoreListOptions` fields:
 
 | Field | Type | Description |
 |---|---|---|
-| `Offset` | `int?` | Number of Actors to skip from the start. |
-| `Limit` | `int?` | Maximum number of Actors to return (for `IterateAsync`, in total across all pages). |
-| `ChunkSize` | `int?` | Page size used by `IterateAsync` (positive; the smaller of this and the remaining `Limit` is requested per call). Never sent to the API. |
-| `Search` | `string?` | Full-text search string to filter Actors by. |
-| `SortBy` | `string?` | Field to sort by (e.g. `popularity`, `newest`). |
-| `Category` | `string?` | Restrict results to a Store category. |
+| `Offset` | `int?` | Number of Actors to skip from the start. Ignored by the API when `Search` is used. |
+| `Limit` | `int?` | Maximum number of Actors to return (for `IterateAsync`, in total across all pages). The API's maximum is 1000, or 100 when `Search` is used. |
+| `ChunkSize` | `int?` | Page size used by `IterateAsync` (positive; the smaller of this and the remaining `Limit` is requested per call). Never sent to the API. A `Search` iteration does not use it. |
+| `Search` | `string?` | Search string. The API ranks the results by relevance and returns one page of at most 100 Actors, so there is no second page; narrow the results with `Category`, `Username`, or `PricingModel`. |
+| `SortBy` | `string?` | Deprecated (`[Obsolete]`): the API ignores it. Results are ordered by relevance with `Search`, and by Store position otherwise. Sort on the client instead. |
+| `Category` | `string?` | Restrict results to Store category IDs, comma-separated and case-insensitive (for example `AI_AND_ML,ECOMMERCE`); an Actor has to match all of them. An unknown category fails with a `400` error. |
 | `Username` | `string?` | Restrict results to a given owner's Actors. |
 | `PricingModel` | `string?` | Filter by pricing model (`FREE`, `PRICE_PER_DATASET_ITEM`, `PAY_PER_EVENT`; the rental model `FLAT_PRICE_PER_MONTH` is no longer supported). |
 | `IncludeUnrunnableActors` | `bool?` | Include Actors that cannot currently be run. |
 | `AllowsAgenticUsers` | `bool?` | Only Actors that permit agentic (automated) users. |
-| `IncludeInputSchema` | `bool?` | Include each Actor's compact `inputSchema` (read it with `Get("inputSchema")`). The API then caps `limit` at 10, so iteration requests pages of at most 10. |
+| `IncludeInputSchema` | `bool?` | Include each Actor's compact `inputSchema` (read it with `Get("inputSchema")`). The API rejects a `limit` above 10 with a `400` error, so `ListAsync` with a larger `Limit` fails, and iteration requests pages of at most 10. |
 | `ResponseFormat` | `string?` | Requested response format. |
 
 ```csharp

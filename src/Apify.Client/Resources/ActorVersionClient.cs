@@ -32,12 +32,15 @@ public sealed class ActorVersionClient
         return data is JsonObject obj ? new ActorVersion(obj) : null;
     }
 
-    /// <summary>Updates the version with the given fields and returns the updated object.</summary>
+    /// <summary>
+    /// Updates the version with the given fields and returns the updated object. The call uses the <c>Long</c> timeout tier,
+    /// because the version can carry its source files.
+    /// </summary>
     /// <param name="newFields">Any JSON-serializable set of fields to update.</param>
     /// <param name="cancellationToken">A token to cancel the request.</param>
     public async Task<ActorVersion> UpdateAsync(object newFields, CancellationToken cancellationToken = default)
     {
-        return new ActorVersion(await _ctx.UpdateResourceAsync("", newFields, RequestTier.Short, cancellationToken).ConfigureAwait(false));
+        return new ActorVersion(await _ctx.UpdateResourceAsync("", newFields, RequestTier.Long, cancellationToken).ConfigureAwait(false));
     }
 
     /// <summary>Deletes the version.</summary>

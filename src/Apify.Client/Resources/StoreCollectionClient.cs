@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
 using Apify.Client.Internal;
@@ -31,15 +32,48 @@ public sealed class StoreCollectionClient
     /// <summary>Lazily iterates the Store Actors matching the options across pages, fetching each page on demand.</summary>
     /// <param name="options">
     /// Optional listing filters. <c>Offset</c> and <c>Limit</c> bound where iteration starts and the total number of Actors,
-    /// and <c>ChunkSize</c> sets the page size (at most 10 with <c>IncludeInputSchema</c>).
+    /// and <c>ChunkSize</c> sets the page size (at most 10 with <c>IncludeInputSchema</c>). With <c>Search</c> the API
+    /// returns a single page of at most 100 Actors and ignores <c>Offset</c>, so the iteration makes one request that
+    /// <c>Limit</c> bounds (at most 10 with <c>IncludeInputSchema</c>). <c>ChunkSize</c> is not used, but must still be
+    /// positive if set.
     /// </param>
     /// <param name="cancellationToken">A token to cancel the iteration.</param>
     public IAsyncEnumerable<ActorStoreListItem> IterateAsync(StoreListOptions? options = null, CancellationToken cancellationToken = default)
     {
         options ??= new StoreListOptions();
+        if (!string.IsNullOrEmpty(options.Search))
+        {
+            return IterateSearchResultsAsync(options, cancellationToken);
+        }
+
         var q = new QueryParams();
         options.AppendTo(q);
         return _ctx.IterateListAsync("", q, options.Offset ?? 0, options.Limit, options.IterationChunkSize(), static d => new ActorStoreListItem(d), RequestTier.Medium, cancellationToken);
+    }
+
+    /// <summary>
+    /// Yields the single page of at most 100 Actors that the API returns for a search. The API ignores <c>offset</c> for a
+    /// search and answers every page request with the same top results, so paging would repeat them. The request's limit is
+    /// <c>Limit</c>, capped at the API's maximum while the input schema is included, and <c>ChunkSize</c> is not used.
+    /// </summary>
+    private async IAsyncEnumerable<ActorStoreListItem> IterateSearchResultsAsync(StoreListOptions options, [EnumeratorCancellation] CancellationToken cancellationToken)
+    {
+        PageSizing.ValidateChunkSize(options.ChunkSize, "ChunkSize");
+        ArgumentOutOfRangeException.ThrowIfNegative(options.Limit ?? 0, "Limit");
+        var q = new QueryParams();
+        options.AppendTo(q);
+        q.Remove("offset").Remove("limit");
+        var limit = PageSizing.MinForLimit(options.Limit, options.IncludeInputSchema is true ? StoreListOptions.MaxPageLimitWithInputSchema : null);
+        if (limit is not null)
+        {
+            q.Set("limit", limit.Value);
+        }
+
+        var page = await _ctx.ListResourceAsync("", q, static d => new ActorStoreListItem(d), RequestTier.Medium, cancellationToken).ConfigureAwait(false);
+        foreach (var item in page.Items)
+        {
+            yield return item;
+        }
     }
 
     /// <summary>

@@ -25,12 +25,14 @@ public sealed class ActorVersionCollectionClient
         return _ctx.ListResourceAsync("", new QueryParams(), static d => new ActorVersion(d), RequestTier.Short, cancellationToken);
     }
 
-    /// <summary>Creates a new Actor version.</summary>
+    /// <summary>
+    /// Creates a new Actor version. The call uses the <c>Long</c> timeout tier, because the version can carry its source files.
+    /// </summary>
     /// <param name="version">Any JSON-serializable version definition.</param>
     /// <param name="cancellationToken">A token to cancel the request.</param>
     public async Task<ActorVersion> CreateAsync(object version, CancellationToken cancellationToken = default)
     {
-        return new ActorVersion(await _ctx.CreateResourceAsync(new QueryParams(), version, RequestTier.Short, cancellationToken).ConfigureAwait(false));
+        return new ActorVersion(await _ctx.CreateResourceAsync(new QueryParams(), version, RequestTier.Long, cancellationToken).ConfigureAwait(false));
     }
 
     /// <summary>

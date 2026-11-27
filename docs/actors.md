@@ -213,14 +213,15 @@ collection clients these methods take no filtering/paging options.
 - `IterateAsync()` → `IAsyncEnumerable<ActorVersion>`: iterate the versions; exists for API parity
   with the other collection iterators (the endpoint has only the one page).
 - `CreateAsync(object version)`: create a version from any JSON-serializable definition. Returns
-  `ActorVersion`.
+  `ActorVersion`. Uses the `Long` timeout tier, since the version can carry its source files.
 
 ### Single version: `client.Actor(id).Version(versionNumber)` → `ActorVersionClient`
 
 `versionNumber` is the version identifier (e.g. `0.1`).
 
 - `GetAsync()` → `ActorVersion?` (null if not found).
-- `UpdateAsync(object newFields)` → `ActorVersion`: update with any JSON-serializable set of fields.
+- `UpdateAsync(object newFields)` → `ActorVersion`: update with any JSON-serializable set of fields. Uses the `Long`
+  timeout tier, since the version can carry its source files.
 - `DeleteAsync()`.
 - `EnvVars()` → `ActorEnvVarCollectionClient`: this version's environment-variable collection.
 - `EnvVar(string name)` → `ActorEnvVarClient`: a single environment variable of this version.

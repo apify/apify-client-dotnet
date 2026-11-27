@@ -97,6 +97,24 @@ public sealed class ResponseSchemaTests
     }
 
     [Fact]
+    public void StoreActorMayHaveNullCategories()
+    {
+        var item = SpecFixtures.StoreItem("a").Replace("\"stats\"", "\"categories\":null,\"isVerified\":false,\"stats\"", StringComparison.Ordinal);
+
+        Assert.Empty(Issues("GET", "/v2/store", SpecFixtures.Page(1, item)));
+    }
+
+    [Fact]
+    public void StoreActorStatsHaveToCarryTheReviewMetrics()
+    {
+        var item = SpecFixtures.StoreItem("a").Replace("\"stats\":{\"totalUsers\":6,\"actorReviewRating\":4.7,\"actorReviewCount\":69}", "\"stats\":{}", StringComparison.Ordinal);
+
+        var issues = Issues("GET", "/v2/store", SpecFixtures.Page(1, item));
+
+        Assert.Contains("$.data.items[0].stats.actorReviewRating: required property is missing", issues);
+    }
+
+    [Fact]
     public void NullIsRejectedWhereTheSpecDoesNotAllowIt()
     {
         var issues = Issues("GET", "/v2/actor-builds/b1", "{\"data\":{" + Build + ",\"actVersion\":{\"versionNumber\":null}}}");

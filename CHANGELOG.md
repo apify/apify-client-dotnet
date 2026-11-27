@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.11.0
+
+- Synced with the current Apify OpenAPI specification: regenerated the embedded response schemas (more nullable
+  fields, reduced `stats` of a Store Actor).
+- Added `ActorStoreListItem.UserFullName`, `Description`, `Categories`, `IsVerified`, and `Stats`.
+- Marked `StoreListOptions.SortBy` as `[Obsolete]`, because the API ignores it.
+- `StoreCollectionClient.IterateAsync` with `Search` makes one request, as the API ignores `offset` for a search.
+- `ActorVersionCollectionClient.CreateAsync` and `ActorVersionClient.UpdateAsync` use the `Long` timeout tier.
+
 ## 0.10.1
 
 - Updated to the Apify OpenAPI specification `v2-2026-11-18T151559Z`. User responses with the reduced shape that

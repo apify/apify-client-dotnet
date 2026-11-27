@@ -167,6 +167,59 @@ public sealed class ChunkSizeTests
     }
 
     [Fact]
+    public async Task StoreSearchIterationEndsAfterTheSinglePageTheApiReturns()
+    {
+        // With a search the API returns one page of at most 100 Actors, ignores the offset, and reports total and count
+        // as the number of returned items.
+        var transport = new MockTransport().QueueResponse(200, SpecFixtures.Page(2, SpecFixtures.StoreItem("a"), SpecFixtures.StoreItem("b")));
+
+        var ids = new System.Collections.Generic.List<string?>();
+        await foreach (var item in Client(transport).Store().IterateAsync(new StoreListOptions { Search = "scraper" }))
+        {
+            ids.Add(item.Id);
+        }
+
+        Assert.Equal(new[] { "a", "b" }, ids);
+        Assert.Equal(1, transport.CallCount);
+        Assert.Contains("search=scraper", transport.Received[0].Uri, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task StoreSearchIterationSendsNoOffsetAndOnlyTheLimit()
+    {
+        var transport = new MockTransport().QueueResponse(200, SpecFixtures.Page(1, SpecFixtures.StoreItem("a")));
+
+        await DrainAsync(Client(transport).Store().IterateAsync(new StoreListOptions { Search = "scraper", Offset = 5, Limit = 50, ChunkSize = 20 }));
+
+        Assert.Equal(1, transport.CallCount);
+        Assert.Contains("limit=50", transport.Received[0].Uri, StringComparison.Ordinal);
+        Assert.DoesNotContain("offset", transport.Received[0].Uri, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task StoreSearchIterationCapsTheLimitWhileTheInputSchemaIsIncluded()
+    {
+        var transport = new MockTransport().QueueResponse(200, SpecFixtures.Page(1, SpecFixtures.StoreItem("a")));
+
+        await DrainAsync(Client(transport).Store().IterateAsync(new StoreListOptions { Search = "scraper", IncludeInputSchema = true, Limit = 50, ChunkSize = 10 }));
+
+        Assert.Equal(1, transport.CallCount);
+        Assert.Contains("limit=10", transport.Received[0].Uri, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task StoreListStillSendsTheDeprecatedSortBy()
+    {
+        var transport = new MockTransport().QueueResponse(200, SpecFixtures.Page(0));
+
+#pragma warning disable CS0618 // The API still accepts the deprecated option, so the client has to keep forwarding it.
+        await Client(transport).Store().ListAsync(new StoreListOptions { SortBy = "popularity" });
+#pragma warning restore CS0618
+
+        Assert.Contains("sortBy=popularity", transport.Received[0].Uri, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task StoreIterationAdvancesByTheRowsScannedNotTheItemsReturned()
     {
         // The Store listing drops Actors the caller cannot run after applying offset and limit, so a page that

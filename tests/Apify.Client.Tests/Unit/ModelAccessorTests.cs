@@ -139,6 +139,28 @@ public sealed class ModelAccessorTests
     }
 
     [Fact]
+    public void ActorStoreListItemExposesTheStoreFields()
+    {
+        var item = new ActorStoreListItem(JsonNode.Parse(
+            "{\"userFullName\":\"Jane Doe\",\"description\":\"d\",\"categories\":[\"AI_AND_ML\",\"ECOMMERCE\"],\"isVerified\":true,"
+            + "\"stats\":{\"totalUsers\":6,\"actorReviewRating\":4.7,\"actorReviewCount\":69}}")!.AsObject());
+
+        Assert.Equal("Jane Doe", item.UserFullName);
+        Assert.Equal("d", item.Description);
+        Assert.Equal(new[] { "AI_AND_ML", "ECOMMERCE" }, item.Categories);
+        Assert.True(item.IsVerified);
+        Assert.Equal(69, item.Stats!["actorReviewCount"]!.GetValue<int>());
+    }
+
+    [Fact]
+    public void ActorStoreListItemWithNullOrNoCategoriesHasNone()
+    {
+        Assert.Null(new ActorStoreListItem(JsonNode.Parse("{\"categories\":null}")!.AsObject()).Categories);
+        Assert.Null(new ActorStoreListItem(new JsonObject()).Categories);
+        Assert.Null(new ActorStoreListItem(new JsonObject()).IsVerified);
+    }
+
+    [Fact]
     public void ActorVersionWithNullOrNoActorPathHasNone()
     {
         Assert.Null(new ActorVersion(JsonNode.Parse("{\"actorPath\":null}")!.AsObject()).ActorPath);
