@@ -6,10 +6,13 @@ namespace Apify.Client.Options;
 /// <summary>Options for listing/iterating the Apify Store (<c>GET /v2/store</c>).</summary>
 public sealed class StoreListOptions
 {
-    /// <summary>Number of Actors to skip.</summary>
+    /// <summary>Number of Actors to skip. The API ignores it when <see cref="Search"/> is used.</summary>
     public int? Offset { get; init; }
 
-    /// <summary>Maximum number of Actors to return (when iterating, in total across all pages).</summary>
+    /// <summary>
+    /// Maximum number of Actors to return (when iterating, in total across all pages). The API's default and maximum page
+    /// size is 1000, or 100 when <see cref="Search"/> is used, and it reduces a larger value to that.
+    /// </summary>
     public int? Limit { get; init; }
 
     /// <summary>
@@ -18,13 +21,24 @@ public sealed class StoreListOptions
     /// </summary>
     public int? ChunkSize { get; init; }
 
-    /// <summary>Full-text search query.</summary>
+    /// <summary>
+    /// Search query. The API ranks the results by relevance and returns a single page of at most 100 Actors, so there is no
+    /// second page. Narrow the results with <see cref="Category"/>, <see cref="Username"/> or <see cref="PricingModel"/>.
+    /// </summary>
     public string? Search { get; init; }
 
-    /// <summary>The sort field (e.g. <c>popularity</c>, <c>newest</c>).</summary>
+    /// <summary>
+    /// Deprecated and ignored by the API, which accepts the value for backward compatibility only. Results are ordered by
+    /// relevance when <see cref="Search"/> is used, and by Store position otherwise. Sort the results on the client for a
+    /// different order.
+    /// </summary>
+    [Obsolete("The API ignores sortBy. Results are ordered by relevance when Search is used, and by Store position otherwise.")]
     public string? SortBy { get; init; }
 
-    /// <summary>Filter Actors by category.</summary>
+    /// <summary>
+    /// Filter Actors by category. Accepts one or more category IDs separated by commas, case-insensitive, such as
+    /// <c>AI_AND_ML,ECOMMERCE</c>, and an Actor has to match all of them. An unknown category fails with a <c>400</c> error.
+    /// </summary>
     public string? Category { get; init; }
 
     /// <summary>Filter Actors by owner username.</summary>
@@ -61,10 +75,14 @@ public sealed class StoreListOptions
 
     internal void AppendTo(QueryParams q)
     {
+        // The deprecated SortBy is still sent, as the API accepts it for backward compatibility.
+#pragma warning disable CS0618
+        var sortBy = SortBy;
+#pragma warning restore CS0618
         q.AddInt("offset", Offset)
             .AddInt("limit", Limit)
             .AddString("search", Search)
-            .AddString("sortBy", SortBy)
+            .AddString("sortBy", sortBy)
             .AddString("category", Category)
             .AddString("username", Username)
             .AddString("pricingModel", PricingModel)

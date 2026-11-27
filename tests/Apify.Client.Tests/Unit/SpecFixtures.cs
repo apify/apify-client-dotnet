@@ -40,7 +40,7 @@ internal static class SpecFixtures
 
     /// <summary>An item of the Store collection.</summary>
     public static string StoreItem(string id)
-        => "{\"id\":\"" + id + "\",\"title\":\"t\",\"name\":\"n\",\"username\":\"u\",\"stats\":{}}";
+        => "{\"id\":\"" + id + "\",\"title\":\"t\",\"name\":\"n\",\"username\":\"u\",\"stats\":{\"totalUsers\":6,\"actorReviewRating\":4.7,\"actorReviewCount\":69}}";
 
     /// <summary>A page of Actors listing the given IDs.</summary>
     public static string ActorPage(int total, params string[] ids) => Page(total, ids.Select(ActorItem).ToArray());

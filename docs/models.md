@@ -114,6 +114,11 @@ An entry returned when browsing the Apify Store.
 | `Name` | `string?` | The Actor's technical name. |
 | `Username` | `string?` | Username of the Actor's owner. |
 | `Title` | `string?` | Human-readable title. |
+| `UserFullName` | `string?` | Full name of the Actor's owner. |
+| `Description` | `string?` | The Actor's description. |
+| `Categories` | `IReadOnlyList<string>?` | Store category IDs of the Actor. |
+| `IsVerified` | `bool?` | Whether the Actor's developer has a verified identity. |
+| `Stats` | `JsonObject?` | Usage statistics and Store metrics: `totalUsers`, `totalRuns`, `totalUsers7Days`, `totalUsers30Days`, `totalUsers90Days`, `actorReviewRating` and `actorReviewCount`. |
 
 ## `ActorTask`
 

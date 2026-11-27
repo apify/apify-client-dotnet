@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.11.0
+
+- Synced with the current Apify OpenAPI specification: regenerated the embedded response schemas, which now accept
+  `null` for `categories` of an Actor and a Store Actor, `trialMinutes`, `appId` and `platform` of integration
+  tracking, and `content` of a source file, and require the reduced `stats` of a Store Actor.
+- `ActorStoreListItem` has `UserFullName`, `Description`, `Categories`, `IsVerified` and `Stats`. The Store returns a
+  reduced `stats` object (`totalUsers`, `totalRuns`, `totalUsers7Days`, `totalUsers30Days`, `totalUsers90Days`,
+  `actorReviewRating`, `actorReviewCount`) in place of the full Actor statistics.
+- `StoreListOptions.SortBy` is `[Obsolete]`: the API ignores it. Documented that `Search` returns one page of at
+  most 100 Actors without `Offset`, and that `Category` takes comma-separated category IDs.
+- `StoreCollectionClient.IterateAsync` with `Search` makes one request instead of paging, because the API ignores
+  `offset` for a search and would return the same results for every page.
+- `ActorVersionCollectionClient.CreateAsync` and `ActorVersionClient.UpdateAsync` use the `Long` timeout tier, since a
+  version can carry its source files.
+
 ## 0.10.1
 
 - Updated to the Apify OpenAPI specification `v2-2026-11-18T151559Z`. User responses with the reduced shape that

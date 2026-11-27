@@ -141,6 +141,26 @@ public sealed class ClientOptionsAndStatsTests
     }
 
     [Fact]
+    public async Task ActorVersionCreateAndUpdateUseTheLongTier()
+    {
+        // A version can carry its source files, so creating and updating it is an upload.
+        const string version = "{\"data\":{\"versionNumber\":\"0.1\",\"sourceType\":\"SOURCE_FILES\",\"sourceFiles\":[]}}";
+        var transport = new MockTransport().QueueResponse(200, version).QueueResponse(200, version).QueueResponse(200, version);
+        var client = Client(transport, o =>
+        {
+            o.TimeoutSecs = 100;
+            o.TimeoutLongSecs = 20;
+            o.TimeoutShortSecs = 3;
+        });
+
+        await client.Actor("a1").Versions().CreateAsync(new { versionNumber = "0.1" });
+        await client.Actor("a1").Version("0.1").UpdateAsync(new { buildTag = "latest" });
+        await client.Actor("a1").Version("0.1").GetAsync();
+
+        Assert.Equal(new[] { 20.0, 20.0, 3.0 }, transport.Timeouts);
+    }
+
+    [Fact]
     public async Task LongTierDefaultsToTimeoutSecs()
     {
         var transport = new MockTransport().QueueResponse(404, NotFoundBody);
