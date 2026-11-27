@@ -20,7 +20,8 @@ public sealed class StoreListOptions
 
     /// <summary>
     /// Maximum items requested per API call when iterating, which must be positive. It sizes the pages and is never sent to
-    /// the API; the page size is the smaller of this and the remaining <c>Limit</c>. Defaults to the API's page size.
+    /// the API; the page size is the smaller of this and the remaining <c>Limit</c>. Defaults to the API's page size. A
+    /// <see cref="Search"/> iteration is a single request and does not use it.
     /// </summary>
     public int? ChunkSize { get; init; }
 
@@ -65,8 +66,8 @@ public sealed class StoreListOptions
 
     /// <summary>
     /// Include each Actor's <c>inputSchema</c>, a compact form of the input schema of its default build (property types and
-    /// required properties). The API then caps <c>limit</c> at <see cref="MaxPageLimitWithInputSchema"/>, and iteration
-    /// requests pages of at most that size.
+    /// required properties). The API rejects a <c>limit</c> above <see cref="MaxPageLimitWithInputSchema"/> with a <c>400</c>
+    /// error, so a call with a larger <c>Limit</c> fails, and iteration requests pages of at most that size.
     /// </summary>
     public bool? IncludeInputSchema { get; init; }
 

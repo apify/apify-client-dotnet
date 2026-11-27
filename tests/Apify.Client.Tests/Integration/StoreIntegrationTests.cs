@@ -118,6 +118,20 @@ public sealed class StoreIntegrationTests : IntegrationTestBase
     }
 
     [SkippableFact]
+    public async Task IterateStoreSearchWithInputSchemaIsCappedAtTheApiMaximum()
+    {
+        var client = RequireClient();
+        var count = 0;
+        await foreach (var item in client.Store().IterateAsync(new StoreListOptions { Search = "web scraper", IncludeInputSchema = true, Limit = 50, ChunkSize = 10 }))
+        {
+            Assert.NotNull(item.Get("inputSchema"));
+            count++;
+        }
+
+        Assert.Equal(StoreListOptions.MaxPageLimitWithInputSchema, count);
+    }
+
+    [SkippableFact]
     public async Task StoreAcceptsTheDeprecatedSortBy()
     {
         var client = RequireClient();
